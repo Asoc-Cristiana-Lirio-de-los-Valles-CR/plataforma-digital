@@ -128,17 +128,21 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 
 **Regla obligatoria**: Cada vez que se crea, modifica o elimina un usuario en cualquier sistema (Directus, PostgreSQL, Umami, Azure, Cloudflare), actualizar `usuarios.txt` en la raíz del proyecto.
 
-- Nunca escribir contraseñas reales en `usuarios.txt` — solo referencias a variables `.env`
-- El archivo es seguro para commitear (sin secretos)
-- Ver `usuarios.txt` para lista completa de usuarios actuales
+- `usuarios.txt` está en `.gitignore` — **NO** se sube al repo (contiene referencias a credenciales dev)
+- Mantener actualizado localmente como referencia del equipo técnico
+- Nunca escribir contraseñas reales directamente — solo números de SINPE, cuentas bancarias ficticias de dev, etc.
 
 ## Estado del stack (2026-05-11)
 
 - Next.js 15.3.3 — CVE-2025-66478 corregido
 - Healthchecks: usan `node` (no `wget` — no disponible en imágenes Alpine)
 - `version:` eliminado de docker-compose (obsoleto en Compose v2)
-- Colecciones Directus pendientes de crear manualmente: `service_schedule`, `weekly_verse`, `church_info`, `contact_messages`
-- GitHub repo: pendiente de crear y conectar
+- Colecciones Directus creadas via API: `service_schedule`, `weekly_verse`, `church_info`, `contact_messages`
+- Permisos públicos de lectura activos en service_schedule, weekly_verse, church_info
+- GitHub repo activo: `Asoc-Cristiana-Lirio-de-los-Valles-CR/plataforma-digital`
+- CI/CD: workflows en `.github/workflows/` (ci.yml, deploy-dev.yml, deploy-prod.yml)
+- Branch protection activo en `main` y `dev`
+- `DIRECTUS_URL=http://directus:8055` requerido en contenedor Next.js (server-side fetch)
 
 ## Documentación técnica
 
