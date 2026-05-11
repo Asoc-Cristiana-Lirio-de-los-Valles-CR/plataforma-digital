@@ -120,8 +120,9 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 ## Presupuesto Azure
 
 - Crédito ONG disponible: $2,000 USD/año ($166/mes)
-- Estimado mensual: ~$68/mes
-- Margen: ~$98/mes
+- VM: Standard_B2ms (2 vCPU / 8 GB RAM) — resize a B4ms si crece
+- Estimado mensual: ~$85/mes (B2ms ~$60 + IP estática ~$4 + Premium SSD ~$15 + backups ~$6)
+- Margen: ~$81/mes
 - Alertas configuradas: $120 (aviso) / $150 (límite) / $180 (crítico)
 
 ## Gestión de usuarios
