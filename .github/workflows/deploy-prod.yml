@@ -1,0 +1,43 @@
+name: Deploy → Producción
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy to Azure production
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USER }}
+          key: ${{ secrets.AZURE_VM_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/lirio
+
+            # Backup previo al deploy
+            ./scripts/backup.sh
+
+            git fetch origin
+            git checkout main
+            git pull origin main
+
+            # Rebuild y rolling restart sin downtime
+            docker compose build nextjs
+            docker compose up -d --no-deps nextjs
+
+            # Healthcheck post-deploy
+            until docker exec lirio_nextjs node -e \
+              "require('http').get('http://localhost:3000/api/health',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(JSON.parse(d).status==='ok'?0:1))}).on('error',()=>process.exit(1))" \
+              2>/dev/null; do sleep 3; done
+
+            echo "Production deploy OK"
+            docker compose ps

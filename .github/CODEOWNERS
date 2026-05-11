@@ -1,0 +1,10 @@
+# Code owners — Asociación Cristiana Lirio de los Valles
+# Revisor requerido en PRs que toquen estos paths
+
+* @soporteLirio
+
+# Infraestructura — revisión obligatoria
+docker-compose*.yml @soporteLirio
+.github/workflows/ @soporteLirio
+nginx/ @soporteLirio
+scripts/ @soporteLirio

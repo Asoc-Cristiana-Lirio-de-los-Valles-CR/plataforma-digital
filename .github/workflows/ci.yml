@@ -1,102 +1,96 @@
 name: CI
 
 on:
-  push:
-    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
+  push:
+    branches: [dev, main]
 
 jobs:
   test:
+    name: Typecheck & unit tests
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: nextjs
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: 20
+          cache: npm
           cache-dependency-path: nextjs/package-lock.json
 
-      - name: Install dependencies
-        working-directory: ./nextjs
-        run: npm ci
-
-      - name: Type check
-        working-directory: ./nextjs
-        run: npx tsc --noEmit
-
-      - name: Unit tests
-        working-directory: ./nextjs
-        run: npm test
-
-      - name: Build
-        working-directory: ./nextjs
-        run: npm run build
-        env:
-          NEXT_PUBLIC_DIRECTUS_URL: https://api.liriodelosvallescr.org
-          NEXT_PUBLIC_SITE_URL: https://liriodelosvallescr.org
+      - run: npm ci
+      - run: npm run type-check
+      - run: npm test
 
   e2e:
+    name: Playwright E2E
     runs-on: ubuntu-latest
     needs: test
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: 20
+          cache: npm
           cache-dependency-path: nextjs/package-lock.json
 
-      - name: Install dependencies
-        working-directory: ./nextjs
-        run: npm ci
-
-      - name: Install Playwright browsers
-        working-directory: ./nextjs
-        run: npx playwright install --with-deps chromium
-
-      - name: Start test environment
+      - name: Prepare .env for CI
         run: |
           cp .env.example .env
-          docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis directus
-          sleep 30
+          cat >> .env << 'EOF'
+          DIRECTUS_KEY=ci-key-32-chars-lirio-valles-crcr
+          DIRECTUS_SECRET=ci-secret-32-chars-lirio-2026!!
+          DIRECTUS_ADMIN_EMAIL=admin@liriodelosvallescr.org
+          DIRECTUS_ADMIN_PASSWORD=CIAdmin2026!
+          POSTGRES_DB=lirio_db
+          POSTGRES_USER=lirio_user
+          POSTGRES_PASSWORD=ci_password_2026
+          REDIS_HOST=redis
+          REDIS_PORT=6379
+          NEXT_PUBLIC_DIRECTUS_URL=http://localhost:8055
+          NEXT_PUBLIC_SITE_URL=http://localhost:3000
+          EOF
 
-      - name: Run E2E tests
-        working-directory: ./nextjs
-        run: npm run test:e2e
+      - name: Start Directus stack
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis directus
+          until docker exec lirio_directus node -e \
+            "require('http').get('http://localhost:8055/server/health',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(JSON.parse(d).status==='ok'?0:1))}).on('error',()=>process.exit(1))" \
+            2>/dev/null; do sleep 3; done
+          echo "Directus healthy"
+
+      - name: Build & start Next.js
+        working-directory: nextjs
+        run: |
+          npm ci
+          npm run build
+          npm start &
+          until curl -s http://localhost:3000/api/health | grep -q '"status":"ok"'; do sleep 2; done
+          echo "Next.js ready"
+        env:
+          NEXT_PUBLIC_DIRECTUS_URL: http://localhost:8055
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+
+      - name: Install Playwright browsers
+        working-directory: nextjs
+        run: npx playwright install chromium --with-deps
+
+      - name: Run Playwright tests
+        working-directory: nextjs
         env:
           BASE_URL: http://localhost:3000
+        run: npx playwright test
 
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: playwright-report
           path: nextjs/playwright-report/
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: [test, e2e]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Deploy to Azure VM
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.AZURE_VM_HOST }}
-          username: ${{ secrets.AZURE_VM_USER }}
-          key: ${{ secrets.AZURE_VM_SSH_KEY }}
-          script: |
-            cd /opt/lirio
-            git pull origin main
-            docker compose build nextjs
-            docker compose up -d --no-deps nextjs
-            docker compose ps
+          retention-days: 7
