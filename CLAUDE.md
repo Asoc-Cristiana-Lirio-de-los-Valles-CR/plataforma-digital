@@ -6,7 +6,7 @@ Cédula jurídica: 3-002-104369
 Dominio: liriodelosvallescr.org
 
 ## Stack
-- Frontend: Next.js 15 + TypeScript + Tailwind CSS + next-intl + next-themes
+- Frontend: Next.js 15.3.3 + TypeScript + Tailwind CSS + next-intl + next-themes
 - CMS: Directus 11 (self-hosted)
 - DB: PostgreSQL 16
 - Cache: Redis 7
@@ -59,7 +59,7 @@ Ver `.env.example` para lista completa.
 ## Comandos frecuentes
 
 ```bash
-# Desarrollo local
+# Desarrollo local (Next.js en puerto 4000, Directus en 8055, PostgreSQL en 5432)
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 # Producción
@@ -82,6 +82,15 @@ cd nextjs && npm test
 cd nextjs && npm run test:e2e
 ```
 
+## Puertos en desarrollo local
+
+| Servicio   | Puerto externo | Puerto interno | URL                    |
+|------------|---------------|----------------|------------------------|
+| Next.js    | **4000**      | 3000           | http://localhost:4000  |
+| Directus   | 8055          | 8055           | http://localhost:8055  |
+| PostgreSQL | 5432          | 5432           | localhost:5432         |
+| Redis      | —             | 6379           | interno Docker only    |
+
 ## Arquitectura de Dominios
 
 ```
@@ -96,7 +105,7 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 
 | Fase | Contenido | Estado |
 |------|-----------|--------|
-| **Fase 1 — MVP** | Infra + Docker + CMS + 5 secciones (Inicio, Historia, En Vivo, Donaciones, Contacto) | 🚧 En desarrollo |
+| **Fase 1 — MVP** | Infra + Docker + CMS + 5 secciones (Inicio, Historia, En Vivo, Donaciones, Contacto) | ✅ Completo (dev local) |
 | **Fase 2** | Transparencia/Asociados + Biblioteca Digital + Ministerios + Page Builder | ⏳ Pendiente |
 | **Fase 3** | Radio AzuraCast + Facebook sync + PWA + Notificaciones push | ⏳ Pendiente |
 | **Fase 4** | SEO avanzado + Analytics + Performance + Traefik SSL interno | ⏳ Pendiente |
@@ -122,6 +131,14 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 - Nunca escribir contraseñas reales en `usuarios.txt` — solo referencias a variables `.env`
 - El archivo es seguro para commitear (sin secretos)
 - Ver `usuarios.txt` para lista completa de usuarios actuales
+
+## Estado del stack (2026-05-11)
+
+- Next.js 15.3.3 — CVE-2025-66478 corregido
+- Healthchecks: usan `node` (no `wget` — no disponible en imágenes Alpine)
+- `version:` eliminado de docker-compose (obsoleto en Compose v2)
+- Colecciones Directus pendientes de crear manualmente: `service_schedule`, `weekly_verse`, `church_info`, `contact_messages`
+- GitHub repo: pendiente de crear y conectar
 
 ## Documentación técnica
 
