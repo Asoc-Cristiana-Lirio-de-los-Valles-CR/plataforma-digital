@@ -21,10 +21,17 @@ jobs:
           key: ${{ secrets.AZURE_VM_SSH_KEY }}
           script: |
             set -e
-            cd /opt/lirio
+            cd /opt/lirio/app
+
+            # Escribir .env desde secret (si existe el archivo de secret)
+            # Configurar en GitHub: Settings → Secrets → PRODUCTION_ENV_FILE
+            # con el contenido completo del .env de producción
+            if [ -n "$PRODUCTION_ENV_CONTENT" ]; then
+              echo "$PRODUCTION_ENV_CONTENT" > .env
+            fi
 
             # Backup previo al deploy
-            ./scripts/backup.sh
+            ../scripts/backup.sh
 
             git fetch origin
             git checkout main
@@ -41,3 +48,5 @@ jobs:
 
             echo "Production deploy OK"
             docker compose ps
+        env:
+          PRODUCTION_ENV_CONTENT: ${{ secrets.PRODUCTION_ENV_FILE }}

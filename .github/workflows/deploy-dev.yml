@@ -21,7 +21,10 @@ jobs:
           key: ${{ secrets.AZURE_VM_SSH_KEY }}
           script: |
             set -e
-            cd /opt/lirio
+            cd /opt/lirio/app
+            if [ -n "$STAGING_ENV_CONTENT" ]; then
+              echo "$STAGING_ENV_CONTENT" > .env
+            fi
             git fetch origin
             git checkout dev
             git pull origin dev
@@ -32,3 +35,5 @@ jobs:
               2>/dev/null; do sleep 3; done
             echo "Staging deploy OK"
             docker compose ps
+        env:
+          STAGING_ENV_CONTENT: ${{ secrets.STAGING_ENV_FILE }}
