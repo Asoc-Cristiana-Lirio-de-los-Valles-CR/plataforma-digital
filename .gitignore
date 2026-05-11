@@ -33,3 +33,9 @@ directus/uploads/
 # Backups temporales
 /tmp/
 backup_*/
+
+# Screenshots de desarrollo y snapshots Playwright
+*.png
+*.jpeg
+*.jpg
+.playwright-mcp/

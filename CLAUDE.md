@@ -115,6 +115,14 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 - Margen: ~$98/mes
 - Alertas configuradas: $120 (aviso) / $150 (límite) / $180 (crítico)
 
+## Gestión de usuarios
+
+**Regla obligatoria**: Cada vez que se crea, modifica o elimina un usuario en cualquier sistema (Directus, PostgreSQL, Umami, Azure, Cloudflare), actualizar `usuarios.txt` en la raíz del proyecto.
+
+- Nunca escribir contraseñas reales en `usuarios.txt` — solo referencias a variables `.env`
+- El archivo es seguro para commitear (sin secretos)
+- Ver `usuarios.txt` para lista completa de usuarios actuales
+
 ## Documentación técnica
 
 - Spec de diseño: `docs/superpowers/specs/2026-05-11-plataforma-iglesia-lirio-design.md`

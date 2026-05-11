@@ -1,38 +1,36 @@
-version: '3.8'
-
 # Override para desarrollo local
 # Uso: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 services:
+  directus:
+    ports:
+      - "8055:8055"
+    environment:
+      PUBLIC_URL: http://localhost:8055
+      # Google OAuth deshabilitado en dev (sin credenciales locales)
+      AUTH_PROVIDERS: ""
+
   nextjs:
     build:
       target: development
     environment:
       NODE_ENV: development
       NEXT_PUBLIC_DIRECTUS_URL: http://localhost:8055
-      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      NEXT_PUBLIC_SITE_URL: http://localhost:4000
     volumes:
       - ./nextjs/src:/app/src
       - ./nextjs/messages:/app/messages
       - ./nextjs/public:/app/public
     ports:
-      - "3000:3000"
+      - "4000:3000"
     command: npm run dev
-    # Healthcheck más permisivo en dev
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000 || exit 1"]
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/health', r => { let d=''; r.on('data',c=>d+=c); r.on('end',()=>process.exit(JSON.parse(d).status==='ok'?0:1)); }).on('error',()=>process.exit(1))\""]
       start_period: 60s
-
-  directus:
-    ports:
-      - "8055:8055"
-    environment:
-      PUBLIC_URL: http://localhost:8055
 
   postgres:
     ports:
       - "5432:5432"
 
   nginx:
-    # Sin nginx en dev, Next.js y Directus exponen puertos directamente
     profiles: ["prod-nginx"]

@@ -1,0 +1,60 @@
+# Usuarios del sistema — Asociación Cristiana Lirio de los Valles
+# Mantener actualizado cada vez que se crea, modifica o elimina un usuario.
+# NUNCA incluir contraseñas reales en este archivo (commitear es seguro).
+# Ver .env para credenciales de desarrollo (NO commitear).
+
+================================================================================
+DIRECTUS (CMS — panel en http://localhost:8055 / admin.liriodelosvallescr.org)
+================================================================================
+
+| Usuario            | Email                          | Rol        | Entorno    | Notas                              |
+|--------------------|--------------------------------|------------|------------|------------------------------------|
+| Administrador root | admin@liriodelosvallescr.org   | superadmin | dev + prod | Creado automáticamente por Directus en primer arranque. Contraseña en .env: DIRECTUS_ADMIN_PASSWORD |
+
+Roles Directus definidos (crear manualmente en Settings → Roles):
+  - root      → Técnico. Acceso total. Solo uso técnico.
+  - admin     → Liderazgo iglesia. Contenido + gestión de usuarios.
+  - editor    → Líderes ministerios. Crear/editar noticias, eventos, predicaciones.
+  - asociado  → Miembro aprobado. Ver/descargar documentos de transparencia.
+  - publico   → Visitante anónimo. Solo lectura del sitio público.
+
+================================================================================
+POSTGRESQL (base de datos interna — no acceso directo por usuarios finales)
+================================================================================
+
+| Usuario     | Base de datos | Entorno | Notas                          |
+|-------------|--------------|---------|--------------------------------|
+| lirio_user  | lirio_db     | dev     | Credenciales en .env: POSTGRES_USER / POSTGRES_PASSWORD |
+| lirio_user  | lirio_db     | prod    | Mismas variables, valores distintos en .env de producción |
+
+================================================================================
+UMAMI (analytics — stats.liriodelosvallescr.org — perfil opcional)
+================================================================================
+
+| Usuario | Email | Notas                                           |
+|---------|-------|-------------------------------------------------|
+| admin   | —     | Creado en primer arranque. Contraseña en .env: UMAMI_APP_SECRET |
+
+================================================================================
+AZURE (infraestructura)
+================================================================================
+
+| Recurso         | Cuenta                    | Notas                              |
+|-----------------|---------------------------|------------------------------------|
+| Suscripción ONG | rafael1083@gmail.com      | $2,000 USD/año crédito ONG         |
+| VM Ubuntu       | usuario SSH por definir   | Definir al crear VM en Fase deploy |
+
+================================================================================
+CLOUDFLARE (DNS + CDN + SSL)
+================================================================================
+
+| Dominio                  | Cuenta                | Notas                              |
+|--------------------------|-----------------------|------------------------------------|
+| liriodelosvallescr.org   | Por confirmar con org | Proxy activado, SSL Full strict    |
+| liriodelosvalles.org     | Por confirmar con org | Dominio anterior (Wix) — mantener redirección |
+
+================================================================================
+HISTORIAL DE CAMBIOS
+================================================================================
+
+2026-05-11 — Archivo creado. Usuarios iniciales registrados (dev local + roles definidos).

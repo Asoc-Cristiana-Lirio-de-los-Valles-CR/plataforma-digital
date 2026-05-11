@@ -51,7 +51,7 @@ export default async function HomePage() {
               <a href="#schedule" className="btn-gold">
                 {t('schedule')} →
               </a>
-              <a href="/en-vivo" className="btn-outline border-white/40 text-white hover:bg-white/10 hover:text-white dark:border-white/40">
+              <a href="/en-vivo" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm bg-transparent border-2 border-white/70 text-white hover:bg-white/15 hover:border-white transition-all duration-200">
                 {t('watchLive')}
               </a>
             </div>
