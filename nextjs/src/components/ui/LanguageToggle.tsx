@@ -9,8 +9,9 @@ export function LanguageToggle() {
 
   const switchLocale = () => {
     const newLocale = locale === 'es' ? 'en' : 'es';
-    const newPath = pathname.replace(`/${locale}`, `/${newLocale}`);
-    router.push(newPath);
+    const segments = pathname.split('/');
+    segments[1] = newLocale;
+    router.push(segments.join('/') || `/${newLocale}`);
   };
 
   return (
