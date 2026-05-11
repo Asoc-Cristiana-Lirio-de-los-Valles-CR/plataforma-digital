@@ -123,7 +123,10 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 - VM: Standard_B2ms (2 vCPU / 8 GB RAM) — resize a B4ms si crece
 - Estimado mensual: ~$85/mes (B2ms ~$60 + IP estática ~$4 + Premium SSD ~$15 + backups ~$6)
 - Margen: ~$81/mes
-- Alertas configuradas: $120 (aviso) / $150 (límite) / $180 (crítico)
+- Presupuesto mensual configurado: $150/mes (budget en Cost Management)
+- Alertas: $120/mes → aviso (80%) | $150/mes → límite (100%) | $180/mes → crítico (120%)
+- Nunca superar $166/mes para mantenerse dentro del crédito ONG anual
+- Email alertas: rafael1083@gmail.com
 
 ## Gestión de usuarios
 

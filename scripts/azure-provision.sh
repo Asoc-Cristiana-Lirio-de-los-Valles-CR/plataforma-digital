@@ -28,6 +28,11 @@ VM_SIZE="Standard_B2ms"
 OS_IMAGE="Canonical:ubuntu-24_04-lts:server:latest"
 DISK_SIZE_GB=64
 DISK_SKU="Premium_LRS"
+
+# Presupuesto ONG — $2,000 USD/año = ~$166/mes
+# Alertas: 80% aviso, 100% límite, 120% crítico
+BUDGET_MONTHLY=150
+ALERT_EMAIL="rafael1083@gmail.com"
 ADMIN_USER="lirio"
 SSH_KEY_PATH="$HOME/.ssh/lirio_azure_key"
 NSG_NAME="lirio-nsg"
@@ -203,7 +208,37 @@ echo "VM lista."
 
 # ============================================================
 echo ""
-echo "=== [8/9] Habilitando Auto-shutdown a las 23:00 (ahorro crédito) ==="
+echo "=== [8/10] Configurando alertas de presupuesto (ONG $2,000/año) ==="
+# ============================================================
+SUBSCRIPTION_ID=$(az account show --query id --output tsv)
+SCOPE="/subscriptions/$SUBSCRIPTION_ID"
+
+# Presupuesto mensual con alertas en 80%, 100%, 120%
+az consumption budget create \
+  --budget-name "lirio-monthly-budget" \
+  --amount $BUDGET_MONTHLY \
+  --category Cost \
+  --time-grain Monthly \
+  --start-date "$(date +%Y-%m-01)" \
+  --end-date "2027-12-31" \
+  --resource-group "$RG" \
+  --notifications \
+    "actualCost_GreaterThan_80Percent={enabled:true,operator:GreaterThan,threshold:80,contactEmails:['$ALERT_EMAIL'],thresholdType:Actual}" \
+    "actualCost_GreaterThan_100Percent={enabled:true,operator:GreaterThan,threshold:100,contactEmails:['$ALERT_EMAIL'],thresholdType:Actual}" \
+    "actualCost_GreaterThan_120Percent={enabled:true,operator:GreaterThan,threshold:120,contactEmails:['$ALERT_EMAIL'],thresholdType:Actual}" \
+  --output table 2>/dev/null || {
+    echo ""
+    echo "AVISO: Alertas de presupuesto no se pudieron crear via CLI."
+    echo "Crear MANUALMENTE en Azure Portal:"
+    echo "  Cost Management → Budgets → + Add"
+    echo "  Monto: \$150/mes"
+    echo "  Alertas: 80% (\$120) → aviso | 100% (\$150) → límite | 120% (\$180) → crítico"
+    echo "  Email: $ALERT_EMAIL"
+  }
+
+# ============================================================
+echo ""
+echo "=== [9/10] Habilitando Auto-shutdown a las 23:00 (ahorro crédito) ==="
 # ============================================================
 VM_ID=$(az vm show --resource-group "$RG" --name "$VM_NAME" --query "id" --output tsv)
 
@@ -225,7 +260,7 @@ az rest \
 
 # ============================================================
 echo ""
-echo "=== [9/9] Verificando acceso SSH ==="
+echo "=== [10/10] Verificando acceso SSH ==="
 # ============================================================
 echo "Probando conexión SSH a $PUBLIC_IP..."
 ssh -i "$SSH_KEY_PATH" \
