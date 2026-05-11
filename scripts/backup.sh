@@ -1,6 +1,6 @@
 #!/bin/bash
 # backup.sh — Backup PostgreSQL + uploads a Azure Blob Storage
-# Cron: 0 2 * * * /opt/lirio/scripts/backup.sh >> /var/log/lirio-backup.log 2>&1
+# Cron: 0 2 * * * /opt/lirio/app/scripts/backup.sh >> /opt/lirio/logs/backup.log 2>&1
 set -e
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
@@ -8,7 +8,7 @@ BACKUP_DIR="/tmp/lirio_backup_${TIMESTAMP}"
 mkdir -p "$BACKUP_DIR"
 
 # Cargar variables de entorno
-source /opt/lirio/.env
+source /opt/lirio/app/.env
 
 echo "[${TIMESTAMP}] === Iniciando backup ==="
 
