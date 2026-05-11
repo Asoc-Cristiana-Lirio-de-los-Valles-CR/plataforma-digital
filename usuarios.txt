@@ -80,7 +80,7 @@
 
   CUENTA PRINCIPAL
   ┌─────────────────────────────────────────────────────────────┐
-  │  Email / Usuario:  rafael1083@gmail.com                     │
+  │  Email / Usuario:  soporte@liriodelosvallescr.org           │
   │  Contraseña:       Credencial personal de Microsoft/Azure   │
   │  Suscripción:      ONG — $2,000 USD/año crédito             │
   └─────────────────────────────────────────────────────────────┘
