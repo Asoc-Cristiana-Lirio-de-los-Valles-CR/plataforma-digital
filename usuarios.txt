@@ -114,10 +114,17 @@
 
   CUENTA
   ┌─────────────────────────────────────────────────────────────┐
-  │  Usuario:          Por confirmar / crear                    │
-  │  Repo:             liriodelosvallescr.org (pendiente)       │
-  │  Secrets CI/CD:    AZURE_VM_HOST, AZURE_VM_USER,            │
-  │                    AZURE_VM_SSH_KEY (configurar en repo)    │
+  │  Usuario/Org:      Asoc-Cristiana-Lirio-de-los-Valles-CR    │
+  │  Usuario técnico:  soporteLirio                             │
+  │  Repo:             plataforma-digital (público)             │
+  │  URL:              github.com/Asoc-Cristiana-Lirio-de-los-  │
+  │                    Valles-CR/plataforma-digital             │
+  │  Ramas:            main (producción), dev (staging)         │
+  │  Secrets CI/CD:    Configurar en repo → Settings →          │
+  │                    Secrets and variables → Actions:         │
+  │                    - AZURE_VM_HOST                          │
+  │                    - AZURE_VM_USER                          │
+  │                    - AZURE_VM_SSH_KEY                       │
   └─────────────────────────────────────────────────────────────┘
 
 
@@ -128,3 +135,5 @@ HISTORIAL DE CAMBIOS
 2026-05-11 — Archivo creado. Stack inicial registrado.
              Directus admin activo en dev (LirioAdmin2026! → ver .env).
              Roles Directus definidos, usuarios pendientes de asignar.
+             Repo GitHub creado: Asoc-Cristiana-Lirio-de-los-Valles-CR/plataforma-digital.
+             Branch protection activo en main y dev.
