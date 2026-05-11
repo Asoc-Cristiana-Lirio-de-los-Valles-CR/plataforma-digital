@@ -1,0 +1,35 @@
+# Secretos — NUNCA commitear
+.env
+.env.local
+.env.production
+
+# Node
+node_modules/
+nextjs/node_modules/
+
+# Next.js
+.next/
+nextjs/.next/
+nextjs/out/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Superpowers brainstorm (archivos temporales de sesión)
+.superpowers/
+
+# Uploads de Directus (manejados por volumen Docker)
+directus/uploads/
+
+# Backups temporales
+/tmp/
+backup_*/

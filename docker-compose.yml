@@ -1,0 +1,156 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: lirio_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      nextjs:
+        condition: service_healthy
+      directus:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - lirio_net
+
+  nextjs:
+    build:
+      context: ./nextjs
+      dockerfile: Dockerfile
+      target: production
+    container_name: lirio_nextjs
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_DIRECTUS_URL: ${NEXT_PUBLIC_DIRECTUS_URL}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
+      YOUTUBE_CHANNEL_ID: ${YOUTUBE_CHANNEL_ID}
+    depends_on:
+      directus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - lirio_net
+
+  directus:
+    image: directus/directus:11
+    container_name: lirio_directus
+    environment:
+      KEY: ${DIRECTUS_KEY}
+      SECRET: ${DIRECTUS_SECRET}
+      ADMIN_EMAIL: ${DIRECTUS_ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${DIRECTUS_ADMIN_PASSWORD}
+      DB_CLIENT: pg
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      CACHE_ENABLED: "true"
+      CACHE_STORE: redis
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      PUBLIC_URL: ${DIRECTUS_PUBLIC_URL}
+      AUTH_PROVIDERS: google
+      AUTH_GOOGLE_DRIVER: oauth2
+      AUTH_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      AUTH_GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      AUTH_GOOGLE_AUTHORIZE_URL: https://accounts.google.com/o/oauth2/v2/auth
+      AUTH_GOOGLE_ACCESS_URL: https://oauth2.googleapis.com/token
+      AUTH_GOOGLE_PROFILE_URL: https://www.googleapis.com/oauth2/v3/userinfo
+      AUTH_GOOGLE_SCOPE: "email profile"
+      STORAGE_LOCATIONS: local
+      STORAGE_LOCAL_ROOT: /directus/uploads
+    volumes:
+      - directus_uploads:/directus/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8055/server/health | grep '\"status\":\"ok\"' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - lirio_net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: lirio_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - lirio_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: lirio_redis
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - lirio_net
+
+  # Analytics — perfil opcional
+  # Levantar con: docker compose --profile analytics up -d
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    container_name: lirio_umami
+    profiles: ["analytics"]
+    environment:
+      DATABASE_URL: ${UMAMI_DATABASE_URL}
+      DATABASE_TYPE: postgresql
+      APP_SECRET: ${UMAMI_APP_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/heartbeat || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - lirio_net
+
+volumes:
+  postgres_data:
+  directus_uploads:
+  redis_data:
+
+networks:
+  lirio_net:
+    driver: bridge
