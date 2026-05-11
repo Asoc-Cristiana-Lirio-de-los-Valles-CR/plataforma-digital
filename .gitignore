@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.production
+usuarios.txt
 
 # Node
 node_modules/
