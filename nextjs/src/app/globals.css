@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 255 255 255;
+    --foreground: 15 15 15;
+  }
+
+  .dark {
+    --background: 10 10 15;
+    --foreground: 245 245 250;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-50 transition-colors duration-200;
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply max-w-6xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-6 py-3 rounded-lg font-semibold
+           bg-brand-700 text-white hover:bg-brand-800
+           dark:bg-brand-600 dark:hover:bg-brand-700
+           transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center px-6 py-3 rounded-lg font-semibold
+           border-2 border-brand-700 text-brand-700
+           hover:bg-brand-700 hover:text-white
+           dark:border-brand-400 dark:text-brand-400
+           dark:hover:bg-brand-700 dark:hover:text-white
+           transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2;
+  }
+
+  .section-title {
+    @apply text-3xl font-bold text-gray-900 dark:text-white;
+  }
+
+  .card {
+    @apply bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800;
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "nav": {
+    "home": "Home",
+    "history": "Our Story",
+    "live": "Live",
+    "donate": "Donate",
+    "contact": "Contact"
+  },
+  "home": {
+    "title": "Lirio de los Valles Christian Church",
+    "subtitle": "A faith community in Costa Rica",
+    "newHere": "New here?",
+    "newHereDesc": "Learn more about our community",
+    "schedule": "Service Schedule",
+    "verse": "Verse of the Week",
+    "watchLive": "Watch live",
+    "donate": "Donate"
+  },
+  "live": {
+    "title": "Live Stream",
+    "subtitle": "Join our broadcasts",
+    "noStream": "No active stream at this moment",
+    "noStreamDesc": "Check our schedule and come back soon",
+    "pastStreams": "Recent Streams",
+    "watching": "Live now"
+  },
+  "history": {
+    "title": "Our Story",
+    "vision": "Vision",
+    "mission": "Mission",
+    "faith": "Statement of Faith"
+  },
+  "donate": {
+    "title": "Donations",
+    "subtitle": "Your generosity sustains our mission",
+    "sinpe": "SINPE Móvil",
+    "bank": "Bank Transfer",
+    "paypal": "PayPal",
+    "account": "Account number",
+    "iban": "IBAN",
+    "thankYou": "Thank you for your generosity!"
+  },
+  "contact": {
+    "title": "Contact",
+    "subtitle": "We are here to help you",
+    "name": "Name",
+    "email": "Email address",
+    "message": "Message",
+    "send": "Send message",
+    "sending": "Sending...",
+    "success": "Message sent. We will contact you soon.",
+    "error": "There was an error. Please try again.",
+    "schedule": "Schedule",
+    "address": "Address",
+    "phone": "Phone"
+  },
+  "footer": {
+    "rights": "All rights reserved",
+    "nonprofit": "Non-profit organization",
+    "legal": "Legal ID"
+  },
+  "theme": {
+    "light": "Light mode",
+    "dark": "Dark mode",
+    "toggle": "Toggle theme"
+  },
+  "lang": {
+    "es": "Español",
+    "en": "English",
+    "toggle": "Switch language"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "readMore": "Read more",
+    "viewAll": "View all",
+    "back": "Back"
+  }
+}

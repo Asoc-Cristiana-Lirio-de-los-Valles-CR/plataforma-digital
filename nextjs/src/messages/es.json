@@ -1,0 +1,79 @@
+{
+  "nav": {
+    "home": "Inicio",
+    "history": "Historia",
+    "live": "En Vivo",
+    "donate": "Donar",
+    "contact": "Contacto"
+  },
+  "home": {
+    "title": "Iglesia Cristiana Lirio de los Valles",
+    "subtitle": "Una comunidad de fe en Costa Rica",
+    "newHere": "¿Nuevo aquí?",
+    "newHereDesc": "Conoce más sobre nuestra comunidad",
+    "schedule": "Horarios de Servicios",
+    "verse": "Versículo de la Semana",
+    "watchLive": "Ver en vivo",
+    "donate": "Donar"
+  },
+  "live": {
+    "title": "En Vivo",
+    "subtitle": "Únete a nuestras transmisiones",
+    "noStream": "No hay transmisión activa en este momento",
+    "noStreamDesc": "Revisa nuestros horarios y vuelve pronto",
+    "pastStreams": "Transmisiones Recientes",
+    "watching": "Transmisión en vivo ahora"
+  },
+  "history": {
+    "title": "Nuestra Historia",
+    "vision": "Visión",
+    "mission": "Misión",
+    "faith": "Declaración de Fe"
+  },
+  "donate": {
+    "title": "Donaciones",
+    "subtitle": "Tu generosidad sostiene nuestra misión",
+    "sinpe": "SINPE Móvil",
+    "bank": "Transferencia Bancaria",
+    "paypal": "PayPal",
+    "account": "Número de cuenta",
+    "iban": "IBAN",
+    "thankYou": "¡Gracias por tu generosidad!"
+  },
+  "contact": {
+    "title": "Contacto",
+    "subtitle": "Estamos aquí para ayudarte",
+    "name": "Nombre",
+    "email": "Correo electrónico",
+    "message": "Mensaje",
+    "send": "Enviar mensaje",
+    "sending": "Enviando...",
+    "success": "Mensaje enviado. Te contactaremos pronto.",
+    "error": "Hubo un error. Por favor intenta de nuevo.",
+    "schedule": "Horarios",
+    "address": "Dirección",
+    "phone": "Teléfono"
+  },
+  "footer": {
+    "rights": "Todos los derechos reservados",
+    "nonprofit": "Organización sin fines de lucro",
+    "legal": "Cédula jurídica"
+  },
+  "theme": {
+    "light": "Modo claro",
+    "dark": "Modo oscuro",
+    "toggle": "Cambiar tema"
+  },
+  "lang": {
+    "es": "Español",
+    "en": "English",
+    "toggle": "Cambiar idioma"
+  },
+  "common": {
+    "loading": "Cargando...",
+    "error": "Ocurrió un error",
+    "readMore": "Leer más",
+    "viewAll": "Ver todos",
+    "back": "Volver"
+  }
+}
