@@ -255,3 +255,22 @@
   animation: fog-scroll-3 28s ease-in-out infinite;
   animation-delay: -9s;
 }
+
+/* Mobile: disable fog animations to save GPU */
+@media (max-width: 640px) {
+  .fog-layer-2,
+  .fog-layer-3 {
+    display: none;
+  }
+  .fog-layer-1 {
+    animation: none;
+    opacity: 0.18;
+  }
+}
+
+/* Respect user preference for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .fog-layer-1, .fog-layer-2, .fog-layer-3 {
+    animation: none;
+  }
+}

@@ -12,7 +12,7 @@ export function Logo({ inverted = false }: LogoProps) {
   return (
     <Link href={`/${locale}`} className="flex items-center group">
       <Image
-        src="/logo.png"
+        src="/logo.webp"
         alt="Iglesia Cristiana Lirio de los Valles"
         width={200}
         height={200}

@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { getTranslations, getLocale } from 'next-intl/server';
 import { getServiceSchedule, getWeeklyVerse } from '@/lib/directus';
 import { DEFAULT_SCHEDULE } from '@/lib/constants';
@@ -17,10 +18,14 @@ export default async function HomePage() {
     <>
       {/* Hero */}
       <section className="relative min-h-[85vh] flex items-center overflow-hidden">
-        {/* Background image */}
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: 'url(/hero-bg.png)' }}
+        {/* Background image — Next.js Image for automatic WebP + sizing */}
+        <Image
+          src="/hero-bg.webp"
+          alt=""
+          fill
+          priority
+          quality={90}
+          className="object-cover object-center"
           aria-hidden
         />
         {/* Dark overlay — preserves text legibility over the image */}
