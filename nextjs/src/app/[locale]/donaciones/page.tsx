@@ -167,25 +167,23 @@ export default async function DonacionesPage() {
               {/* Body */}
               <div className="px-6 py-5 space-y-4">
                 <div>
-                  <p className="text-[11px] text-muted uppercase tracking-widest mb-0.5">
+                  <p className="text-[11px] text-muted uppercase tracking-widest mb-1">
                     {locale === 'es' ? 'Razón social' : 'Legal name'}
                   </p>
-                  <p className="font-display text-base font-bold text-brand-900 dark:text-white">
-                    {legalName}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <p className="font-display text-base font-bold text-brand-900 dark:text-white">
+                      {legalName}
+                    </p>
+                    <span className="text-gold-500/40 hidden sm:inline">|</span>
+                    <p className="text-sm text-muted">
+                      {locale === 'es' ? 'Cédula jurídica:' : 'Tax ID:'}{' '}
+                      <span className="font-mono font-bold text-brand-700 dark:text-brand-300">{cedulaJuridica}</span>
+                    </p>
+                  </div>
                 </div>
                 <p className="text-sm text-muted leading-relaxed border-l-2 border-gold-500/40 pl-3">
                   {legalDesc}
                 </p>
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="text-[11px] text-muted uppercase tracking-widest">
-                    {locale === 'es' ? 'Cédula jurídica' : 'Tax ID'}
-                  </span>
-                  <span className="h-px flex-1 bg-gold-500/20" />
-                  <span className="font-mono text-sm font-bold text-brand-700 dark:text-brand-300">
-                    {cedulaJuridica}
-                  </span>
-                </div>
               </div>
             </div>
           </div>
