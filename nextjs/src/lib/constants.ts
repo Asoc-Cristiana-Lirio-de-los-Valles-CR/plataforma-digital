@@ -23,6 +23,10 @@ export const NAV_LINKS = [
 export const LOCALES = ['es', 'en'] as const;
 export type Locale = typeof LOCALES[number];
 
+export function siteName(locale: string) {
+  return locale === 'en' ? SITE.nameEn : SITE.name;
+}
+
 // Fallback schedule when Directus is unreachable — day keys must match messages/days translations
 export const DEFAULT_SCHEDULE = [
   { day: 'wednesday', time: '9:30 a.m.', name: 'Ayuno y Oración', name_en: 'Fasting & Prayer' },

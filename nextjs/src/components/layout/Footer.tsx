@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { useTranslations, useLocale } from 'next-intl';
 import { Logo } from './Logo';
-import { SITE, SOCIAL, NAV_LINKS, DEFAULT_SCHEDULE } from '@/lib/constants';
+import { SITE, SOCIAL, NAV_LINKS, DEFAULT_SCHEDULE, siteName } from '@/lib/constants';
 
 export function Footer() {
   const t = useTranslations();
@@ -108,7 +108,7 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="mt-12 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-white/40 text-center sm:text-left">
-            © {year} {SITE.name}. {t('footer.rights')}.
+            © {year} {siteName(locale)}. {t('footer.rights')}.
           </p>
           <p className="text-xs text-white/30 text-center sm:text-right">
             {t('footer.nonprofit')} · {t('footer.legal')}: {SITE.legalId}

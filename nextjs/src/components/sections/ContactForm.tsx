@@ -2,7 +2,7 @@
 
 import { useTranslations, useLocale } from 'next-intl';
 import { useState } from 'react';
-import { SITE, SOCIAL, DEFAULT_SCHEDULE } from '@/lib/constants';
+import { SITE, SOCIAL, DEFAULT_SCHEDULE, siteName } from '@/lib/constants';
 
 export function ContactForm() {
   const t = useTranslations('contact');
@@ -43,7 +43,7 @@ export function ContactForm() {
           <div className="flex items-center gap-3 mb-4">
             <div className="gold-line" />
             <span className="text-gold-400 text-sm font-semibold tracking-[0.2em] uppercase">
-              {SITE.name}
+              {siteName(locale)}
             </span>
           </div>
           <h1 className="font-display text-4xl sm:text-5xl font-bold text-white leading-tight mb-3">
@@ -173,7 +173,7 @@ export function ContactForm() {
               </div>
 
               <div className="card p-6 text-xs text-muted leading-relaxed">
-                <p className="font-semibold text-brand-800 dark:text-gray-200 mb-1">{SITE.name}</p>
+                <p className="font-semibold text-brand-800 dark:text-gray-200 mb-1">{siteName(locale)}</p>
                 <p>{locale === 'es' ? 'Cédula jurídica' : 'Legal ID'}: {SITE.legalId}</p>
                 <p>Costa Rica</p>
               </div>

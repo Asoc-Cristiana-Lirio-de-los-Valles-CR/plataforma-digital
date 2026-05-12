@@ -1,6 +1,6 @@
 import { getTranslations, getLocale } from 'next-intl/server';
 import { getChurchInfo } from '@/lib/directus';
-import { SITE } from '@/lib/constants';
+import { SITE, siteName } from '@/lib/constants';
 import type { Metadata } from 'next';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -38,7 +38,7 @@ export default async function HistoriaPage() {
           <div className="flex items-center gap-3 mb-4">
             <div className="gold-line" />
             <span className="text-gold-400 text-sm font-semibold tracking-[0.2em] uppercase">
-              {SITE.name}
+              {siteName(locale)}
             </span>
           </div>
           <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight">

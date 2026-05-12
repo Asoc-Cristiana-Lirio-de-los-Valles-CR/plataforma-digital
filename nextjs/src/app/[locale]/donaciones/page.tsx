@@ -1,6 +1,6 @@
 import { getTranslations, getLocale } from 'next-intl/server';
 import { getChurchInfo } from '@/lib/directus';
-import { SITE } from '@/lib/constants';
+import { SITE, siteName } from '@/lib/constants';
 import type { Metadata } from 'next';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -45,7 +45,7 @@ export default async function DonacionesPage() {
           <div className="flex items-center gap-3 mb-4">
             <div className="gold-line" />
             <span className="text-gold-400 text-sm font-semibold tracking-[0.2em] uppercase">
-              {SITE.name}
+              {siteName(locale)}
             </span>
           </div>
           <h1 className="font-display text-4xl sm:text-5xl font-bold text-white leading-tight mb-3">
@@ -77,7 +77,7 @@ export default async function DonacionesPage() {
                     {sinpeNumber}
                   </p>
                 </div>
-                <p className="text-sm text-muted">{SITE.name}</p>
+                <p className="text-sm text-muted">{siteName(locale)}</p>
               </div>
             </div>
 
@@ -157,7 +157,7 @@ export default async function DonacionesPage() {
                 : '100% of donations go to the ministry and community service of the association.'}
             </p>
             <p className="text-xs text-muted mt-2">
-              {SITE.name} · {locale === 'es' ? 'Cédula jurídica' : 'Legal ID'}: {SITE.legalId}
+              {siteName(locale)} · {locale === 'es' ? 'Cédula jurídica' : 'Legal ID'}: {SITE.legalId}
             </p>
           </div>
         </div>
