@@ -73,7 +73,7 @@ export default async function DonacionesPage() {
               <div className="space-y-2">
                 <div>
                   <p className="text-xs text-muted mb-1">{locale === 'es' ? 'Número' : 'Number'}</p>
-                  <p className="font-display text-2xl font-bold text-brand-900 dark:text-white">
+                  <p className="font-mono text-2xl font-bold tracking-widest text-brand-900 dark:text-white">
                     {sinpeNumber}
                   </p>
                 </div>
@@ -95,7 +95,7 @@ export default async function DonacionesPage() {
                 {bankAccount && (
                   <div>
                     <p className="text-xs text-muted">{t('account')}</p>
-                    <p className="font-medium text-brand-900 dark:text-white">{bankAccount}</p>
+                    <p className="font-mono font-bold tracking-wider text-brand-900 dark:text-white">{bankAccount}</p>
                   </div>
                 )}
                 {bankIban && (
