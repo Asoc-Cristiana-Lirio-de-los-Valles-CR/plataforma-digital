@@ -225,33 +225,33 @@
 
 /* Fog animations — background-position + opacity for organic look */
 @keyframes fog-scroll-1 {
-  0%   { background-position: 0% 0%;     opacity: 0.60; }
-  25%  { background-position: 100% 50%;  opacity: 0.40; }
-  50%  { background-position: 200% 100%; opacity: 0.58; }
-  75%  { background-position: 100% 50%;  opacity: 0.42; }
-  100% { background-position: 0% 0%;     opacity: 0.60; }
+  0%   { background-position: 0% 0%;     opacity: 0.28; }
+  25%  { background-position: 100% 50%;  opacity: 0.18; }
+  50%  { background-position: 200% 100%; opacity: 0.25; }
+  75%  { background-position: 100% 50%;  opacity: 0.20; }
+  100% { background-position: 0% 0%;     opacity: 0.28; }
 }
 @keyframes fog-scroll-2 {
-  0%   { background-position: 200% 100%; opacity: 0.45; }
-  33%  { background-position: 100% 30%;  opacity: 0.65; }
-  66%  { background-position: 0% 80%;    opacity: 0.38; }
-  100% { background-position: 200% 100%; opacity: 0.45; }
+  0%   { background-position: 200% 100%; opacity: 0.22; }
+  33%  { background-position: 100% 30%;  opacity: 0.30; }
+  66%  { background-position: 0% 80%;    opacity: 0.16; }
+  100% { background-position: 200% 100%; opacity: 0.22; }
 }
 @keyframes fog-scroll-3 {
-  0%   { background-position: 50% 0%;    opacity: 0.50; }
-  30%  { background-position: 0% 100%;   opacity: 0.30; }
-  60%  { background-position: 150% 50%;  opacity: 0.55; }
-  100% { background-position: 50% 0%;    opacity: 0.50; }
+  0%   { background-position: 50% 0%;    opacity: 0.20; }
+  30%  { background-position: 0% 100%;   opacity: 0.12; }
+  60%  { background-position: 150% 50%;  opacity: 0.22; }
+  100% { background-position: 50% 0%;    opacity: 0.20; }
 }
 .fog-layer-1 {
-  animation: fog-scroll-1 20s ease-in-out infinite;
+  animation: fog-scroll-1 35s ease-in-out infinite;
   animation-delay: 0s;
 }
 .fog-layer-2 {
-  animation: fog-scroll-2 27s ease-in-out infinite;
-  animation-delay: -10s;
+  animation: fog-scroll-2 50s ease-in-out infinite;
+  animation-delay: -18s;
 }
 .fog-layer-3 {
-  animation: fog-scroll-3 15s ease-in-out infinite;
-  animation-delay: -5s;
+  animation: fog-scroll-3 28s ease-in-out infinite;
+  animation-delay: -9s;
 }

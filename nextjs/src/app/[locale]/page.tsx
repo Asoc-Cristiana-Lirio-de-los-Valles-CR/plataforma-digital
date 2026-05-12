@@ -35,12 +35,12 @@ export default async function HomePage() {
           style={{
             position: 'absolute', inset: 0, zIndex: 1,
             backgroundImage: [
-              'radial-gradient(ellipse 40% 30% at 5% 10%, rgba(255,255,255,0.50) 0%, transparent 65%)',
-              'radial-gradient(ellipse 35% 28% at 50% 50%, rgba(255,255,255,0.42) 0%, transparent 60%)',
-              'radial-gradient(ellipse 38% 32% at 95% 85%, rgba(255,255,255,0.48) 0%, transparent 62%)',
+              'radial-gradient(ellipse 45% 35% at 5% 10%, rgba(255,255,255,0.60) 0%, transparent 70%)',
+              'radial-gradient(ellipse 40% 30% at 50% 50%, rgba(255,255,255,0.50) 0%, transparent 68%)',
+              'radial-gradient(ellipse 42% 35% at 95% 85%, rgba(255,255,255,0.58) 0%, transparent 70%)',
             ].join(', '),
             backgroundSize: '300% 300%',
-            filter: 'blur(40px)',
+            filter: 'blur(55px)',
           }}
           aria-hidden
         />
@@ -50,12 +50,12 @@ export default async function HomePage() {
           style={{
             position: 'absolute', inset: 0, zIndex: 1,
             backgroundImage: [
-              'radial-gradient(ellipse 42% 28% at 90% 8%, rgba(255,255,255,0.45) 0%, transparent 60%)',
-              'radial-gradient(ellipse 36% 30% at 8% 55%, rgba(255,255,255,0.40) 0%, transparent 58%)',
-              'radial-gradient(ellipse 40% 26% at 55% 92%, rgba(255,255,255,0.44) 0%, transparent 62%)',
+              'radial-gradient(ellipse 48% 32% at 90% 8%, rgba(255,255,255,0.55) 0%, transparent 68%)',
+              'radial-gradient(ellipse 42% 34% at 8% 55%, rgba(255,255,255,0.50) 0%, transparent 65%)',
+              'radial-gradient(ellipse 45% 30% at 55% 92%, rgba(255,255,255,0.52) 0%, transparent 68%)',
             ].join(', '),
             backgroundSize: '300% 300%',
-            filter: 'blur(48px)',
+            filter: 'blur(65px)',
           }}
           aria-hidden
         />
@@ -65,13 +65,13 @@ export default async function HomePage() {
           style={{
             position: 'absolute', inset: 0, zIndex: 1,
             backgroundImage: [
-              'radial-gradient(ellipse 30% 40% at 2% 40%, rgba(220,225,255,0.38) 0%, transparent 55%)',
-              'radial-gradient(ellipse 45% 22% at 50% 2%, rgba(220,225,255,0.35) 0%, transparent 58%)',
-              'radial-gradient(ellipse 30% 40% at 98% 50%, rgba(220,225,255,0.36) 0%, transparent 55%)',
-              'radial-gradient(ellipse 45% 22% at 50% 98%, rgba(220,225,255,0.32) 0%, transparent 55%)',
+              'radial-gradient(ellipse 35% 45% at 2% 40%, rgba(220,225,255,0.48) 0%, transparent 62%)',
+              'radial-gradient(ellipse 50% 28% at 50% 2%, rgba(220,225,255,0.44) 0%, transparent 65%)',
+              'radial-gradient(ellipse 35% 45% at 98% 50%, rgba(220,225,255,0.46) 0%, transparent 62%)',
+              'radial-gradient(ellipse 50% 28% at 50% 98%, rgba(220,225,255,0.40) 0%, transparent 62%)',
             ].join(', '),
             backgroundSize: '250% 250%',
-            filter: 'blur(30px)',
+            filter: 'blur(45px)',
           }}
           aria-hidden
         />
