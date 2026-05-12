@@ -8,7 +8,6 @@ jobs:
   deploy:
     name: Deploy to Azure production
     runs-on: ubuntu-latest
-    environment: production
 
     steps:
       - uses: actions/checkout@v4
@@ -31,7 +30,7 @@ jobs:
             fi
 
             # Backup previo al deploy
-            ../scripts/backup.sh
+            ./scripts/backup.sh || true
 
             git fetch origin
             git checkout main
