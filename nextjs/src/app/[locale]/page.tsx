@@ -29,22 +29,37 @@ export default async function HomePage() {
           style={{ background: 'linear-gradient(160deg, rgba(0,0,0,0.55) 0%, rgba(10,5,20,0.40) 50%, rgba(0,0,0,0.65) 100%)' }}
           aria-hidden
         />
-        {/* Fog layer 1 */}
+        {/* Fog layer 1 — wide low band */}
         <div
           className="fog-layer-1 pointer-events-none"
-          style={{ position: 'absolute', inset: '-10%', background: 'radial-gradient(ellipse 80% 45% at 30% 65%, rgba(255,255,255,0.35) 0%, transparent 68%)' }}
+          style={{
+            position: 'absolute',
+            left: '-20%', right: '-20%', top: '40%', bottom: '0',
+            background: 'radial-gradient(ellipse 70% 60% at 40% 50%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.2) 40%, transparent 70%)',
+            filter: 'blur(32px)',
+          }}
           aria-hidden
         />
-        {/* Fog layer 2 */}
+        {/* Fog layer 2 — mid band opposite drift */}
         <div
           className="fog-layer-2 pointer-events-none"
-          style={{ position: 'absolute', inset: '-10%', background: 'radial-gradient(ellipse 75% 40% at 72% 55%, rgba(255,255,255,0.28) 0%, transparent 65%)' }}
+          style={{
+            position: 'absolute',
+            left: '-20%', right: '-20%', top: '30%', bottom: '10%',
+            background: 'radial-gradient(ellipse 60% 50% at 65% 55%, rgba(255,255,255,0.50) 0%, rgba(255,255,255,0.15) 45%, transparent 70%)',
+            filter: 'blur(48px)',
+          }}
           aria-hidden
         />
-        {/* Fog layer 3 */}
+        {/* Fog layer 3 — thin fast wisp */}
         <div
           className="fog-layer-3 pointer-events-none"
-          style={{ position: 'absolute', inset: '-10%', background: 'radial-gradient(ellipse 100% 35% at 50% 35%, rgba(210,215,240,0.22) 0%, transparent 60%)' }}
+          style={{
+            position: 'absolute',
+            left: '-20%', right: '-20%', top: '50%', bottom: '15%',
+            background: 'radial-gradient(ellipse 80% 40% at 50% 50%, rgba(240,242,255,0.45) 0%, transparent 65%)',
+            filter: 'blur(24px)',
+          }}
           aria-hidden
         />
 
