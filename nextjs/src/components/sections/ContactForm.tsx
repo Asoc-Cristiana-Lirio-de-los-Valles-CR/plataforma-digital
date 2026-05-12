@@ -2,7 +2,7 @@
 
 import { useTranslations, useLocale } from 'next-intl';
 import { useState } from 'react';
-import { SITE, SOCIAL } from '@/lib/constants';
+import { SITE, SOCIAL, DEFAULT_SCHEDULE } from '@/lib/constants';
 
 export function ContactForm() {
   const t = useTranslations('contact');
@@ -145,22 +145,12 @@ export function ContactForm() {
                   {t('schedule')}
                 </h2>
                 <ul className="space-y-2 text-sm text-brand-800 dark:text-gray-200">
-                  <li className="flex justify-between">
-                    <span>{locale === 'es' ? 'Ayuno y Oración' : 'Fasting & Prayer'}</span>
-                    <span className="text-muted">Miércoles 9:30 am</span>
-                  </li>
-                  <li className="flex justify-between">
-                    <span>{locale === 'es' ? 'Culto de Adoración' : 'Worship Service'}</span>
-                    <span className="text-muted">Miércoles 6:00 pm</span>
-                  </li>
-                  <li className="flex justify-between">
-                    <span>{locale === 'es' ? 'Red Joven' : 'Youth Network'}</span>
-                    <span className="text-muted">Viernes 7:00 pm</span>
-                  </li>
-                  <li className="flex justify-between">
-                    <span>{locale === 'es' ? 'Culto General' : 'General Service'}</span>
-                    <span className="text-muted">Sábado 6:30 pm</span>
-                  </li>
+                  {DEFAULT_SCHEDULE.map((s, i) => (
+                    <li key={i} className="flex justify-between">
+                      <span>{locale === 'es' ? s.name : s.name_en}</span>
+                      <span className="text-muted">{t(`days.${s.day}` as any)} {s.time}</span>
+                    </li>
+                  ))}
                 </ul>
               </div>
 

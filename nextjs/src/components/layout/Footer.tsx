@@ -97,7 +97,7 @@ export function Footer() {
                     {locale === 'es' ? s.name : s.name_en}
                   </span>
                   <br />
-                  <span className="text-white/50">{s.day} · {s.time}</span>
+                  <span className="text-white/50">{t(`days.${s.day}` as any)} · {s.time}</span>
                 </li>
               ))}
             </ul>
