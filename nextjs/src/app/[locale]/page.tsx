@@ -85,7 +85,7 @@ export default async function HomePage() {
               </span>
             </div>
 
-            <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl font-bold text-white leading-tight mb-6">
+            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6 whitespace-nowrap">
               {t('title')}
             </h1>
 
