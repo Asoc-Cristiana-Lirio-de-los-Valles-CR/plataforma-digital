@@ -126,7 +126,7 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 - Presupuesto mensual configurado: $150/mes (budget en Cost Management)
 - Alertas: $120/mes → aviso (80%) | $150/mes → límite (100%) | $180/mes → crítico (120%)
 - Nunca superar $166/mes para mantenerse dentro del crédito ONG anual
-- Email alertas: rafael1083@gmail.com
+- Email alertas: soporte@liriodelosvallescr.org
 
 ## Gestión de usuarios
 

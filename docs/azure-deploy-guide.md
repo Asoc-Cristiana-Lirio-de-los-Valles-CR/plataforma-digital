@@ -75,7 +75,7 @@ Responder `s` para continuar.
 - NSG (abre 22/80/443 — bloquea 5432/8055/6379)
 - VM Ubuntu 24.04 LTS / Standard_B2ms / Premium SSD 64GB
 - SSH key en `~/.ssh/lirio_azure_key`
-- Alertas de presupuesto ($120/$150/$180 → rafael1083@gmail.com)
+- Alertas de presupuesto ($120/$150/$180 → soporte@liriodelosvallescr.org)
 
 **Al finalizar imprime:**
 ```
@@ -389,7 +389,7 @@ bash scripts/verify-deploy.sh prod
 
 Crédito ONG disponible: **$166/mes** → margen de **~$81/mes**
 
-Alertas activas: $120 (aviso) / $150 (límite) / $180 (crítico) → email a rafael1083@gmail.com
+Alertas activas: $120 (aviso) / $150 (límite) / $180 (crítico) → email a soporte@liriodelosvallescr.org
 
 ---
 

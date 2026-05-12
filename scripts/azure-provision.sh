@@ -32,7 +32,7 @@ DISK_SKU="Premium_LRS"
 # Presupuesto ONG — $2,000 USD/año = ~$166/mes
 # Alertas: 80% aviso, 100% límite, 120% crítico
 BUDGET_MONTHLY=150
-ALERT_EMAIL="rafael1083@gmail.com"
+ALERT_EMAIL="soporte@liriodelosvallescr.org"
 ADMIN_USER="lirio"
 SSH_KEY_PATH="$HOME/.ssh/lirio_azure_key"
 NSG_NAME="lirio-nsg"
