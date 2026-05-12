@@ -202,9 +202,6 @@ export default async function DonacionesPage() {
                 ? 'El 100% de las donaciones se destina al ministerio y servicio comunitario de la asociación.'
                 : '100% of donations go to the ministry and community service of the association.'}
             </p>
-            <p className="text-xs text-muted mt-2">
-              {siteName(locale)} · {locale === 'es' ? 'Cédula jurídica' : 'Legal ID'}: {SITE.legalId}
-            </p>
           </div>
         </div>
       </section>
