@@ -116,7 +116,7 @@ export default async function HomePage() {
             <h2 className="section-title">{t('schedule')}</h2>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4 max-w-5xl mx-auto">
             {displaySchedule.map((item, i) => (
               <div key={i} className="card-hover p-6 text-center">
                 <div className="text-2xl font-display font-semibold text-gold-500 mb-1">
