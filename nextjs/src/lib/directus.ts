@@ -22,7 +22,8 @@ export async function getServiceSchedule(): Promise<ServiceSchedule[]> {
 
 export async function getWeeklyVerse(): Promise<WeeklyVerse | null> {
   try {
-    return await directus.request(readSingleton('weekly_verse')) as WeeklyVerse;
+    const items = await directus.request(readItems('weekly_verse' as any, { limit: 1 })) as WeeklyVerse[];
+    return items[0] ?? null;
   } catch {
     return null;
   }
@@ -30,7 +31,8 @@ export async function getWeeklyVerse(): Promise<WeeklyVerse | null> {
 
 export async function getChurchInfo(): Promise<ChurchInfo | null> {
   try {
-    return await directus.request(readSingleton('church_info')) as ChurchInfo;
+    const items = await directus.request(readItems('church_info' as any, { limit: 1 })) as ChurchInfo[];
+    return items[0] ?? null;
   } catch {
     return null;
   }
