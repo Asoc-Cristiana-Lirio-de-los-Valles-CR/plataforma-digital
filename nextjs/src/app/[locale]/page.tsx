@@ -26,7 +26,7 @@ export default async function HomePage() {
         {/* Dark overlay — preserves text legibility over the image */}
         <div
           className="absolute inset-0"
-          style={{ background: 'linear-gradient(160deg, rgba(20,6,40,0.82) 0%, rgba(46,15,82,0.70) 50%, rgba(10,2,20,0.88) 100%)' }}
+          style={{ background: 'linear-gradient(160deg, rgba(0,0,0,0.55) 0%, rgba(10,5,20,0.40) 50%, rgba(0,0,0,0.65) 100%)' }}
           aria-hidden
         />
 
