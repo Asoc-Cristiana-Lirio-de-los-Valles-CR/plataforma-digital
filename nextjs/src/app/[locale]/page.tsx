@@ -29,36 +29,39 @@ export default async function HomePage() {
           style={{ background: 'linear-gradient(160deg, rgba(0,0,0,0.55) 0%, rgba(10,5,20,0.40) 50%, rgba(0,0,0,0.65) 100%)' }}
           aria-hidden
         />
-        {/* Fog layer 1 — wide low band */}
+        {/* Fog layer 1 — upper area, clearly visible over dark sky */}
         <div
           className="fog-layer-1 pointer-events-none"
           style={{
             position: 'absolute',
-            left: '-20%', right: '-20%', top: '40%', bottom: '0',
-            background: 'radial-gradient(ellipse 70% 60% at 40% 50%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.2) 40%, transparent 70%)',
-            filter: 'blur(32px)',
+            left: '-30%', right: '-30%',
+            top: '15%', height: '30%',
+            background: 'radial-gradient(ellipse 60% 80% at 40% 50%, rgba(255,255,255,0.70) 0%, rgba(255,255,255,0.30) 50%, transparent 75%)',
+            filter: 'blur(40px)',
           }}
           aria-hidden
         />
-        {/* Fog layer 2 — mid band opposite drift */}
+        {/* Fog layer 2 — mid section opposite drift */}
         <div
           className="fog-layer-2 pointer-events-none"
           style={{
             position: 'absolute',
-            left: '-20%', right: '-20%', top: '30%', bottom: '10%',
-            background: 'radial-gradient(ellipse 60% 50% at 65% 55%, rgba(255,255,255,0.50) 0%, rgba(255,255,255,0.15) 45%, transparent 70%)',
-            filter: 'blur(48px)',
+            left: '-30%', right: '-30%',
+            top: '35%', height: '25%',
+            background: 'radial-gradient(ellipse 55% 70% at 60% 50%, rgba(255,255,255,0.65) 0%, rgba(255,255,255,0.25) 50%, transparent 75%)',
+            filter: 'blur(50px)',
           }}
           aria-hidden
         />
-        {/* Fog layer 3 — thin fast wisp */}
+        {/* Fog layer 3 — fast thin wisp across middle */}
         <div
           className="fog-layer-3 pointer-events-none"
           style={{
             position: 'absolute',
-            left: '-20%', right: '-20%', top: '50%', bottom: '15%',
-            background: 'radial-gradient(ellipse 80% 40% at 50% 50%, rgba(240,242,255,0.45) 0%, transparent 65%)',
-            filter: 'blur(24px)',
+            left: '-30%', right: '-30%',
+            top: '45%', height: '20%',
+            background: 'radial-gradient(ellipse 70% 60% at 50% 50%, rgba(220,225,255,0.60) 0%, transparent 70%)',
+            filter: 'blur(28px)',
           }}
           aria-hidden
         />
