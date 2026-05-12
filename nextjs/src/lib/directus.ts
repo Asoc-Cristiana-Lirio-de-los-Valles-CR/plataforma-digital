@@ -22,8 +22,9 @@ export async function getServiceSchedule(): Promise<ServiceSchedule[]> {
 
 export async function getWeeklyVerse(): Promise<WeeklyVerse | null> {
   try {
-    const items = await directus.request(readItems('weekly_verse' as any, { limit: 1 })) as WeeklyVerse[];
-    return items[0] ?? null;
+    const result = await directus.request(readItems('weekly_verse' as any, { limit: 1 }));
+    if (Array.isArray(result)) return (result[0] as WeeklyVerse) ?? null;
+    return (result as unknown as WeeklyVerse) ?? null;
   } catch {
     return null;
   }
@@ -31,8 +32,10 @@ export async function getWeeklyVerse(): Promise<WeeklyVerse | null> {
 
 export async function getChurchInfo(): Promise<ChurchInfo | null> {
   try {
-    const items = await directus.request(readItems('church_info' as any, { limit: 1 })) as ChurchInfo[];
-    return items[0] ?? null;
+    const result = await directus.request(readItems('church_info' as any, { limit: 1 }));
+    // Directus returns singleton as object, regular collection as array
+    if (Array.isArray(result)) return (result[0] as ChurchInfo) ?? null;
+    return (result as unknown as ChurchInfo) ?? null;
   } catch {
     return null;
   }
