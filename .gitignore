@@ -45,4 +45,5 @@ backup_*/
 !nextjs/public/*.jpeg
 !nextjs/public/*.webp
 !nextjs/public/*.svg
+!nextjs/src/app/icon.png
 .playwright-mcp/
