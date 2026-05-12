@@ -67,7 +67,7 @@ export default async function DonacionesPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
 
             {/* SINPE */}
-            <div className="card p-8">
+            <div className="card p-8 flex flex-col">
               <div className="w-12 h-12 rounded-xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center mb-5">
                 <svg className="w-6 h-6 text-brand-600 dark:text-brand-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -76,19 +76,19 @@ export default async function DonacionesPage() {
               <h3 className="text-xs font-bold tracking-[0.15em] uppercase text-gold-500 mb-4">
                 {t('sinpe')}
               </h3>
-              <div className="space-y-2">
+              <div className="space-y-2 flex-1">
                 <div>
                   <p className="text-xs text-muted mb-1">{locale === 'es' ? 'Número' : 'Number'}</p>
                   <p className="font-mono text-2xl font-bold tracking-widest text-brand-900 dark:text-white">
                     {sinpeNumber}
                   </p>
                 </div>
-                <p className="text-sm text-muted">{sinpeName}</p>
               </div>
+              <p className="text-[11px] text-muted mt-4 truncate">{sinpeName}</p>
             </div>
 
             {/* Bank transfer */}
-            <div className="card p-8">
+            <div className="card p-8 flex flex-col">
               <div className="w-12 h-12 rounded-xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center mb-5">
                 <svg className="w-6 h-6 text-brand-600 dark:text-brand-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -97,7 +97,7 @@ export default async function DonacionesPage() {
               <h3 className="text-xs font-bold tracking-[0.15em] uppercase text-gold-500 mb-4">
                 {t('bank')}
               </h3>
-              <div className="space-y-3 text-sm">
+              <div className="space-y-3 text-sm flex-1">
                 {bankAccount && (
                   <div>
                     <p className="text-xs text-muted">{t('account')}</p>
@@ -118,10 +118,11 @@ export default async function DonacionesPage() {
                   </p>
                 )}
               </div>
+              <p className="text-[11px] text-muted mt-4 truncate">{legalName}</p>
             </div>
 
             {/* PayPal */}
-            <div className="card p-8">
+            <div className="card p-8 flex flex-col">
               <div className="w-12 h-12 rounded-xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center mb-5">
                 <svg className="w-6 h-6 text-brand-600 dark:text-brand-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
@@ -130,20 +131,23 @@ export default async function DonacionesPage() {
               <h3 className="text-xs font-bold tracking-[0.15em] uppercase text-gold-500 mb-4">
                 {t('paypal')}
               </h3>
-              {paypalUrl ? (
-                <a
-                  href={paypalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-gold text-sm"
-                >
-                  {locale === 'es' ? 'Donar con PayPal' : 'Donate with PayPal'} →
-                </a>
-              ) : (
-                <p className="text-sm text-muted">
-                  {locale === 'es' ? 'Próximamente disponible' : 'Coming soon'}
-                </p>
-              )}
+              <div className="flex-1">
+                {paypalUrl ? (
+                  <a
+                    href={paypalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-gold text-sm"
+                  >
+                    {locale === 'es' ? 'Donar con PayPal' : 'Donate with PayPal'} →
+                  </a>
+                ) : (
+                  <p className="text-sm text-muted">
+                    {locale === 'es' ? 'Próximamente disponible' : 'Coming soon'}
+                  </p>
+                )}
+              </div>
+              <p className="text-[11px] text-muted mt-4 truncate">{legalName}</p>
             </div>
 
           </div>
