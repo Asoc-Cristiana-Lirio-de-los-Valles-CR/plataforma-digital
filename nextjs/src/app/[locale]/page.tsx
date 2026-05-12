@@ -119,8 +119,13 @@ export default async function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4 max-w-5xl mx-auto">
             {displaySchedule.map((item, i) => (
               <div key={i} className="card-hover p-6 text-center">
-                <div className="text-2xl font-display font-semibold text-gold-500 mb-1">
-                  {item.time}
+                <div className="flex items-baseline justify-center gap-1 mb-1">
+                  <span className="text-2xl font-display font-semibold text-gold-500 leading-none">
+                    {item.time.replace(/\s*(AM|PM)$/i, '')}
+                  </span>
+                  <span className="text-xs font-bold text-gold-400 uppercase">
+                    {item.time.match(/AM|PM/i)?.[0] ?? ''}
+                  </span>
                 </div>
                 <div className="text-sm font-bold text-brand-700 dark:text-brand-300 uppercase tracking-wider mb-1">
                   {tDays.has(item.day as any) ? tDays(item.day as any) : item.day}
