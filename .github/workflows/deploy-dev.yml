@@ -1,0 +1,39 @@
+name: Deploy → Staging
+
+on:
+  push:
+    branches: [dev]
+
+jobs:
+  deploy:
+    name: Deploy to Azure staging
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USER }}
+          key: ${{ secrets.AZURE_VM_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/lirio/app
+            if [ -n "$STAGING_ENV_CONTENT" ]; then
+              echo "$STAGING_ENV_CONTENT" > .env
+            fi
+            git fetch origin
+            git checkout dev
+            git pull origin dev
+            docker compose build nextjs
+            docker compose up -d --no-deps nextjs
+            until docker exec lirio_nextjs node -e \
+              "require('http').get('http://localhost:3000/api/health',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(JSON.parse(d).status==='ok'?0:1))}).on('error',()=>process.exit(1))" \
+              2>/dev/null; do sleep 3; done
+            echo "Staging deploy OK"
+            docker compose ps
+        env:
+          STAGING_ENV_CONTENT: ${{ secrets.STAGING_ENV_FILE }}
