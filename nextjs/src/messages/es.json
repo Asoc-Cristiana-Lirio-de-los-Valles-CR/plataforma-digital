@@ -69,6 +69,15 @@
     "en": "English",
     "toggle": "Cambiar idioma"
   },
+  "days": {
+    "sunday": "Domingo",
+    "monday": "Lunes",
+    "tuesday": "Martes",
+    "wednesday": "Miércoles",
+    "thursday": "Jueves",
+    "friday": "Viernes",
+    "saturday": "Sábado"
+  },
   "common": {
     "loading": "Cargando...",
     "error": "Ocurrió un error",

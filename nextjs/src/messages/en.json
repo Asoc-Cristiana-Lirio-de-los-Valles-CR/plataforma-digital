@@ -69,6 +69,15 @@
     "en": "English",
     "toggle": "Switch language"
   },
+  "days": {
+    "sunday": "Sunday",
+    "monday": "Monday",
+    "tuesday": "Tuesday",
+    "wednesday": "Wednesday",
+    "thursday": "Thursday",
+    "friday": "Friday",
+    "saturday": "Saturday"
+  },
   "common": {
     "loading": "Loading...",
     "error": "An error occurred",

@@ -1,9 +1,11 @@
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, getLocale } from 'next-intl/server';
 import { getServiceSchedule, getWeeklyVerse } from '@/lib/directus';
 import { DEFAULT_SCHEDULE } from '@/lib/constants';
 
 export default async function HomePage() {
   const t = await getTranslations('home');
+  const tDays = await getTranslations('days');
+  const locale = await getLocale();
   const [schedule, verse] = await Promise.all([
     getServiceSchedule(),
     getWeeklyVerse(),
@@ -77,10 +79,10 @@ export default async function HomePage() {
                   {item.time}
                 </div>
                 <div className="text-sm font-bold text-brand-700 dark:text-brand-300 uppercase tracking-wider mb-1">
-                  {item.day}
+                  {tDays.has(item.day as any) ? tDays(item.day as any) : item.day}
                 </div>
                 <div className="text-sm text-muted">
-                  {'name_en' in item ? item.name : (item as { name: string }).name}
+                  {locale === 'en' && 'name_en' in item && item.name_en ? item.name_en : item.name}
                 </div>
               </div>
             ))}
