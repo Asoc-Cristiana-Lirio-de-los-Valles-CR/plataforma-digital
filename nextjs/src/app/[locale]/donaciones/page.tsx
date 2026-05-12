@@ -154,26 +154,37 @@ export default async function DonacionesPage() {
 
           {/* Legal information */}
           <div className="max-w-3xl mx-auto mt-14">
-            <div className="rounded-2xl border-2 border-gold-500/30 bg-gold-500/5 dark:bg-gold-500/[0.04] p-8">
-              <div className="flex items-start gap-4">
-                <div className="shrink-0 w-10 h-10 rounded-lg bg-gold-500/15 flex items-center justify-center mt-0.5">
-                  <svg className="w-5 h-5 text-gold-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
+            <div className="rounded-2xl border border-gold-500/25 bg-gold-500/[0.04] dark:bg-gold-500/[0.03] overflow-hidden">
+              {/* Header strip */}
+              <div className="flex items-center gap-3 px-6 py-4 border-b border-gold-500/20 bg-gold-500/[0.06]">
+                <svg className="w-4 h-4 text-gold-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="text-xs font-bold tracking-[0.18em] uppercase text-gold-500">
+                  {locale === 'es' ? 'Información legal' : 'Legal information'}
+                </span>
+              </div>
+              {/* Body */}
+              <div className="px-6 py-5 space-y-4">
                 <div>
-                  <p className="text-xs font-bold tracking-[0.15em] uppercase text-gold-500 mb-1">
-                    {locale === 'es' ? 'Información legal' : 'Legal information'}
+                  <p className="text-[11px] text-muted uppercase tracking-widest mb-0.5">
+                    {locale === 'es' ? 'Razón social' : 'Legal name'}
                   </p>
-                  <p className="font-display text-lg font-bold text-brand-900 dark:text-white mb-2">
+                  <p className="font-display text-base font-bold text-brand-900 dark:text-white">
                     {legalName}
                   </p>
-                  <p className="text-sm text-muted leading-relaxed mb-3">
-                    {legalDesc}
-                  </p>
-                  <p className="text-xs font-mono text-brand-700 dark:text-brand-300 font-semibold">
-                    {locale === 'es' ? 'Cédula jurídica:' : 'Tax ID:'} {cedulaJuridica}
-                  </p>
+                </div>
+                <p className="text-sm text-muted leading-relaxed border-l-2 border-gold-500/40 pl-3">
+                  {legalDesc}
+                </p>
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-[11px] text-muted uppercase tracking-widest">
+                    {locale === 'es' ? 'Cédula jurídica' : 'Tax ID'}
+                  </span>
+                  <span className="h-px flex-1 bg-gold-500/20" />
+                  <span className="font-mono text-sm font-bold text-brand-700 dark:text-brand-300">
+                    {cedulaJuridica}
+                  </span>
                 </div>
               </div>
             </div>
