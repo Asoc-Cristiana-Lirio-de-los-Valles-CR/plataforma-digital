@@ -14,9 +14,9 @@ export function Logo({ inverted = false }: LogoProps) {
       <Image
         src="/logo.png"
         alt="Lirio de los Valles"
-        width={200}
-        height={67}
-        className={`h-14 w-auto object-contain transition-opacity duration-200 group-hover:opacity-80 ${
+        width={280}
+        height={93}
+        className={`h-20 w-auto object-contain transition-opacity duration-200 group-hover:opacity-80 ${
           inverted ? 'brightness-0 invert' : 'dark:brightness-0 dark:invert'
         }`}
         priority
