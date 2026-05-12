@@ -223,19 +223,34 @@
 .animation-delay-400 { animation-delay: 400ms; }
 .animation-delay-500 { animation-delay: 500ms; }
 
-/* Fog animations — background-position scroll (no overflow-hidden conflict) */
+/* Fog animations — background-position + opacity for organic look */
 @keyframes fog-scroll-1 {
-  0%   { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
+  0%   { background-position: 0% 45%;   opacity: 0.60; }
+  30%  { background-position: 60% 55%;  opacity: 0.40; }
+  65%  { background-position: 130% 48%; opacity: 0.55; }
+  100% { background-position: 200% 45%; opacity: 0.60; }
 }
 @keyframes fog-scroll-2 {
-  0%   { background-position: 200% 50%; }
-  100% { background-position: 0% 50%; }
+  0%   { background-position: 200% 52%; opacity: 0.45; }
+  40%  { background-position: 110% 45%; opacity: 0.65; }
+  70%  { background-position: 60% 55%;  opacity: 0.38; }
+  100% { background-position: 0% 52%;   opacity: 0.45; }
 }
 @keyframes fog-scroll-3 {
-  0%   { background-position: 0% 60%; }
-  100% { background-position: 150% 40%; }
+  0%   { background-position: 20% 58%;  opacity: 0.50; }
+  25%  { background-position: 70% 52%;  opacity: 0.30; }
+  60%  { background-position: 110% 62%; opacity: 0.55; }
+  100% { background-position: 150% 58%; opacity: 0.50; }
 }
-.fog-layer-1 { animation: fog-scroll-1 12s linear infinite; }
-.fog-layer-2 { animation: fog-scroll-2 18s linear infinite; }
-.fog-layer-3 { animation: fog-scroll-3 9s linear infinite; }
+.fog-layer-1 {
+  animation: fog-scroll-1 18s ease-in-out infinite;
+  animation-delay: 0s;
+}
+.fog-layer-2 {
+  animation: fog-scroll-2 24s ease-in-out infinite;
+  animation-delay: -8s;
+}
+.fog-layer-3 {
+  animation: fog-scroll-3 13s ease-in-out infinite;
+  animation-delay: -4s;
+}

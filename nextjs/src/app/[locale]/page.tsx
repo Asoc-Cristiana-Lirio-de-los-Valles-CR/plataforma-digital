@@ -29,34 +29,37 @@ export default async function HomePage() {
           style={{ background: 'linear-gradient(160deg, rgba(0,0,0,0.55) 0%, rgba(10,5,20,0.40) 50%, rgba(0,0,0,0.65) 100%)' }}
           aria-hidden
         />
-        {/* Fog layer 1 — scrolls left→right */}
+        {/* Fog layer 1 — lower mountain zone, behind content */}
         <div
           className="fog-layer-1 pointer-events-none"
           style={{
-            position: 'absolute', inset: 0,
-            backgroundImage: 'radial-gradient(ellipse 30% 50% at 15% 60%, rgba(255,255,255,0.55) 0%, transparent 70%), radial-gradient(ellipse 25% 45% at 50% 55%, rgba(255,255,255,0.45) 0%, transparent 65%), radial-gradient(ellipse 28% 50% at 85% 58%, rgba(255,255,255,0.50) 0%, transparent 68%)',
+            position: 'absolute', zIndex: 1,
+            left: 0, right: 0, top: '45%', bottom: 0,
+            backgroundImage: 'radial-gradient(ellipse 35% 70% at 15% 50%, rgba(255,255,255,0.52) 0%, transparent 65%), radial-gradient(ellipse 30% 65% at 52% 60%, rgba(255,255,255,0.44) 0%, transparent 60%), radial-gradient(ellipse 32% 68% at 85% 50%, rgba(255,255,255,0.48) 0%, transparent 62%)',
             backgroundSize: '300% 100%',
-            filter: 'blur(35px)',
+            filter: 'blur(38px)',
           }}
           aria-hidden
         />
-        {/* Fog layer 2 — scrolls right→left, slower */}
+        {/* Fog layer 2 — mid zone, opposite drift */}
         <div
           className="fog-layer-2 pointer-events-none"
           style={{
-            position: 'absolute', inset: 0,
-            backgroundImage: 'radial-gradient(ellipse 35% 40% at 20% 50%, rgba(255,255,255,0.45) 0%, transparent 65%), radial-gradient(ellipse 30% 45% at 55% 60%, rgba(255,255,255,0.40) 0%, transparent 60%), radial-gradient(ellipse 32% 42% at 80% 52%, rgba(255,255,255,0.42) 0%, transparent 62%)',
+            position: 'absolute', zIndex: 1,
+            left: 0, right: 0, top: '35%', bottom: '10%',
+            backgroundImage: 'radial-gradient(ellipse 38% 60% at 22% 55%, rgba(255,255,255,0.42) 0%, transparent 62%), radial-gradient(ellipse 33% 58% at 58% 50%, rgba(255,255,255,0.38) 0%, transparent 58%), radial-gradient(ellipse 35% 62% at 82% 55%, rgba(255,255,255,0.40) 0%, transparent 60%)',
             backgroundSize: '300% 100%',
-            filter: 'blur(45px)',
+            filter: 'blur(50px)',
           }}
           aria-hidden
         />
-        {/* Fog layer 3 — fast diagonal */}
+        {/* Fog layer 3 — thin wisp band */}
         <div
           className="fog-layer-3 pointer-events-none"
           style={{
-            position: 'absolute', inset: 0,
-            backgroundImage: 'radial-gradient(ellipse 40% 35% at 10% 55%, rgba(220,225,255,0.40) 0%, transparent 60%), radial-gradient(ellipse 35% 38% at 60% 50%, rgba(220,225,255,0.35) 0%, transparent 58%)',
+            position: 'absolute', zIndex: 1,
+            left: 0, right: 0, top: '55%', bottom: '5%',
+            backgroundImage: 'radial-gradient(ellipse 45% 50% at 12% 50%, rgba(220,225,255,0.38) 0%, transparent 58%), radial-gradient(ellipse 40% 52% at 62% 55%, rgba(220,225,255,0.32) 0%, transparent 55%)',
             backgroundSize: '250% 100%',
             filter: 'blur(28px)',
           }}
