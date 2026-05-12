@@ -3,6 +3,7 @@
 .env.local
 .env.production
 usuarios.txt
+credenciales.txt
 
 # Node
 node_modules/
@@ -35,8 +36,13 @@ directus/uploads/
 /tmp/
 backup_*/
 
-# Screenshots de desarrollo y snapshots Playwright
+# Screenshots de desarrollo y snapshots Playwright (excluir imágenes de public/)
 *.png
 *.jpeg
 *.jpg
+!nextjs/public/*.png
+!nextjs/public/*.jpg
+!nextjs/public/*.jpeg
+!nextjs/public/*.webp
+!nextjs/public/*.svg
 .playwright-mcp/

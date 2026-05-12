@@ -15,20 +15,18 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Hero — placeholder until HeroSection component is built */}
-      <section
-        className="relative min-h-[85vh] flex items-center gradient-brand"
-        style={{
-          backgroundImage: 'linear-gradient(160deg, #2e0f52 0%, #461a7a 50%, #1a0730 100%)',
-        }}
-      >
-        {/* Decorative pattern */}
+      {/* Hero */}
+      <section className="relative min-h-[85vh] flex items-center overflow-hidden">
+        {/* Background image */}
         <div
-          className="absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
-            backgroundSize: '32px 32px',
-          }}
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: 'url(/hero-bg.png)' }}
+          aria-hidden
+        />
+        {/* Dark overlay — preserves text legibility over the image */}
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(160deg, rgba(20,6,40,0.82) 0%, rgba(46,15,82,0.70) 50%, rgba(10,2,20,0.88) 100%)' }}
           aria-hidden
         />
 
