@@ -29,22 +29,22 @@ export default async function HomePage() {
           style={{ background: 'linear-gradient(160deg, rgba(0,0,0,0.55) 0%, rgba(10,5,20,0.40) 50%, rgba(0,0,0,0.65) 100%)' }}
           aria-hidden
         />
-        {/* Fog layer 1 — slow wide drift */}
+        {/* Fog layer 1 */}
         <div
-          className="fog-layer-1 absolute inset-[-10%] pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 80% 40% at 30% 60%, rgba(255,255,255,0.18) 0%, transparent 70%)' }}
+          className="fog-layer-1 pointer-events-none"
+          style={{ position: 'absolute', inset: '-10%', background: 'radial-gradient(ellipse 80% 45% at 30% 65%, rgba(255,255,255,0.35) 0%, transparent 68%)' }}
           aria-hidden
         />
-        {/* Fog layer 2 — medium drift opposite direction */}
+        {/* Fog layer 2 */}
         <div
-          className="fog-layer-2 absolute inset-[-10%] pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 70% 35% at 70% 50%, rgba(255,255,255,0.14) 0%, transparent 65%)' }}
+          className="fog-layer-2 pointer-events-none"
+          style={{ position: 'absolute', inset: '-10%', background: 'radial-gradient(ellipse 75% 40% at 72% 55%, rgba(255,255,255,0.28) 0%, transparent 65%)' }}
           aria-hidden
         />
-        {/* Fog layer 3 — subtle top mist */}
+        {/* Fog layer 3 */}
         <div
-          className="fog-layer-3 absolute inset-[-10%] pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 90% 30% at 50% 30%, rgba(220,220,240,0.12) 0%, transparent 60%)' }}
+          className="fog-layer-3 pointer-events-none"
+          style={{ position: 'absolute', inset: '-10%', background: 'radial-gradient(ellipse 100% 35% at 50% 35%, rgba(210,215,240,0.22) 0%, transparent 60%)' }}
           aria-hidden
         />
 
