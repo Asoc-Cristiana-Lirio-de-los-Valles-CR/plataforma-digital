@@ -33,7 +33,7 @@ export interface ChurchInfo {
   youtube_url: string;
   instagram_url: string;
   sinpe_number: string;
-  sinpe_name: string;
+  sinpe_name: string;  // nombre titular SINPE (Asociación)
   bank_name: string;
   bank_account: string;
   bank_iban: string;

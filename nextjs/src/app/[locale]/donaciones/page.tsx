@@ -25,6 +25,7 @@ export default async function DonacionesPage() {
   const info = await getChurchInfo();
 
   const sinpeNumber = info?.sinpe_number || '8888-8888';
+  const sinpeName = (info as any)?.sinpe_name || 'Asociación Cristiana Lirio de los Valles';
   const bankAccount = info?.bank_account || '';
   const bankIban = (info as any)?.bank_iban || '';
   const paypalUrl = info?.paypal_url || '';
@@ -82,7 +83,7 @@ export default async function DonacionesPage() {
                     {sinpeNumber}
                   </p>
                 </div>
-                <p className="text-sm text-muted">{siteName(locale)}</p>
+                <p className="text-sm text-muted">{sinpeName}</p>
               </div>
             </div>
 
