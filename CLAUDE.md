@@ -13,7 +13,7 @@ Dominio: liriodelosvallescr.org
 - Proxy: Nginx
 - Radio: AzuraCast (Fase 3)
 - Analytics: Umami (self-hosted, Docker profile opcional)
-- Infraestructura: Docker Compose en Azure VM Ubuntu 22.04 B2ms
+- Infraestructura: Docker Compose en Azure VM Ubuntu 24.04 D2s_v3 (centralus)
 - DNS/CDN/SSL: Cloudflare (SSL Full strict, proxy activado)
 - CI/CD: GitHub Actions
 
@@ -120,9 +120,9 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 ## Presupuesto Azure
 
 - Crédito ONG disponible: $2,000 USD/año ($166/mes)
-- VM: Standard_B2ms (2 vCPU / 8 GB RAM) — resize a B4ms si crece
-- Estimado mensual: ~$85/mes (B2ms ~$60 + IP estática ~$4 + Premium SSD ~$15 + backups ~$6)
-- Margen: ~$81/mes
+- VM: Standard_D2s_v3 (2 vCPU / 8 GB RAM) en centralus — resize a D4s_v3 si crece
+- Estimado mensual: ~$100/mes (D2s_v3 ~$80 + IP estática ~$4 + Premium SSD ~$10 + backups ~$6)
+- Margen: ~$66/mes
 - Presupuesto mensual configurado: $150/mes (budget en Cost Management)
 - Alertas: $120/mes → aviso (80%) | $150/mes → límite (100%) | $180/mes → crítico (120%)
 - Nunca superar $166/mes para mantenerse dentro del crédito ONG anual
