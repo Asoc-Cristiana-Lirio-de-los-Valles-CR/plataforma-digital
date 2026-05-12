@@ -29,6 +29,24 @@ export default async function HomePage() {
           style={{ background: 'linear-gradient(160deg, rgba(0,0,0,0.55) 0%, rgba(10,5,20,0.40) 50%, rgba(0,0,0,0.65) 100%)' }}
           aria-hidden
         />
+        {/* Fog layer 1 — slow wide drift */}
+        <div
+          className="fog-layer-1 absolute inset-[-10%] pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 80% 40% at 30% 60%, rgba(255,255,255,0.18) 0%, transparent 70%)' }}
+          aria-hidden
+        />
+        {/* Fog layer 2 — medium drift opposite direction */}
+        <div
+          className="fog-layer-2 absolute inset-[-10%] pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 70% 35% at 70% 50%, rgba(255,255,255,0.14) 0%, transparent 65%)' }}
+          aria-hidden
+        />
+        {/* Fog layer 3 — subtle top mist */}
+        <div
+          className="fog-layer-3 absolute inset-[-10%] pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 90% 30% at 50% 30%, rgba(220,220,240,0.12) 0%, transparent 60%)' }}
+          aria-hidden
+        />
 
         <div className="container-page relative z-10 py-20 sm:py-28">
           <div className="max-w-2xl animate-fade-up">
