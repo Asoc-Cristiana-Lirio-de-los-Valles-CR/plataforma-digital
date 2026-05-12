@@ -38,6 +38,10 @@ export interface ChurchInfo {
   bank_account: string;
   bank_iban: string;
   paypal_url: string;
+  legal_name: string;
+  cedula_juridica: string;
+  legal_description: string;
+  legal_description_en: string;
 }
 
 export interface VideoItem {

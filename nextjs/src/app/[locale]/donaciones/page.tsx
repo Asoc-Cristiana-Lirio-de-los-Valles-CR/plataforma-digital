@@ -28,6 +28,11 @@ export default async function DonacionesPage() {
   const bankAccount = info?.bank_account || '';
   const bankIban = (info as any)?.bank_iban || '';
   const paypalUrl = info?.paypal_url || '';
+  const legalName = info?.legal_name || 'Asociación Cristiana Lirio de los Valles';
+  const cedulaJuridica = info?.cedula_juridica || '3-002-104369';
+  const legalDesc = locale === 'en'
+    ? (info?.legal_description_en || info?.legal_description || '')
+    : (info?.legal_description || '');
 
   return (
     <>
@@ -140,6 +145,33 @@ export default async function DonacionesPage() {
               )}
             </div>
 
+          </div>
+
+          {/* Legal information */}
+          <div className="max-w-3xl mx-auto mt-14">
+            <div className="rounded-2xl border-2 border-gold-500/30 bg-gold-500/5 dark:bg-gold-500/[0.04] p-8">
+              <div className="flex items-start gap-4">
+                <div className="shrink-0 w-10 h-10 rounded-lg bg-gold-500/15 flex items-center justify-center mt-0.5">
+                  <svg className="w-5 h-5 text-gold-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs font-bold tracking-[0.15em] uppercase text-gold-500 mb-1">
+                    {locale === 'es' ? 'Información legal' : 'Legal information'}
+                  </p>
+                  <p className="font-display text-lg font-bold text-brand-900 dark:text-white mb-2">
+                    {legalName}
+                  </p>
+                  <p className="text-sm text-muted leading-relaxed mb-3">
+                    {legalDesc}
+                  </p>
+                  <p className="text-xs font-mono text-brand-700 dark:text-brand-300 font-semibold">
+                    {locale === 'es' ? 'Cédula jurídica:' : 'Tax ID:'} {cedulaJuridica}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Thank you note */}
