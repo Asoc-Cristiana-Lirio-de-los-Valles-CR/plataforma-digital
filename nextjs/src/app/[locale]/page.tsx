@@ -97,7 +97,7 @@ export default async function HomePage() {
               {t('title')}
             </h1>
 
-            <p className="text-base sm:text-lg text-white/75 leading-relaxed mb-10 max-w-lg animation-delay-200 animate-fade-up opacity-0">
+            <p className="text-base sm:text-lg text-white/75 leading-relaxed mb-10 max-w-lg animation-delay-200 animate-fade-up opacity-0 font-display italic">
               {t('subtitle')}
             </p>
 
