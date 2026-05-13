@@ -214,34 +214,27 @@ export default async function HistoriaPage() {
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto items-start">
               {ministerios.map((m) => (
                 <div key={m.id} className="card p-6">
-                  <div className="flex items-start gap-4">
-                    {m.icon && (
-                      <span className="text-3xl flex-shrink-0">{m.icon}</span>
-                    )}
-                    <div>
-                      <h3 className="font-display font-semibold text-brand-900 dark:text-white mb-1">
-                        {locale === 'es' ? m.name : (m.name_en || m.name)}
-                      </h3>
-                      {m.leader_name && (
-                        <p className="text-xs text-gold-500 font-semibold uppercase tracking-wider mb-2">
-                          {m.leader_name}
-                        </p>
-                      )}
-                      {(locale === 'es' ? m.description : m.description_en) && (
-                        <p className="text-sm text-muted leading-relaxed">
-                          {locale === 'es' ? m.description : m.description_en}
-                        </p>
-                      )}
-                      {m.schedule_enabled && (m.meeting_day || m.meeting_time) && (
-                        <p className="text-xs text-gold-500 font-semibold mt-2">
-                          {[m.meeting_day, m.meeting_time, m.meeting_location].filter(Boolean).join(' · ')}
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                  <h3 className="font-display font-semibold text-brand-900 dark:text-white mb-1">
+                    {locale === 'es' ? m.name : (m.name_en || m.name)}
+                  </h3>
+                  {m.leader_name && (
+                    <p className="text-xs text-gold-500 font-semibold uppercase tracking-wider mb-2">
+                      {m.leader_name}
+                    </p>
+                  )}
+                  {(locale === 'es' ? m.description : m.description_en) && (
+                    <p className="text-sm text-muted leading-relaxed line-clamp-5">
+                      {locale === 'es' ? m.description : m.description_en}
+                    </p>
+                  )}
+                  {m.schedule_enabled && (m.meeting_day || m.meeting_time) && (
+                    <p className="text-xs text-gold-500 font-semibold mt-2">
+                      {[m.meeting_day, m.meeting_time, m.meeting_location].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
