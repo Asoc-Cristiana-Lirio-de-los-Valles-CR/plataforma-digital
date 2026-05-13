@@ -5,7 +5,7 @@ import type { ServiceSchedule, WeeklyVerse, ChurchInfo, ChurchLeader, Ministerio
 // NEXT_PUBLIC_DIRECTUS_URL = browser-side (e.g. https://admin.liriodelosvallescr.org)
 const directus = createDirectus(
   process.env.DIRECTUS_URL ?? process.env.NEXT_PUBLIC_DIRECTUS_URL ?? 'http://directus:8055'
-).with(rest());
+).with(rest({ onRequest: (options) => ({ ...options, cache: 'no-store' }) }));
 
 export async function getServiceSchedule(): Promise<ServiceSchedule[]> {
   try {

@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'api.liriodelosvallescr.org',
+      },
+      {
+        protocol: 'https',
         hostname: 'i.ytimg.com',
       },
       {
