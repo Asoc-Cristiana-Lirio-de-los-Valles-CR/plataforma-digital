@@ -93,11 +93,11 @@ export default async function HomePage() {
               </span>
             </div>
 
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6 whitespace-nowrap">
+            <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl font-semibold italic text-white leading-tight mb-6">
               {t('title')}
             </h1>
 
-            <p className="text-lg text-white/70 leading-relaxed mb-10 animation-delay-200 animate-fade-up opacity-0">
+            <p className="text-base sm:text-lg text-white/75 leading-relaxed mb-10 max-w-lg animation-delay-200 animate-fade-up opacity-0">
               {t('subtitle')}
             </p>
 
