@@ -235,6 +235,11 @@ export default async function HistoriaPage() {
                           {locale === 'es' ? m.description : m.description_en}
                         </p>
                       )}
+                      {m.schedule_enabled && (m.meeting_day || m.meeting_time) && (
+                        <p className="text-xs text-gold-500 font-semibold mt-2">
+                          {[m.meeting_day, m.meeting_time, m.meeting_location].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

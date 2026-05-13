@@ -46,7 +46,7 @@ export async function getChurchLeaders(): Promise<ChurchLeader[]> {
     return await directus.request(
       readItems('church_leaders', {
         sort: ['sort', 'name'],
-        filter: { status: { _eq: 'published' } },
+        filter: { status: { _eq: 'published' }, visible_public: { _neq: false } },
         fields: ['*'],
       })
     ) as ChurchLeader[];

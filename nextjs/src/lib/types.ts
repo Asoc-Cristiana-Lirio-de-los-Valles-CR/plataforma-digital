@@ -45,6 +45,12 @@ export interface ChurchInfo {
   cedula_juridica: string;
   legal_description: string;
   legal_description_en: string;
+  google_maps_embed: string;
+  youtube_channel_url: string;
+  spotify_url: string;
+  telegram_url: string;
+  business_hours: string;
+  founded_year: number | null;
 }
 
 export interface ChurchLeader {
@@ -59,8 +65,14 @@ export interface ChurchLeader {
   bio_en: string;
   phone: string;
   whatsapp: string;
+  email: string;
   facebook_url: string;
   instagram_url: string;
+  youtube_url: string;
+  years_serving: number | null;
+  featured: boolean;
+  slug: string;
+  visible_public: boolean;
 }
 
 export interface Ministerio {
@@ -73,7 +85,13 @@ export interface Ministerio {
   description_en: string;
   icon: string;
   photo: string | null;
+  cover_image: string | null;
   leader_name: string;
+  contact_phone: string;
+  meeting_day: string;
+  meeting_time: string;
+  meeting_location: string;
+  schedule_enabled: boolean;
 }
 
 export interface VideoItem {
