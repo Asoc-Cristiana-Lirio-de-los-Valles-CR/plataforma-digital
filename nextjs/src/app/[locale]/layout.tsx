@@ -7,6 +7,7 @@ import { Cormorant_Garamond, DM_Sans } from 'next/font/google';
 import { Providers } from './providers';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { getChurchInfo } from '@/lib/directus';
 import '@/app/globals.css';
 
 const dmSans = DM_Sans({
@@ -60,7 +61,7 @@ export default async function LocaleLayout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const messages = await getMessages();
+  const [messages, churchInfo] = await Promise.all([getMessages(), getChurchInfo()]);
 
   return (
     <html
@@ -71,7 +72,7 @@ export default async function LocaleLayout({
       <body className="font-sans antialiased">
         <NextIntlClientProvider messages={messages}>
           <Providers>
-            <Header />
+            <Header churchName={churchInfo?.name} />
             <main>{children}</main>
             <Footer />
           </Providers>

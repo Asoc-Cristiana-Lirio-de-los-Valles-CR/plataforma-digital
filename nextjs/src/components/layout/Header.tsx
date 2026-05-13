@@ -9,7 +9,7 @@ import { LanguageToggle } from '@/components/ui/LanguageToggle';
 import { NAV_LINKS } from '@/lib/constants';
 import { clsx } from 'clsx';
 
-export function Header() {
+export function Header({ churchName }: { churchName?: string }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const locale = useLocale();
@@ -50,7 +50,7 @@ export function Header() {
           <div className="flex items-center justify-between h-16 sm:h-18">
 
             {/* Logo */}
-            <Logo />
+            <Logo churchName={churchName} />
 
             {/* Desktop nav */}
             <nav className="hidden lg:flex items-center gap-1" aria-label="Navegación principal">
