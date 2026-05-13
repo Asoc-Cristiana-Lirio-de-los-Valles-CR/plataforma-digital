@@ -36,6 +36,9 @@ jobs:
             git checkout main
             git pull origin main
 
+            # Remove stale build cache (older than 24h) before rebuilding
+            docker builder prune --filter "until=24h" -f
+
             # Rebuild y rolling restart sin downtime
             docker compose build nextjs
             docker compose up -d --no-deps nextjs
@@ -47,5 +50,9 @@ jobs:
 
             echo "Production deploy OK"
             docker compose ps
+
+            # Cleanup: dangling images + trim build cache to 1GB
+            docker image prune -f
+            docker builder prune --keep-storage 1GB -f
         env:
           PRODUCTION_ENV_CONTENT: ${{ secrets.PRODUCTION_ENV_FILE }}
