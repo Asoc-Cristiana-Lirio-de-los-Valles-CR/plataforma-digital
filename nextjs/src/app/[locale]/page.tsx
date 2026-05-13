@@ -46,7 +46,7 @@ export default async function HomePage() {
             ].join(', '),
             backgroundSize: '300% 300%',
             filter: 'blur(30px)',
-            willChange: 'background-position',
+            transform: 'translateZ(0)',
           }}
           aria-hidden
         />
@@ -62,7 +62,7 @@ export default async function HomePage() {
             ].join(', '),
             backgroundSize: '300% 300%',
             filter: 'blur(35px)',
-            willChange: 'background-position',
+            transform: 'translateZ(0)',
           }}
           aria-hidden
         />
@@ -79,7 +79,7 @@ export default async function HomePage() {
             ].join(', '),
             backgroundSize: '250% 250%',
             filter: 'blur(25px)',
-            willChange: 'background-position',
+            transform: 'translateZ(0)',
           }}
           aria-hidden
         />
