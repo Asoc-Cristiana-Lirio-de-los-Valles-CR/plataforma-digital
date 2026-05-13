@@ -1,26 +1,56 @@
 import { getTranslations, getLocale } from 'next-intl/server';
-import { getChurchInfo } from '@/lib/directus';
+import Image from 'next/image';
+import { getChurchInfo, getChurchLeaders, getMinisterios } from '@/lib/directus';
 import { SITE, siteName } from '@/lib/constants';
 import type { Metadata } from 'next';
+import type { ChurchLeader } from '@/lib/types';
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: 'Historia' };
 }
 
+const ROLE_ORDER: Record<string, number> = {
+  pastor_general: 0,
+  pastor: 1,
+  anciano: 2,
+  lider: 3,
+};
+
+const ROLE_LABEL: Record<string, { es: string; en: string }> = {
+  pastor_general: { es: 'Pastor General', en: 'Senior Pastor' },
+  pastor: { es: 'Pastores', en: 'Pastors' },
+  anciano: { es: 'Ancianos', en: 'Elders' },
+  lider: { es: 'Líderes', en: 'Leaders' },
+};
+
+function groupByRole(leaders: ChurchLeader[]): Map<string, ChurchLeader[]> {
+  const map = new Map<string, ChurchLeader[]>();
+  const ordered = [...leaders].sort(
+    (a, b) => (ROLE_ORDER[a.role] ?? 99) - (ROLE_ORDER[b.role] ?? 99)
+  );
+  for (const leader of ordered) {
+    if (!map.has(leader.role)) map.set(leader.role, []);
+    map.get(leader.role)!.push(leader);
+  }
+  return map;
+}
+
+const DIRECTUS_URL = process.env.NEXT_PUBLIC_DIRECTUS_URL ?? 'https://admin.liriodelosvallescr.org';
+
 export default async function HistoriaPage() {
   const t = await getTranslations('history');
   const locale = await getLocale();
-  const info = await getChurchInfo();
+  const [info, leaders, ministerios] = await Promise.all([
+    getChurchInfo(),
+    getChurchLeaders(),
+    getMinisterios(),
+  ]);
 
-  const history = info
-    ? (locale === 'es' ? info.history : info.history_en)
-    : null;
-  const vision = info
-    ? (locale === 'es' ? info.vision : info.vision_en)
-    : null;
-  const mission = info
-    ? (locale === 'es' ? info.mission : info.mission_en)
-    : null;
+  const history = info ? (locale === 'es' ? info.history : info.history_en) : null;
+  const vision = info ? (locale === 'es' ? info.vision : info.vision_en) : null;
+  const mission = info ? (locale === 'es' ? info.mission : info.mission_en) : null;
+
+  const grouped = groupByRole(leaders);
 
   return (
     <>
@@ -105,6 +135,114 @@ export default async function HistoriaPage() {
           </div>
         </div>
       </section>
+
+      {/* Leadership */}
+      {leaders.length > 0 && (
+        <section className="section-padding">
+          <div className="container-page">
+            <div className="text-center mb-12">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <div className="gold-line" />
+                <div className="gold-line" />
+              </div>
+              <h2 className="section-title">
+                {locale === 'es' ? 'Nuestro Liderazgo' : 'Our Leadership'}
+              </h2>
+            </div>
+
+            {Array.from(grouped.entries()).map(([role, group]) => (
+              <div key={role} className="mb-14 last:mb-0">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="gold-line" />
+                  <h3 className="text-xs font-bold tracking-[0.2em] uppercase text-gold-500">
+                    {locale === 'es' ? ROLE_LABEL[role]?.es : ROLE_LABEL[role]?.en}
+                  </h3>
+                </div>
+
+                <div className={`grid gap-6 ${
+                  role === 'pastor_general'
+                    ? 'grid-cols-1 max-w-sm'
+                    : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'
+                }`}>
+                  {group.map((leader) => (
+                    <div key={leader.id} className="card p-6 text-center">
+                      {/* Photo */}
+                      <div className="w-20 h-20 rounded-full mx-auto mb-4 overflow-hidden bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center">
+                        {leader.photo ? (
+                          <Image
+                            src={`${DIRECTUS_URL}/assets/${leader.photo}?width=80&height=80&fit=cover`}
+                            alt={leader.name}
+                            width={80}
+                            height={80}
+                            className="object-cover w-full h-full"
+                          />
+                        ) : (
+                          <span className="text-2xl text-brand-400">✝</span>
+                        )}
+                      </div>
+                      <p className="font-display font-semibold text-brand-900 dark:text-white leading-snug">
+                        {leader.name}
+                      </p>
+                      <p className="text-xs text-gold-500 font-semibold uppercase tracking-wider mt-1">
+                        {leader.title || (locale === 'es' ? ROLE_LABEL[leader.role]?.es : ROLE_LABEL[leader.role]?.en)}
+                      </p>
+                      {(locale === 'es' ? leader.bio : leader.bio_en) && (
+                        <p className="text-sm text-muted mt-3 leading-relaxed">
+                          {locale === 'es' ? leader.bio : leader.bio_en}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Ministries */}
+      {ministerios.length > 0 && (
+        <section className="section-padding bg-subtle">
+          <div className="container-page">
+            <div className="text-center mb-12">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <div className="gold-line" />
+                <div className="gold-line" />
+              </div>
+              <h2 className="section-title">
+                {locale === 'es' ? 'Nuestros Ministerios' : 'Our Ministries'}
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+              {ministerios.map((m) => (
+                <div key={m.id} className="card p-6">
+                  <div className="flex items-start gap-4">
+                    {m.icon && (
+                      <span className="text-3xl flex-shrink-0">{m.icon}</span>
+                    )}
+                    <div>
+                      <h3 className="font-display font-semibold text-brand-900 dark:text-white mb-1">
+                        {locale === 'es' ? m.name : (m.name_en || m.name)}
+                      </h3>
+                      {m.leader_name && (
+                        <p className="text-xs text-gold-500 font-semibold uppercase tracking-wider mb-2">
+                          {m.leader_name}
+                        </p>
+                      )}
+                      {(locale === 'es' ? m.description : m.description_en) && (
+                        <p className="text-sm text-muted leading-relaxed">
+                          {locale === 'es' ? m.description : m.description_en}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Faith declaration */}
       <section className="section-padding">

@@ -1,5 +1,5 @@
 import { createDirectus, rest, readItems, readSingleton } from '@directus/sdk';
-import type { ServiceSchedule, WeeklyVerse, ChurchInfo } from './types';
+import type { ServiceSchedule, WeeklyVerse, ChurchInfo, ChurchLeader, Ministerio } from './types';
 
 // DIRECTUS_URL = server-side only (container-to-container, e.g. http://directus:8055)
 // NEXT_PUBLIC_DIRECTUS_URL = browser-side (e.g. https://admin.liriodelosvallescr.org)
@@ -38,6 +38,34 @@ export async function getChurchInfo(): Promise<ChurchInfo | null> {
     return (result as unknown as ChurchInfo) ?? null;
   } catch {
     return null;
+  }
+}
+
+export async function getChurchLeaders(): Promise<ChurchLeader[]> {
+  try {
+    return await directus.request(
+      readItems('church_leaders', {
+        sort: ['sort', 'name'],
+        filter: { status: { _eq: 'published' } },
+        fields: ['*'],
+      })
+    ) as ChurchLeader[];
+  } catch {
+    return [];
+  }
+}
+
+export async function getMinisterios(): Promise<Ministerio[]> {
+  try {
+    return await directus.request(
+      readItems('ministerios', {
+        sort: ['sort', 'name'],
+        filter: { status: { _eq: 'published' } },
+        fields: ['*'],
+      })
+    ) as Ministerio[];
+  } catch {
+    return [];
   }
 }
 
