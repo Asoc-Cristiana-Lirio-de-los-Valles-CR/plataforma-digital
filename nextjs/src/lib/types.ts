@@ -100,3 +100,54 @@ export interface VideoItem {
   thumbnail: string;
   publishedAt?: string;
 }
+
+export interface SermonTag {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface Preacher {
+  id: string;
+  name: string;
+  slug: string;
+  bio: string | null;
+  photo: string | null;
+  active: boolean;
+}
+
+export interface SermonSeries {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  cover_image: string | null;
+  year: number;
+  sort_order: number;
+  active: boolean;
+}
+
+export interface Sermon {
+  id: string;
+  title: string;
+  slug: string;
+  youtube_id: string;
+  youtube_status: 'available' | 'unavailable';
+  visibility: 'public' | 'unlisted' | 'private';
+  featured: boolean;
+  description: string | null;
+  sermon_date: string | null;
+  duration_seconds: number | null;
+  thumbnail_url: string;
+  manual_thumbnail: string | null;
+  preacher: Preacher | null;
+  series: SermonSeries | null;
+  tags: SermonTag[];
+  suggested_preacher: string | null;
+  suggested_series: string | null;
+  raw_youtube_title: string;
+  imported_at: string;
+  last_synced_at: string | null;
+  youtube_published_at: string | null;
+  view_count: number;
+}
