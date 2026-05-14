@@ -2,11 +2,12 @@ import { test, expect } from '@playwright/test';
 
 test('navigation links visible on homepage', async ({ page }) => {
   await page.goto('/es/');
-  await expect(page.getByRole('link', { name: /inicio/i })).toBeVisible();
-  await expect(page.getByRole('link', { name: /historia/i })).toBeVisible();
-  await expect(page.getByRole('link', { name: /en vivo/i })).toBeVisible();
-  await expect(page.getByRole('link', { name: /donar/i })).toBeVisible();
-  await expect(page.getByRole('link', { name: /contacto/i })).toBeVisible();
+  const nav = page.getByRole('navigation', { name: /navegación principal/i });
+  await expect(nav.getByRole('link', { name: /inicio/i })).toBeVisible();
+  await expect(nav.getByRole('link', { name: /historia/i })).toBeVisible();
+  await expect(nav.getByRole('link', { name: /en vivo/i })).toBeVisible();
+  await expect(nav.getByRole('link', { name: /donar/i })).toBeVisible();
+  await expect(nav.getByRole('link', { name: /contacto/i })).toBeVisible();
 });
 
 test('dark mode toggle switches theme', async ({ page }) => {
