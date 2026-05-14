@@ -84,5 +84,23 @@
     "readMore": "Read more",
     "viewAll": "View all",
     "back": "Back"
+  },
+  "biblioteca": {
+    "title": "Sermon Library",
+    "subtitle": "Sermons, series and messages from Lirio de los Valles Church",
+    "featured": "Featured sermon",
+    "recentSermons": "Recent sermons",
+    "allSeries": "All series",
+    "searchPlaceholder": "Search sermons...",
+    "noResults": "No sermons found for that criteria.",
+    "viewAll": "View all",
+    "preacher": "Preacher",
+    "series": "Series",
+    "duration": "Duration",
+    "publishedOn": "Published on",
+    "relatedSermons": "Related sermons",
+    "backToLibrary": "← Back to library",
+    "watchOnYouTube": "Watch on YouTube",
+    "metaDescription": "Sermon library from Iglesia Cristiana Lirio de los Valles."
   }
 }
