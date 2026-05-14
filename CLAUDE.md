@@ -43,13 +43,18 @@ Antes de cualquier tarea, verificar que los siguientes plugins estén activos:
 
 ## Roles del sistema (Directus)
 
-| Rol | Quién | Permisos |
-|-----|-------|---------|
-| `root` | Técnico del servidor | Acceso total sistema + Directus superadmin |
-| `admin` | Liderazgo iglesia | Todo el contenido + gestión usuarios + aprobación accesos |
-| `editor` | Líderes ministerios | Crear/editar noticias, eventos, predicaciones, galería |
-| `asociado` | Miembro aprobado asociación | Ver/descargar documentos transparencia financiera |
-| `publico` | Visitante anónimo | Sitio público únicamente |
+| Rol | Directus Role | admin_access | Quién | Permisos |
+|-----|--------------|:------------:|-------|---------|
+| `root` | Administrator | ✅ true | Técnico servidor | Control total: usuarios, roles, settings, colecciones, contenido |
+| `admin` | Administrador CMS | ❌ false | Liderazgo iglesia | Contenido CMS + gestión usuarios no-root. Sin acceso a roles/settings/system |
+| `editor` | Editor | ❌ false | Líderes ministerios | Crear/editar noticias, eventos, predicaciones, galería — Fase 2 |
+| `asociado` | Asociado | ❌ false | Miembro aprobado | Ver/descargar documentos transparencia financiera — Fase 2 |
+| `publico` | (Public policy) | ❌ false | Visitante anónimo | Sitio público únicamente |
+
+Restricciones de seguridad implementadas en Administrador CMS:
+- Permisos con filtro `role._neq=66a4441e...` — root@ invisible e inmodificable
+- Campo `role` bloqueado en updates — evita escalación de privilegios
+- Sin acceso a: directus_roles, directus_policies, directus_permissions, directus_collections, directus_settings
 
 ## Variables de entorno
 
@@ -130,23 +135,28 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 
 ## Gestión de usuarios
 
-**Regla obligatoria**: Cada vez que se crea, modifica o elimina un usuario en cualquier sistema (Directus, PostgreSQL, Umami, Azure, Cloudflare), actualizar `usuarios.txt` en la raíz del proyecto.
+**Regla obligatoria**: Cada vez que se crea, modifica o elimina un usuario en cualquier sistema (Directus, PostgreSQL, Umami, Azure, Cloudflare), actualizar `credenciales.txt` en la raíz del proyecto.
 
-- `usuarios.txt` está en `.gitignore` — **NO** se sube al repo (contiene referencias a credenciales dev)
+- `credenciales.txt` está en `.gitignore` — **NO** se sube al repo
 - Mantener actualizado localmente como referencia del equipo técnico
-- Nunca escribir contraseñas reales directamente — solo números de SINPE, cuentas bancarias ficticias de dev, etc.
+- Operaciones administrativas (crear roles, cambiar políticas): usar `root@liriodelosvallescr.org`
+- Gestión de contenido y usuarios normales: usar `admin@liriodelosvallescr.org`
 
-## Estado del stack (2026-05-11)
+## Estado del stack (2026-05-13)
 
 - Next.js 15.3.3 — CVE-2025-66478 corregido
 - Healthchecks: usan `node` (no `wget` — no disponible en imágenes Alpine)
 - `version:` eliminado de docker-compose (obsoleto en Compose v2)
-- Colecciones Directus creadas via API: `service_schedule`, `weekly_verse`, `church_info`, `contact_messages`
+- Colecciones Directus: `service_schedule`, `weekly_verse`, `church_info`, `contact_messages`, `church_leaders`, `ministerios`
 - Permisos públicos de lectura activos en service_schedule, weekly_verse, church_info
 - GitHub repo activo: `Asoc-Cristiana-Lirio-de-los-Valles-CR/plataforma-digital`
 - CI/CD: workflows en `.github/workflows/` (ci.yml, deploy-dev.yml, deploy-prod.yml)
 - Branch protection activo en `main` y `dev`
 - `DIRECTUS_URL=http://directus:8055` requerido en contenedor Next.js (server-side fetch)
+- Roles RBAC implementados: Administrator (root@) + Administrador CMS (admin@) con filtros de seguridad
+- Favicon, apple-icon, OG image generados con Next.js ImageResponse
+- Footer y ContactPage convertidos a Server Components
+- robots.txt y rutas estáticas excluidas del middleware i18n
 
 ## Documentación técnica
 

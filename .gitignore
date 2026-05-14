@@ -47,3 +47,6 @@ backup_*/
 !nextjs/public/*.svg
 !nextjs/src/app/icon.png
 .playwright-mcp/
+
+# Git worktrees
+.worktrees/

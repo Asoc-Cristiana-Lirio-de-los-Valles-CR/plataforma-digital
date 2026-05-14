@@ -1,0 +1,39 @@
+{
+  "name": "Portal Lirio de los Valles",
+  "short_name": "Portal Lirio",
+  "description": "Portal exclusivo para asociados de la Iglesia Cristiana Lirio de los Valles",
+  "start_url": "/es/asociados",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0a19",
+  "theme_color": "#461a7a",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "/logo.webp",
+      "sizes": "192x192",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Documentos",
+      "url": "/es/asociados/documentos",
+      "description": "Ver documentos de la asociación"
+    },
+    {
+      "name": "Comunicados",
+      "url": "/es/asociados/comunicados",
+      "description": "Ver comunicados"
+    }
+  ],
+  "categories": ["productivity", "social"]
+}

@@ -26,6 +26,10 @@ const cormorant = Cormorant_Garamond({
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://liriodelosvallescr.org';
 
+export const viewport = {
+  themeColor: '#461a7a',
+};
+
 export const metadata: Metadata = {
   title: {
     default: 'Iglesia Cristiana Lirio de los Valles',
@@ -51,6 +55,7 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  manifest: '/manifest.webmanifest',
 };
 
 export default async function LocaleLayout({

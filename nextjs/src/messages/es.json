@@ -84,5 +84,23 @@
     "readMore": "Leer más",
     "viewAll": "Ver todos",
     "back": "Volver"
+  },
+  "biblioteca": {
+    "title": "Biblioteca de Predicaciones",
+    "subtitle": "Predicaciones, series y mensajes de la Iglesia Lirio de los Valles",
+    "featured": "Predicación destacada",
+    "recentSermons": "Predicaciones recientes",
+    "allSeries": "Todas las series",
+    "searchPlaceholder": "Buscar predicaciones...",
+    "noResults": "No se encontraron predicaciones con ese criterio.",
+    "viewAll": "Ver todas",
+    "preacher": "Predicador",
+    "series": "Serie",
+    "duration": "Duración",
+    "publishedOn": "Publicado el",
+    "relatedSermons": "Predicaciones relacionadas",
+    "backToLibrary": "← Volver a la biblioteca",
+    "watchOnYouTube": "Ver en YouTube",
+    "metaDescription": "Biblioteca de predicaciones y mensajes de la Iglesia Cristiana Lirio de los Valles."
   }
 }
