@@ -6,7 +6,7 @@ import type { NextRequest } from 'next/server';
 const intlMiddleware = createIntlMiddleware({
   locales: ['es', 'en'],
   defaultLocale: 'es',
-  localeDetection: true,
+  localeDetection: false,
 });
 
 // Routes that require authentication inside /asociados
