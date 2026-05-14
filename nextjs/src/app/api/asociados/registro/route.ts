@@ -20,6 +20,13 @@ function checkRegLimit(ip: string): boolean {
 }
 
 export async function POST(request: NextRequest) {
+  // CSRF: only accept requests from the same origin
+  const origin = request.headers.get('origin');
+  const siteUrl = process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? '';
+  if (!origin || (siteUrl && !origin.startsWith(siteUrl))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const ip = request.headers.get('x-forwarded-for') ?? '';
   if (!checkRegLimit(ip)) {
     return NextResponse.json({ error: 'Demasiados intentos. Intenta más tarde.' }, { status: 429 });

@@ -89,6 +89,9 @@ export async function GET(
         'Content-Disposition': disposition,
         'Cache-Control': 'private, no-store',
         'X-Robots-Tag': 'noindex',
+        'X-Content-Type-Options': 'nosniff',
+        'Referrer-Policy': 'no-referrer',
+        'Content-Security-Policy': "default-src 'none'",
       },
     });
   } catch (err) {
