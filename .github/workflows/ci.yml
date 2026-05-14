@@ -56,6 +56,10 @@ jobs:
           REDIS_PORT=6379
           NEXT_PUBLIC_DIRECTUS_URL=http://localhost:8055
           NEXT_PUBLIC_SITE_URL=http://localhost:3000
+          AUTH_SECRET=ci-auth-secret-32-chars-lirio-2026
+          NEXTAUTH_URL=http://localhost:3000
+          DIRECTUS_ADMIN_TOKEN=ci-admin-token-placeholder
+          DIRECTUS_DOCUMENTS_TOKEN=ci-docs-token-placeholder
           EOF
 
       - name: Start Directus stack
