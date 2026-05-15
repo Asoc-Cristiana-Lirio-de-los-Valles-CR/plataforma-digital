@@ -153,18 +153,78 @@ export async function getSeriesWithSermons(slug: string): Promise<{ series: Serm
   }
 }
 
-export async function searchSermons(query: string, limit = 200): Promise<Sermon[]> {
+const MONTH_NAMES: Record<string, string> = {
+  enero: '01', january: '01',
+  febrero: '02', february: '02',
+  marzo: '03', march: '03',
+  abril: '04', april: '04',
+  mayo: '05', may: '05',
+  junio: '06', june: '06',
+  julio: '07', july: '07',
+  agosto: '08', august: '08',
+  septiembre: '09', september: '09',
+  octubre: '10', october: '10',
+  noviembre: '11', november: '11',
+  diciembre: '12', december: '12',
+};
+
+function buildDateFilters(q: string): Record<string, unknown>[] {
+  const filters: Record<string, unknown>[] = [];
+  const trimmed = q.trim().toLowerCase();
+
+  // Full year: "2010"
+  if (/^\d{4}$/.test(trimmed)) {
+    const yr = trimmed;
+    filters.push({ sermon_date: { _gte: `${yr}-01-01`, _lte: `${yr}-12-31` } });
+    return filters; // year match is unambiguous, skip text search
+  }
+
+  // Month name: "mayo", "enero", etc.
+  const monthNum = MONTH_NAMES[trimmed];
+  if (monthNum) {
+    // sermon_date contains "-MM-" pattern
+    filters.push({ sermon_date: { _contains: `-${monthNum}-` } });
+    return filters;
+  }
+
+  // "mayo 2024" or "2024 mayo"
+  const monthYearMatch = trimmed.match(/^(\w+)\s+(\d{4})$/) ?? trimmed.match(/^(\d{4})\s+(\w+)$/);
+  if (monthYearMatch) {
+    const [, a, b] = monthYearMatch;
+    const month = MONTH_NAMES[a.toLowerCase()] ?? MONTH_NAMES[b.toLowerCase()];
+    const year = /^\d{4}$/.test(a) ? a : /^\d{4}$/.test(b) ? b : null;
+    if (month && year) {
+      filters.push({ sermon_date: { _gte: `${year}-${month}-01`, _lte: `${year}-${month}-31` } });
+      return filters;
+    }
+  }
+
+  // Day number only: "15" — ambiguous, include as date fragment alongside text
+  if (/^\d{1,2}$/.test(trimmed)) {
+    const day = trimmed.padStart(2, '0');
+    filters.push({ sermon_date: { _contains: `-${day}` } });
+  }
+
+  return filters;
+}
+
+export async function searchSermons(query: string, limit = 300): Promise<Sermon[]> {
   if (!query.trim()) return [];
   try {
+    const dateFilters = buildDateFilters(query.trim());
+    const orClauses: Record<string, unknown>[] = [
+      { title: { _icontains: query } },
+      { description: { _icontains: query } },
+      { raw_youtube_title: { _icontains: query } },
+      ...dateFilters,
+    ];
+
     return await directus.request(
       readItems('sermons', {
         filter: {
           visibility: { _eq: 'public' },
           youtube_status: { _eq: 'available' },
-          _or: [
-            { title: { _icontains: query } },
-            { description: { _icontains: query } },
-          ],
+          _or: orClauses,
         },
         sort: ['-sermon_date', '-youtube_published_at'],
         limit,
