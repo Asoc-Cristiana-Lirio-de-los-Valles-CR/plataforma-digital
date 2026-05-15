@@ -131,11 +131,14 @@ async function fetchYouTubePage(
     if (detailsRes.ok) {
       const details = await detailsRes.json();
       const detailMap = new Map((details.items ?? []).map((d: Record<string, unknown>) => [d.id, d]));
-      enriched = rawItems.map((item: YouTubeVideoItem) => ({
-        ...item,
-        contentDetails: (detailMap.get(item.id.videoId) as Record<string, unknown>)?.contentDetails,
-        statistics: (detailMap.get(item.id.videoId) as Record<string, unknown>)?.statistics,
-      }));
+      enriched = rawItems.map((item: YouTubeVideoItem) => {
+        const detail = detailMap.get(item.id.videoId) as Record<string, unknown> | undefined;
+        return {
+          ...item,
+          contentDetails: detail?.contentDetails as YouTubeVideoItem['contentDetails'],
+          statistics: detail?.statistics as YouTubeVideoItem['statistics'],
+        };
+      });
     }
   }
 
