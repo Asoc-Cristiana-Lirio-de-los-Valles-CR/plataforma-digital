@@ -142,12 +142,12 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 - Operaciones administrativas (crear roles, cambiar políticas): usar `root@liriodelosvallescr.org`
 - Gestión de contenido y usuarios normales: usar `admin@liriodelosvallescr.org`
 
-## Estado del stack (2026-05-13)
+## Estado del stack (2026-05-15)
 
 - Next.js 15.3.3 — CVE-2025-66478 corregido
 - Healthchecks: usan `node` (no `wget` — no disponible en imágenes Alpine)
 - `version:` eliminado de docker-compose (obsoleto en Compose v2)
-- Colecciones Directus: `service_schedule`, `weekly_verse`, `church_info`, `contact_messages`, `church_leaders`, `ministerios`
+- Colecciones Directus: `service_schedule`, `weekly_verse`, `church_info`, `contact_messages`, `church_leaders`, `ministerios`, `team_documents`
 - Permisos públicos de lectura activos en service_schedule, weekly_verse, church_info
 - GitHub repo activo: `Asoc-Cristiana-Lirio-de-los-Valles-CR/plataforma-digital`
 - CI/CD: workflows en `.github/workflows/` (ci.yml, deploy-dev.yml, deploy-prod.yml)
@@ -157,6 +157,9 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 - Favicon, apple-icon, OG image generados con Next.js ImageResponse
 - Footer y ContactPage convertidos a Server Components
 - robots.txt y rutas estáticas excluidas del middleware i18n
+- Biblioteca: búsqueda server-side por título/fecha (año, mes, día), carrusel de años, filtro por predicador/serie
+- YouTube sync: detecta videos borrados y los marca `youtube_status=unavailable` (ocultos en web)
+- Zona Equipo (`/equipo/manuales`): protegida por HMAC-SHA256 cookie (TEAM_SECRET). Middleware Edge Runtime usa Web Crypto API. Documentos con `visibility=private` requieren cookie; `visibility=link` accesibles por enlace directo sin cookie. Sin descarga — solo `Content-Disposition: inline`. SSH VPS: `lirio@20.12.207.240` con `~/.ssh/lirio_azure_key`. Proyecto en `/opt/lirio/app`
 
 ## Documentación técnica
 
