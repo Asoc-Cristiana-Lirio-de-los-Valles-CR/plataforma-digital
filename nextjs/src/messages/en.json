@@ -2,9 +2,11 @@
   "nav": {
     "home": "Home",
     "history": "Our Story",
+    "library": "Library",
     "live": "Live",
     "donate": "Donate",
-    "contact": "Contact"
+    "contact": "Contact",
+    "members": "Members"
   },
   "home": {
     "title": "Welcome Home",
