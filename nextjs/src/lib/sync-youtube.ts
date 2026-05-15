@@ -78,21 +78,52 @@ function generateSlug(title: string, youtubeId: string): string {
   return `${base}-${youtubeId.slice(-4)}`;
 }
 
+async function getUploadsPlaylistId(apiKey: string, channelId: string): Promise<string> {
+  const url = `${YT_API_BASE}/channels?part=contentDetails&id=${channelId}&key=${apiKey}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`YouTube channels API error: ${res.status}`);
+  const data = await res.json();
+  const playlistId = data.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+  if (!playlistId) throw new Error('Could not find uploads playlist');
+  return playlistId;
+}
+
 async function fetchYouTubePage(
   apiKey: string,
   channelId: string,
   pageToken?: string,
   publishedAfter?: string
 ): Promise<{ items: YouTubeVideoItem[]; nextPageToken?: string }> {
-  let url = `${YT_API_BASE}/search?part=snippet&channelId=${channelId}&type=video&order=date&maxResults=50&key=${apiKey}`;
+  // Use uploads playlist — returns ALL videos including livestream replays (search.list misses them)
+  const playlistId = await getUploadsPlaylistId(apiKey, channelId);
+  let url = `${YT_API_BASE}/playlistItems?part=snippet,contentDetails&playlistId=${playlistId}&maxResults=50&key=${apiKey}`;
   if (pageToken) url += `&pageToken=${pageToken}`;
-  if (publishedAfter) url += `&publishedAfter=${encodeURIComponent(publishedAfter)}`;
 
   const res = await fetch(url);
   if (!res.ok) throw new Error(`YouTube API error: ${res.status}`);
   const data = await res.json();
 
-  const videoIds = (data.items ?? []).map((i: YouTubeVideoItem) => i.id.videoId).join(',');
+  // Normalize playlistItems shape to match VideoItem shape expected downstream
+  const rawItems = (data.items ?? [])
+    .filter((i: Record<string, unknown>) => (i.contentDetails as Record<string, unknown>)?.videoId)
+    .map((i: Record<string, unknown>) => {
+      const snippet = i.snippet as Record<string, unknown>;
+      const videoId = (i.contentDetails as Record<string, unknown>).videoId as string;
+      const pub = (snippet.videoPublishedAt ?? snippet.publishedAt) as string;
+      if (publishedAfter && pub < publishedAfter) return null;
+      return {
+        id: { videoId },
+        snippet: {
+          title: snippet.title,
+          description: snippet.description,
+          publishedAt: pub,
+          thumbnails: snippet.thumbnails,
+        },
+      };
+    })
+    .filter(Boolean) as YouTubeVideoItem[];
+
+  const videoIds = rawItems.map((i: YouTubeVideoItem) => i.id.videoId).join(',');
   let enriched = data.items ?? [];
   if (videoIds) {
     const detailsUrl = `${YT_API_BASE}/videos?part=contentDetails,statistics&id=${videoIds}&key=${apiKey}`;
@@ -204,8 +235,10 @@ export async function runYoutubeSync(options: {
       }
     }
 
+    // For incremental: stop when page returned 0 items (all filtered by publishedAfter)
+    if (!options.full && items.length === 0) break;
     pageToken = nextPageToken;
-  } while (pageToken && options.full);
+  } while (pageToken);
 
   return result;
 }
