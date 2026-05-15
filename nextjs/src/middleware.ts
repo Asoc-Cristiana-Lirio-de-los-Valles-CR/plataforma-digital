@@ -1,11 +1,13 @@
-import { createHmac } from 'crypto';
 import { getToken } from 'next-auth/jwt';
 import createIntlMiddleware from 'next-intl/middleware';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-function computeTeamToken(secret: string): string {
-  return createHmac('sha256', secret).update('team-access').digest('hex');
+async function computeTeamToken(secret: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode('team-access'));
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 const intlMiddleware = createIntlMiddleware({
@@ -24,15 +26,20 @@ export async function middleware(request: NextRequest) {
 
   if (localePath.startsWith('/equipo') && !localePath.startsWith('/equipo/acceso')) {
     const secret = process.env.TEAM_SECRET;
-    const expected = secret ? computeTeamToken(secret) : null;
-    const teamCookie = request.cookies.get('team_access');
     const locale = localeMatch?.[1] ?? 'es';
 
-    if (!expected || teamCookie?.value !== expected) {
+    if (!secret) {
+      return NextResponse.redirect(new URL(`/${locale}/equipo/acceso`, request.url));
+    }
+
+    const expected = await computeTeamToken(secret);
+    const teamCookie = request.cookies.get('team_access');
+
+    if (teamCookie?.value !== expected) {
       const key = request.nextUrl.searchParams.get('key');
       if (key && key === secret) {
         const response = NextResponse.redirect(new URL(`/${locale}/equipo/manuales`, request.url));
-        response.cookies.set('team_access', expected!, {
+        response.cookies.set('team_access', expected, {
           httpOnly: true,
           secure: true,
           sameSite: 'lax',

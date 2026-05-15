@@ -1,8 +1,10 @@
-import { createHmac } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
-function computeTeamToken(secret: string): string {
-  return createHmac('sha256', secret).update('team-access').digest('hex');
+async function computeTeamToken(secret: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode('team-access'));
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 export async function POST(request: NextRequest) {
@@ -14,7 +16,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Clave incorrecta' }, { status: 401 });
   }
 
-  const token = computeTeamToken(secret);
+  const token = await computeTeamToken(secret);
 
   const response = NextResponse.json({ ok: true });
   response.cookies.set('team_access', token, {

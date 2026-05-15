@@ -1,25 +1,27 @@
-import { createHmac } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL ?? 'http://directus:8055';
 const ADMIN_TOKEN = process.env.DIRECTUS_ADMIN_TOKEN!;
 
-function computeTeamToken(secret: string): string {
-  return createHmac('sha256', secret).update('team-access').digest('hex');
+async function computeTeamToken(secret: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode('team-access'));
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function isAuthorized(request: NextRequest): boolean {
+async function isAuthorized(request: NextRequest): Promise<boolean> {
   const secret = process.env.TEAM_SECRET;
   if (!secret) return false;
   const cookie = request.cookies.get('team_access');
-  return cookie?.value === computeTeamToken(secret);
+  return cookie?.value === await computeTeamToken(secret);
 }
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!isAuthorized(request)) {
+  if (!await isAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
