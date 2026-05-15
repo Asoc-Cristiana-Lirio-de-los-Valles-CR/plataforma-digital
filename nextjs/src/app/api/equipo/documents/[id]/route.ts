@@ -33,7 +33,7 @@ export async function GET(
     if (!docRes.ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
     const { data: doc } = await docRes.json();
-    if (!doc || doc.status !== 'active') {
+    if (!doc || doc.status !== 'published') {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 

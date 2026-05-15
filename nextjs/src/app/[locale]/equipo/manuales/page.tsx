@@ -44,7 +44,7 @@ interface TeamDocument {
 async function getTeamDocuments(): Promise<TeamDocument[]> {
   try {
     const res = await fetch(
-      `${DIRECTUS_URL}/items/team_documents?filter[status][_eq]=active&sort[]=sort&sort[]=-date_created&fields=id,title,description,category,file,status,date_created`,
+      `${DIRECTUS_URL}/items/team_documents?filter[status][_eq]=published&sort[]=sort&sort[]=-date_created&fields=id,title,description,category,file,status,date_created`,
       { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }, cache: 'no-store' }
     );
     const data = await res.json();
