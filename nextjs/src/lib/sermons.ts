@@ -20,7 +20,7 @@ export async function getSermons(limit = 50): Promise<Sermon[]> {
   try {
     return await directus.request(
       readItems('sermons', {
-        filter: { visibility: { _eq: 'public' } },
+        filter: { visibility: { _eq: 'public' }, youtube_status: { _eq: 'available' } },
         sort: ['-sermon_date', '-youtube_published_at'],
         limit,
         fields: SERMON_FIELDS as unknown as string[],
@@ -35,7 +35,7 @@ export async function getFeaturedSermon(): Promise<Sermon | null> {
   try {
     const results = await directus.request(
       readItems('sermons', {
-        filter: { visibility: { _eq: 'public' }, featured: { _eq: true } },
+        filter: { visibility: { _eq: 'public' }, youtube_status: { _eq: 'available' }, featured: { _eq: true } },
         sort: ['-sermon_date', '-youtube_published_at'],
         limit: 1,
         fields: SERMON_FIELDS as unknown as string[],
@@ -45,7 +45,7 @@ export async function getFeaturedSermon(): Promise<Sermon | null> {
 
     const recent = await directus.request(
       readItems('sermons', {
-        filter: { visibility: { _eq: 'public' } },
+        filter: { visibility: { _eq: 'public' }, youtube_status: { _eq: 'available' } },
         sort: ['-sermon_date', '-youtube_published_at'],
         limit: 1,
         fields: SERMON_FIELDS as unknown as string[],
@@ -76,6 +76,7 @@ export async function getRelatedSermons(sermon: Sermon, limit = 3): Promise<Serm
   try {
     const filter: Record<string, unknown> = {
       visibility: { _eq: 'public' },
+      youtube_status: { _eq: 'available' },
       id: { _neq: sermon.id },
     };
 
@@ -97,7 +98,7 @@ export async function getRelatedSermons(sermon: Sermon, limit = 3): Promise<Serm
     if (results.length < limit) {
       const recent = await directus.request(
         readItems('sermons', {
-          filter: { visibility: { _eq: 'public' }, id: { _nin: [sermon.id, ...results.map(s => s.id)] } },
+          filter: { visibility: { _eq: 'public' }, youtube_status: { _eq: 'available' }, id: { _nin: [sermon.id, ...results.map(s => s.id)] } },
           sort: ['-sermon_date', '-youtube_published_at'],
           limit: limit - results.length,
           fields: SERMON_FIELDS as unknown as string[],
@@ -140,7 +141,7 @@ export async function getSeriesWithSermons(slug: string): Promise<{ series: Serm
     const series = seriesResults[0];
     const sermons = await directus.request(
       readItems('sermons', {
-        filter: { visibility: { _eq: 'public' }, series: { id: { _eq: series.id } } },
+        filter: { visibility: { _eq: 'public' }, youtube_status: { _eq: 'available' }, series: { id: { _eq: series.id } } },
         sort: ['-sermon_date', '-youtube_published_at'],
         fields: SERMON_FIELDS as unknown as string[],
       })
@@ -157,7 +158,7 @@ export async function getAvailableYears(): Promise<number[]> {
     // Fetch minimal fields to derive distinct years
     const results = await directus.request(
       readItems('sermons', {
-        filter: { visibility: { _eq: 'public' } },
+        filter: { visibility: { _eq: 'public' }, youtube_status: { _eq: 'available' } },
         fields: ['sermon_date'],
         limit: -1,
       })
@@ -179,6 +180,7 @@ export async function getSermonsByYear(year: number, limit = 500): Promise<Sermo
       readItems('sermons', {
         filter: {
           visibility: { _eq: 'public' },
+          youtube_status: { _eq: 'available' },
           sermon_date: { _gte: from, _lte: to },
         },
         sort: ['-sermon_date', '-youtube_published_at'],
@@ -219,7 +221,7 @@ export async function getPreacherWithSermons(slug: string): Promise<{ preacher: 
     const preacher = preachers[0];
     const sermons = await directus.request(
       readItems('sermons', {
-        filter: { visibility: { _eq: 'public' }, preacher: { id: { _eq: preacher.id } } },
+        filter: { visibility: { _eq: 'public' }, youtube_status: { _eq: 'available' }, preacher: { id: { _eq: preacher.id } } },
         sort: ['-sermon_date', '-youtube_published_at'],
         fields: SERMON_FIELDS as unknown as string[],
       })

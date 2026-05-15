@@ -3,6 +3,7 @@ const YT_API_BASE = 'https://www.googleapis.com/youtube/v3';
 export interface SyncResult {
   inserted: number;
   updated: number;
+  unavailable: number;
   errors: string[];
 }
 
@@ -209,8 +210,11 @@ export async function runYoutubeSync(options: {
   const directusUrl = process.env.DIRECTUS_URL ?? 'http://directus:8055';
   const adminToken = process.env.DIRECTUS_ADMIN_TOKEN!;
 
-  const result: SyncResult = { inserted: 0, updated: 0, errors: [] };
+  const result: SyncResult = { inserted: 0, updated: 0, unavailable: 0, errors: [] };
   const syncedAt = new Date().toISOString();
+
+  // Track all YouTube video IDs seen during full sync to detect deletions
+  const seenYouTubeIds = new Set<string>();
 
   let pageToken: string | undefined;
 
@@ -222,6 +226,8 @@ export async function runYoutubeSync(options: {
     for (const video of items) {
       try {
         const videoId = video.id.videoId;
+        if (options.full) seenYouTubeIds.add(videoId);
+
         const checkRes = await fetch(
           `${directusUrl}/items/sermons?filter[youtube_id][_eq]=${videoId}&fields=id&limit=1`,
           { headers: { Authorization: `Bearer ${adminToken}` } }
@@ -243,5 +249,49 @@ export async function runYoutubeSync(options: {
     pageToken = nextPageToken;
   } while (pageToken);
 
+  // Full sync: mark DB sermons not seen on YouTube as unavailable
+  if (options.full && seenYouTubeIds.size > 0) {
+    result.unavailable = await markUnavailableSermons(directusUrl, adminToken, seenYouTubeIds, syncedAt);
+  }
+
   return result;
+}
+
+async function markUnavailableSermons(
+  directusUrl: string,
+  adminToken: string,
+  seenIds: Set<string>,
+  syncedAt: string
+): Promise<number> {
+  // Fetch all DB sermons that are currently marked available
+  let offset = 0;
+  const pageSize = 500;
+  let marked = 0;
+
+  while (true) {
+    const res = await fetch(
+      `${directusUrl}/items/sermons?filter[youtube_status][_eq]=available&fields=id,youtube_id&limit=${pageSize}&offset=${offset}`,
+      { headers: { Authorization: `Bearer ${adminToken}` } }
+    );
+    if (!res.ok) break;
+    const data = await res.json();
+    const items: { id: string; youtube_id: string }[] = data?.data ?? [];
+    if (items.length === 0) break;
+
+    for (const item of items) {
+      if (item.youtube_id && !seenIds.has(item.youtube_id)) {
+        await fetch(`${directusUrl}/items/sermons/${item.id}`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ youtube_status: 'unavailable', last_synced_at: syncedAt }),
+        });
+        marked++;
+      }
+    }
+
+    if (items.length < pageSize) break;
+    offset += pageSize;
+  }
+
+  return marked;
 }
