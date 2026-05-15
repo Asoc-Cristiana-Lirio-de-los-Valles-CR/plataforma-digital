@@ -168,56 +168,68 @@ const MONTH_NAMES: Record<string, string> = {
   diciembre: '12', december: '12',
 };
 
-function buildDateFilters(q: string): Record<string, unknown>[] {
-  const filters: Record<string, unknown>[] = [];
+interface DateFilterResult {
+  filters: Record<string, unknown>[];
+  exclusive: boolean; // true = skip text search, date filter is definitive
+}
+
+function buildDateFilters(q: string): DateFilterResult {
   const trimmed = q.trim().toLowerCase();
 
-  // Full year: "2010"
+  // Full year: "2010" — exclusive, don't mix with text search
   if (/^\d{4}$/.test(trimmed)) {
-    const yr = trimmed;
-    filters.push({ sermon_date: { _gte: `${yr}-01-01`, _lte: `${yr}-12-31` } });
-    return filters; // year match is unambiguous, skip text search
+    return {
+      filters: [{ sermon_date: { _gte: `${trimmed}-01-01`, _lte: `${trimmed}-12-31` } }],
+      exclusive: true,
+    };
   }
 
-  // Month name: "mayo", "enero", etc.
+  // Month name: "mayo" — exclusive
   const monthNum = MONTH_NAMES[trimmed];
   if (monthNum) {
-    // sermon_date contains "-MM-" pattern
-    filters.push({ sermon_date: { _contains: `-${monthNum}-` } });
-    return filters;
+    return {
+      filters: [{ sermon_date: { _contains: `-${monthNum}-` } }],
+      exclusive: true,
+    };
   }
 
-  // "mayo 2024" or "2024 mayo"
+  // "mayo 2024" or "2024 mayo" — exclusive
   const monthYearMatch = trimmed.match(/^(\w+)\s+(\d{4})$/) ?? trimmed.match(/^(\d{4})\s+(\w+)$/);
   if (monthYearMatch) {
     const [, a, b] = monthYearMatch;
     const month = MONTH_NAMES[a.toLowerCase()] ?? MONTH_NAMES[b.toLowerCase()];
     const year = /^\d{4}$/.test(a) ? a : /^\d{4}$/.test(b) ? b : null;
     if (month && year) {
-      filters.push({ sermon_date: { _gte: `${year}-${month}-01`, _lte: `${year}-${month}-31` } });
-      return filters;
+      return {
+        filters: [{ sermon_date: { _gte: `${year}-${month}-01`, _lte: `${year}-${month}-31` } }],
+        exclusive: true,
+      };
     }
   }
 
-  // Day number only: "15" — ambiguous, include as date fragment alongside text
+  // Day number only: "15" — ambiguous, combine with text search
   if (/^\d{1,2}$/.test(trimmed)) {
     const day = trimmed.padStart(2, '0');
-    filters.push({ sermon_date: { _contains: `-${day}` } });
+    return { filters: [{ sermon_date: { _contains: `-${day}` } }], exclusive: false };
   }
 
-  return filters;
+  return { filters: [], exclusive: false };
 }
 
 export async function searchSermons(query: string, limit = 300): Promise<Sermon[]> {
   if (!query.trim()) return [];
   try {
-    const dateFilters = buildDateFilters(query.trim());
-    const orClauses: Record<string, unknown>[] = [
-      { title: { _icontains: query } },
-      { description: { _icontains: query } },
-      { raw_youtube_title: { _icontains: query } },
-      ...dateFilters,
-    ];
+    const { filters: dateFilters, exclusive } = buildDateFilters(query.trim());
+
+    // Exclusive date match: only date filter, no text search (prevents cross-year title matches)
+    const orClauses: Record<string, unknown>[] = exclusive
+      ? dateFilters
+      : [
+          { title: { _icontains: query } },
+          { description: { _icontains: query } },
+          { raw_youtube_title: { _icontains: query } },
+          ...dateFilters,
+        ];
 
     return await directus.request(
       readItems('sermons', {
