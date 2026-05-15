@@ -65,7 +65,7 @@ export function Header({ churchName }: { churchName?: string }) {
                       : 'text-gray-700 dark:text-gray-300 hover:text-brand-700 dark:hover:text-brand-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
                   )}
                 >
-                  {t(key as 'home' | 'history' | 'live' | 'donate' | 'contact')}
+                  {t(key as 'home' | 'history' | 'library' | 'live' | 'donate' | 'contact')}
                 </Link>
               ))}
             </nav>
@@ -85,6 +85,23 @@ export function Header({ churchName }: { churchName?: string }) {
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                 Live
+              </Link>
+
+              {/* Asociados button — desktop */}
+              <Link
+                href={`/${locale}/asociados`}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                           text-xs font-semibold
+                           text-brand-700 dark:text-brand-300
+                           border border-brand-200 dark:border-brand-800
+                           hover:bg-brand-50 dark:hover:bg-brand-950/40
+                           transition-colors duration-150"
+                aria-label="Portal de Asociados"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                {t('members')}
               </Link>
 
               <ThemeToggle />
@@ -183,6 +200,20 @@ export function Header({ churchName }: { churchName?: string }) {
             >
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
               En Vivo / Live
+            </Link>
+
+            {/* Asociados link mobile */}
+            <Link
+              href={`/${locale}/asociados`}
+              className="flex items-center gap-2 px-4 py-3.5 rounded-xl text-base font-medium
+                         text-brand-700 dark:text-brand-300 mt-1
+                         border border-brand-200 dark:border-brand-800
+                         hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors duration-150"
+            >
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              {t('members')}
             </Link>
           </nav>
 

@@ -2,9 +2,11 @@
   "nav": {
     "home": "Inicio",
     "history": "Historia",
+    "library": "Biblioteca",
     "live": "En Vivo",
     "donate": "Donar",
-    "contact": "Contacto"
+    "contact": "Contacto",
+    "members": "Asociados"
   },
   "home": {
     "title": "Bienvenido a Casa",

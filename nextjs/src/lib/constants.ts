@@ -15,6 +15,7 @@ export const SOCIAL = {
 export const NAV_LINKS = [
   { href: '/', key: 'home' },
   { href: '/historia', key: 'history' },
+  { href: '/biblioteca', key: 'library' },
   { href: '/en-vivo', key: 'live' },
   { href: '/donaciones', key: 'donate' },
   { href: '/contacto', key: 'contact' },
