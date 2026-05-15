@@ -153,6 +153,29 @@ export async function getSeriesWithSermons(slug: string): Promise<{ series: Serm
   }
 }
 
+export async function searchSermons(query: string, limit = 200): Promise<Sermon[]> {
+  if (!query.trim()) return [];
+  try {
+    return await directus.request(
+      readItems('sermons', {
+        filter: {
+          visibility: { _eq: 'public' },
+          youtube_status: { _eq: 'available' },
+          _or: [
+            { title: { _icontains: query } },
+            { description: { _icontains: query } },
+          ],
+        },
+        sort: ['-sermon_date', '-youtube_published_at'],
+        limit,
+        fields: SERMON_FIELDS as unknown as string[],
+      })
+    ) as Sermon[];
+  } catch {
+    return [];
+  }
+}
+
 export async function getAvailableYears(): Promise<number[]> {
   try {
     // Fetch minimal fields to derive distinct years

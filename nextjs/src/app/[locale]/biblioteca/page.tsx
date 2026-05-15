@@ -2,7 +2,7 @@ export const revalidate = 60;
 
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
-import { getSermons, getSermonsByYear, getFeaturedSermon, getSeriesList, getPreachers, getAvailableYears } from '@/lib/sermons';
+import { getSermons, getSermonsByYear, searchSermons, getFeaturedSermon, getSeriesList, getPreachers, getAvailableYears } from '@/lib/sermons';
 import { BibliotecaClient } from './BibliotecaClient';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -17,16 +17,21 @@ export default async function BibliotecaPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ year?: string }>;
+  searchParams: Promise<{ year?: string; q?: string }>;
 }) {
   const { locale } = await params;
-  const { year } = await searchParams;
+  const { year, q } = await searchParams;
   const t = await getTranslations('biblioteca');
 
   const selectedYear = year ? parseInt(year) : null;
+  const searchQuery = q?.trim() ?? '';
 
   const [sermons, featuredSermon, seriesList, preachers, availableYears] = await Promise.all([
-    selectedYear ? getSermonsByYear(selectedYear) : getSermons(200),
+    searchQuery
+      ? searchSermons(searchQuery)
+      : selectedYear
+        ? getSermonsByYear(selectedYear)
+        : getSermons(200),
     getFeaturedSermon(),
     getSeriesList(),
     getPreachers(),
@@ -65,6 +70,7 @@ export default async function BibliotecaPage({
         t={tObj}
         availableYears={availableYears}
         selectedYear={selectedYear}
+        searchQuery={searchQuery}
       />
     </>
   );

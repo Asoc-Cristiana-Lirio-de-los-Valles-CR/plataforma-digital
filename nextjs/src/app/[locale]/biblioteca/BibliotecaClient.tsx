@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import type { Sermon, SermonSeries, Preacher } from '@/lib/types';
 import { SermonCard } from '@/components/sermons/SermonCard';
@@ -18,41 +18,59 @@ interface BibliotecaClientProps {
   t: Record<string, string>;
   availableYears: number[];
   selectedYear: number | null;
+  searchQuery: string;
 }
 
-export function BibliotecaClient({ sermons, featuredSermon, seriesList, preachers, locale, t, availableYears, selectedYear }: BibliotecaClientProps) {
+export function BibliotecaClient({
+  sermons, featuredSermon, seriesList, preachers, locale, t,
+  availableYears, selectedYear, searchQuery,
+}: BibliotecaClientProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState<FilterState>({ seriesId: null, preacherId: null, year: selectedYear ? String(selectedYear) : null });
+
+  // Local search input mirrors the server-side query
+  const [search, setSearch] = useState(searchQuery);
+  const [filters, setFilters] = useState<FilterState>({
+    seriesId: null,
+    preacherId: null,
+    year: selectedYear ? String(selectedYear) : null,
+  });
+
+  // Debounce search → push URL param so server re-fetches
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const params = new URLSearchParams();
+      if (search.trim()) params.set('q', search.trim());
+      if (filters.year) params.set('year', filters.year);
+      const qs = params.toString();
+      router.push(qs ? `${pathname}?${qs}` : pathname);
+    }, 400);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   function handleYearChange(year: string | null) {
     setFilters(f => ({ ...f, year }));
-    if (year) {
-      router.push(`${pathname}?year=${year}`);
-    } else {
-      router.push(pathname);
-    }
+    // Clear search when switching year, rebuild URL
+    const params = new URLSearchParams();
+    if (search.trim()) params.set('q', search.trim());
+    if (year) params.set('year', year);
+    const qs = params.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname);
   }
 
+  // Client-side filter: only series/preacher (search & year are server-side)
   const filtered = useMemo(() => {
     return sermons.filter((s) => {
       if (filters.seriesId && s.series?.id !== filters.seriesId) return false;
       if (filters.preacherId && s.preacher?.id !== filters.preacherId) return false;
-      // Year filter is handled server-side via URL param; only apply client-side for series/preacher/search
-      if (search) {
-        const q = search.toLowerCase();
-        return (
-          s.title.toLowerCase().includes(q) ||
-          s.preacher?.name.toLowerCase().includes(q) ||
-          s.series?.title.toLowerCase().includes(q)
-        );
-      }
       return true;
     });
-  }, [sermons, filters, search]);
+  }, [sermons, filters]);
 
-  const isFiltering = !!search || !!filters.seriesId || !!filters.preacherId || !!selectedYear;
+  const isFiltering = !!searchQuery || !!filters.seriesId || !!filters.preacherId || !!selectedYear;
 
   const seriesSermonsMap = useMemo(() => {
     const map = new Map<string, Sermon[]>();
@@ -81,7 +99,19 @@ export function BibliotecaClient({ sermons, featuredSermon, seriesList, preacher
         <div className="container-page">
           <div className="space-y-4 mb-8">
             <SermonSearch value={search} onChange={setSearch} placeholder={t.searchPlaceholder} />
-            <SermonFilters series={seriesList} preachers={preachers} years={availableYears} filters={filters} onChange={(f) => { if (f.year !== filters.year) { handleYearChange(f.year); } else { setFilters(f); } }} />
+            <SermonFilters
+              series={seriesList}
+              preachers={preachers}
+              years={availableYears}
+              filters={filters}
+              onChange={(f) => {
+                if (f.year !== filters.year) {
+                  handleYearChange(f.year);
+                } else {
+                  setFilters(f);
+                }
+              }}
+            />
           </div>
 
           {isFiltering ? (
