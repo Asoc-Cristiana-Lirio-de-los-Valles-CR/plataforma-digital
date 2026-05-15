@@ -15,14 +15,13 @@ export async function POST(request: NextRequest) {
   }
 
   const token = computeTeamToken(secret);
-  const redirectUrl = `/${locale ?? 'es'}/equipo/manuales`;
 
-  const response = NextResponse.redirect(new URL(redirectUrl, request.url));
+  const response = NextResponse.json({ ok: true });
   response.cookies.set('team_access', token, {
     httpOnly: true,
     secure: true,
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 7, // 7 days
+    maxAge: 60 * 60 * 24 * 7,
     path: '/',
   });
   return response;

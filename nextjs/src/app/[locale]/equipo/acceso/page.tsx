@@ -19,9 +19,8 @@ export default function EquipoAccesoPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key, locale }),
-        redirect: 'follow',
       });
-      if (res.ok || res.redirected) {
+      if (res.ok) {
         window.location.href = `/${locale}/equipo/manuales`;
       } else {
         setError('Clave incorrecta. Contacta al administrador.');
