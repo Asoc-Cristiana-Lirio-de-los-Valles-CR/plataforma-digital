@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import type { Sermon, SermonSeries, Preacher } from '@/lib/types';
 import { SermonCard } from '@/components/sermons/SermonCard';
 import { SeriesRow } from '@/components/sermons/SeriesRow';
@@ -15,24 +16,30 @@ interface BibliotecaClientProps {
   preachers: Preacher[];
   locale: string;
   t: Record<string, string>;
+  availableYears: number[];
+  selectedYear: number | null;
 }
 
-export function BibliotecaClient({ sermons, featuredSermon, seriesList, preachers, locale, t }: BibliotecaClientProps) {
+export function BibliotecaClient({ sermons, featuredSermon, seriesList, preachers, locale, t, availableYears, selectedYear }: BibliotecaClientProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState<FilterState>({ seriesId: null, preacherId: null, year: null });
+  const [filters, setFilters] = useState<FilterState>({ seriesId: null, preacherId: null, year: selectedYear ? String(selectedYear) : null });
 
-  const years = useMemo(() => {
-    const ys = sermons
-      .map(s => s.sermon_date ? new Date(s.sermon_date).getFullYear() : null)
-      .filter((y): y is number => y !== null);
-    return [...new Set(ys)].sort((a, b) => b - a);
-  }, [sermons]);
+  function handleYearChange(year: string | null) {
+    setFilters(f => ({ ...f, year }));
+    if (year) {
+      router.push(`${pathname}?year=${year}`);
+    } else {
+      router.push(pathname);
+    }
+  }
 
   const filtered = useMemo(() => {
     return sermons.filter((s) => {
       if (filters.seriesId && s.series?.id !== filters.seriesId) return false;
       if (filters.preacherId && s.preacher?.id !== filters.preacherId) return false;
-      if (filters.year && s.sermon_date && String(new Date(s.sermon_date).getFullYear()) !== filters.year) return false;
+      // Year filter is handled server-side via URL param; only apply client-side for series/preacher/search
       if (search) {
         const q = search.toLowerCase();
         return (
@@ -45,7 +52,7 @@ export function BibliotecaClient({ sermons, featuredSermon, seriesList, preacher
     });
   }, [sermons, filters, search]);
 
-  const isFiltering = !!search || !!filters.seriesId || !!filters.preacherId || !!filters.year;
+  const isFiltering = !!search || !!filters.seriesId || !!filters.preacherId || !!selectedYear;
 
   const seriesSermonsMap = useMemo(() => {
     const map = new Map<string, Sermon[]>();
@@ -74,7 +81,7 @@ export function BibliotecaClient({ sermons, featuredSermon, seriesList, preacher
         <div className="container-page">
           <div className="space-y-4 mb-8">
             <SermonSearch value={search} onChange={setSearch} placeholder={t.searchPlaceholder} />
-            <SermonFilters series={seriesList} preachers={preachers} years={years} filters={filters} onChange={setFilters} />
+            <SermonFilters series={seriesList} preachers={preachers} years={availableYears} filters={filters} onChange={(f) => { if (f.year !== filters.year) { handleYearChange(f.year); } else { setFilters(f); } }} />
           </div>
 
           {isFiltering ? (

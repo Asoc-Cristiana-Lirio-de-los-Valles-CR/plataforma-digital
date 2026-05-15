@@ -152,6 +152,45 @@ export async function getSeriesWithSermons(slug: string): Promise<{ series: Serm
   }
 }
 
+export async function getAvailableYears(): Promise<number[]> {
+  try {
+    // Fetch minimal fields to derive distinct years
+    const results = await directus.request(
+      readItems('sermons', {
+        filter: { visibility: { _eq: 'public' } },
+        fields: ['sermon_date'],
+        limit: -1,
+      })
+    ) as { sermon_date: string | null }[];
+    const years = results
+      .map(r => r.sermon_date ? new Date(r.sermon_date).getFullYear() : null)
+      .filter((y): y is number => y !== null);
+    return [...new Set(years)].sort((a, b) => b - a);
+  } catch {
+    return [];
+  }
+}
+
+export async function getSermonsByYear(year: number, limit = 500): Promise<Sermon[]> {
+  const from = `${year}-01-01`;
+  const to = `${year}-12-31`;
+  try {
+    return await directus.request(
+      readItems('sermons', {
+        filter: {
+          visibility: { _eq: 'public' },
+          sermon_date: { _gte: from, _lte: to },
+        },
+        sort: ['-sermon_date', '-youtube_published_at'],
+        limit,
+        fields: SERMON_FIELDS as unknown as string[],
+      })
+    ) as Sermon[];
+  } catch {
+    return [];
+  }
+}
+
 export async function getPreachers(): Promise<Preacher[]> {
   try {
     return await directus.request(

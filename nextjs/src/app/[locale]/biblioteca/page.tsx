@@ -2,7 +2,7 @@ export const revalidate = 60;
 
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
-import { getSermons, getFeaturedSermon, getSeriesList, getPreachers } from '@/lib/sermons';
+import { getSermons, getSermonsByYear, getFeaturedSermon, getSeriesList, getPreachers, getAvailableYears } from '@/lib/sermons';
 import { BibliotecaClient } from './BibliotecaClient';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -14,17 +14,23 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function BibliotecaPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ year?: string }>;
 }) {
   const { locale } = await params;
+  const { year } = await searchParams;
   const t = await getTranslations('biblioteca');
 
-  const [sermons, featuredSermon, seriesList, preachers] = await Promise.all([
-    getSermons(200),
+  const selectedYear = year ? parseInt(year) : null;
+
+  const [sermons, featuredSermon, seriesList, preachers, availableYears] = await Promise.all([
+    selectedYear ? getSermonsByYear(selectedYear) : getSermons(200),
     getFeaturedSermon(),
     getSeriesList(),
     getPreachers(),
+    getAvailableYears(),
   ]);
 
   const tObj = {
@@ -57,6 +63,8 @@ export default async function BibliotecaPage({
         preachers={preachers}
         locale={locale}
         t={tObj}
+        availableYears={availableYears}
+        selectedYear={selectedYear}
       />
     </>
   );
