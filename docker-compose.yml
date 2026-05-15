@@ -38,6 +38,9 @@ services:
       AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID}
       AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET}
       AUTH_TRUST_HOST: "true"
+    extra_hosts:
+      - "liriodelosvallescr.org:20.12.207.240"
+      - "api.liriodelosvallescr.org:20.12.207.240"
     depends_on:
       directus:
         condition: service_healthy
