@@ -1,7 +1,7 @@
 import { createHmac } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
-export function computeTeamToken(secret: string): string {
+function computeTeamToken(secret: string): string {
   return createHmac('sha256', secret).update('team-access').digest('hex');
 }
 
