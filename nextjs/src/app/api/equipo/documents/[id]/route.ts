@@ -21,15 +21,11 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!await isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   const { id } = await params;
 
   try {
     const docRes = await fetch(
-      `${DIRECTUS_URL}/items/team_documents/${id}?fields=id,title,file,status`,
+      `${DIRECTUS_URL}/items/team_documents/${id}?fields=id,title,file,status,visibility`,
       { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } }
     );
     if (!docRes.ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -37,6 +33,11 @@ export async function GET(
     const { data: doc } = await docRes.json();
     if (!doc || doc.status !== 'published') {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    // private docs require valid cookie; link docs allow direct access
+    if (doc.visibility !== 'link' && !await isAuthorized(request)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const fileRes = await fetch(

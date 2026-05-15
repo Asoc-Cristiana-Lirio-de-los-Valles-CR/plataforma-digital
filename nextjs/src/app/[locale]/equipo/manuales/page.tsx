@@ -38,13 +38,14 @@ interface TeamDocument {
   file: string;
   file_type: string | null;
   status: string;
+  visibility: string;
   date_created: string;
 }
 
 async function getTeamDocuments(): Promise<TeamDocument[]> {
   try {
     const res = await fetch(
-      `${DIRECTUS_URL}/items/team_documents?filter[status][_eq]=published&sort[]=sort&sort[]=-date_created&fields=id,title,description,category,file,status,date_created`,
+      `${DIRECTUS_URL}/items/team_documents?filter[status][_eq]=published&sort[]=sort&sort[]=-date_created&fields=id,title,description,category,file,status,visibility,date_created`,
       { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }, cache: 'no-store' }
     );
     const data = await res.json();
@@ -91,6 +92,11 @@ export default async function ManualesPage() {
                       {doc.category && (
                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${CATEGORY_COLORS[doc.category] ?? CATEGORY_COLORS.otro}`}>
                           {CATEGORY_LABELS[doc.category] ?? doc.category}
+                        </span>
+                      )}
+                      {doc.visibility === 'link' && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-emerald-900/30 text-emerald-400 border-emerald-500/20">
+                          Enlace público
                         </span>
                       )}
                     </div>
