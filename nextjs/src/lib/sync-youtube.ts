@@ -114,10 +114,10 @@ async function fetchYouTubePage(
       return {
         id: { videoId },
         snippet: {
-          title: snippet.title,
-          description: snippet.description,
+          title: String(snippet.title ?? ''),
+          description: String(snippet.description ?? ''),
           publishedAt: pub,
-          thumbnails: snippet.thumbnails,
+          thumbnails: (snippet.thumbnails ?? {}) as YouTubeVideoItem['snippet']['thumbnails'],
         },
       };
     })
