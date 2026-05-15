@@ -35,6 +35,7 @@ async function getDirectusProfile(userId: string, adminToken: string) {
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
   providers: [
     GoogleProvider({
       clientId: process.env.AUTH_GOOGLE_ID!,
