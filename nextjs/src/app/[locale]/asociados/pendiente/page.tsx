@@ -1,4 +1,6 @@
+'use client';
 import Image from 'next/image';
+import { signOut } from 'next-auth/react';
 
 export default function PendientePage() {
   return (
@@ -36,9 +38,17 @@ export default function PendientePage() {
           </ul>
         </div>
 
-        <a href="/" className="text-sm text-[#b48af7] hover:underline">
-          Volver al sitio principal
-        </a>
+        <div className="flex flex-col gap-2 items-center">
+          <a href="/" className="text-sm text-[#b48af7] hover:underline">
+            Volver al sitio principal
+          </a>
+          <button
+            onClick={() => signOut({ callbackUrl: '/es/asociados/login' })}
+            className="text-xs text-white/30 hover:text-white/60 transition-colors mt-1"
+          >
+            Cerrar sesión
+          </button>
+        </div>
       </div>
     </div>
   );
