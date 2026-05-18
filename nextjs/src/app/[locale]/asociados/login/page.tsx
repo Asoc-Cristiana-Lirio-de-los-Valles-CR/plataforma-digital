@@ -118,9 +118,14 @@ function PortalContent() {
   const [tab, setTab] = useState<'login' | 'registro'>(
     params.get('tab') === 'registro' ? 'registro' : 'login'
   );
-  const [error, setError] = useState('');
+  const urlError = params.get('error');
+  const [error, setError] = useState(() => {
+    if (urlError === 'suspended') return '';
+    if (urlError) return 'Error al iniciar sesión con Google. Intenta de nuevo o usa email y contraseña.';
+    return '';
+  });
   const [done, setDone] = useState(false);
-  const isSuspended = params.get('error') === 'suspended';
+  const isSuspended = urlError === 'suspended';
 
   if (done) {
     return (
