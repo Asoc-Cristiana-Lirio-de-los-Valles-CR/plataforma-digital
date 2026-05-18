@@ -120,9 +120,9 @@ function PortalContent() {
   );
   const urlError = params.get('error');
   const [error, setError] = useState(() => {
-    if (urlError === 'suspended') return '';
-    if (urlError) return 'Error al iniciar sesión con Google. Intenta de nuevo o usa email y contraseña.';
-    return '';
+    if (!urlError || urlError === 'suspended') return '';
+    if (urlError === 'no_profile') return 'Tu cuenta no está registrada como asociado. Solicita acceso usando el tab "Solicitar acceso".';
+    return 'Error al iniciar sesión con Google. Intenta de nuevo o usa email y contraseña.';
   });
   const [done, setDone] = useState(false);
   const isSuspended = urlError === 'suspended';

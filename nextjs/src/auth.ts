@@ -148,6 +148,23 @@ async function syncGoogleUserWithDirectus(
 
     if (existing?.length > 0) {
       directusUserId = existing[0].id;
+      // Ensure asociados_profile exists — create pending if missing
+      const profileCheck = await fetch(
+        `${DIRECTUS_URL}/items/asociados_profiles?filter[user_id][_eq]=${directusUserId}&fields=id&limit=1`,
+        { headers: { Authorization: `Bearer ${adminToken}` } }
+      );
+      const { data: profileData } = await profileCheck.json();
+      if (!profileData?.length) {
+        await fetch(`${DIRECTUS_URL}/items/asociados_profiles`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: directusUserId,
+            status: 'pending',
+            email_verified_at: new Date().toISOString(),
+          }),
+        });
+      }
     } else {
       const [firstName, ...rest] = (user.name ?? user.email).split(' ');
       const createRes = await fetch(`${DIRECTUS_URL}/users`, {

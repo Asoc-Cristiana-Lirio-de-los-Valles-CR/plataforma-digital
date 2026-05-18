@@ -133,7 +133,7 @@ export async function middleware(request: NextRequest) {
       } else if (status === 'suspended') {
         return NextResponse.redirect(new URL(`/${locale}/asociados/login?error=suspended`, request.url));
       } else if (!status) {
-        return NextResponse.redirect(new URL(`/${locale}/asociados/login`, request.url));
+        return NextResponse.redirect(new URL(`/${locale}/asociados/login?error=no_profile`, request.url));
       }
     }
   }
