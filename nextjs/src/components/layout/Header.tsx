@@ -104,6 +104,23 @@ export function Header({ churchName }: { churchName?: string }) {
                 {t('members')}
               </Link>
 
+              {/* Equipo — icono discreto */}
+              <Link
+                href={`/${locale}/equipo/manuales`}
+                className="hidden sm:inline-flex items-center justify-center w-8 h-8 rounded-lg
+                           hover:bg-gray-100 dark:hover:bg-gray-800/60
+                           transition-colors duration-150"
+                aria-label="Zona del Equipo"
+                title="Zona del Equipo"
+              >
+                <img
+                  src="/team-icon.png"
+                  alt=""
+                  className="w-5 h-5 dark:invert opacity-50 hover:opacity-80 transition-opacity"
+                  aria-hidden
+                />
+              </Link>
+
               <ThemeToggle />
               <LanguageToggle />
 
