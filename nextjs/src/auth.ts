@@ -100,10 +100,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       // Google OAuth: sync user with Directus on first login
       if (account?.provider === 'google' && user?.email) {
-        token.directusToken = await syncGoogleUserWithDirectus(user, adminToken);
-        const profile = await getDirectusProfile(token.sub!, adminToken);
-        token.profileStatus = profile?.status ?? null;
-        (token as Record<string, unknown>).profileCheckedAt = Date.now();
+        const { directusToken, directusUserId } = await syncGoogleUserWithDirectus(user, adminToken);
+        token.directusToken = directusToken;
+        if (directusUserId) {
+          token.sub = directusUserId; // overwrite Google subject ID with Directus UUID
+          const profile = await getDirectusProfile(directusUserId, adminToken);
+          token.profileStatus = profile?.status ?? null;
+          (token as Record<string, unknown>).profileCheckedAt = Date.now();
+        }
       }
 
       // Re-check profile status at most every 5 minutes (catches suspensions without hammering Directus)
@@ -134,8 +138,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 async function syncGoogleUserWithDirectus(
   user: { id?: string; email?: string | null; name?: string | null; image?: string | null },
   adminToken: string
-): Promise<string | undefined> {
-  if (!adminToken || !user.email) return undefined;
+): Promise<{ directusToken?: string; directusUserId?: string }> {
+  if (!adminToken || !user.email) return {};
 
   try {
     const searchRes = await fetch(
@@ -182,7 +186,7 @@ async function syncGoogleUserWithDirectus(
       });
       const created = await createRes.json();
       directusUserId = created?.data?.id;
-      if (!directusUserId) return undefined;
+      if (!directusUserId) return {};
 
       await fetch(`${DIRECTUS_URL}/items/asociados_profiles`, {
         method: 'POST',
@@ -209,9 +213,9 @@ async function syncGoogleUserWithDirectus(
       headers: { Authorization: `Bearer ${adminToken}` },
     });
     const tokenData = await tokenRes.json();
-    return tokenData?.data?.token ?? undefined;
+    return { directusToken: tokenData?.data?.token ?? undefined, directusUserId };
   } catch {
-    return undefined;
+    return {};
   }
 }
 
