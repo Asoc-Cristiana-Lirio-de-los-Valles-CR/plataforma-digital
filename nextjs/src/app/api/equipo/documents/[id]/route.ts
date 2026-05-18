@@ -1,4 +1,4 @@
-import { unstable_noStore as noStore } from 'next/cache';
+import { fetch as undiciFetch } from 'undici';
 import { NextRequest, NextResponse } from 'next/server';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL ?? 'http://directus:8055';
@@ -24,17 +24,17 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  noStore();
   const { id } = await params;
 
   try {
-    const docRes = await fetch(
-      `${DIRECTUS_URL}/items/team_documents/${id}?fields=id,title,file,status,visibility&_t=${Date.now()}`,
-      { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }, cache: 'no-store' }
+    // Use undici to bypass Next.js fetch cache entirely
+    const docRes = await undiciFetch(
+      `${DIRECTUS_URL}/items/team_documents/${id}?fields=id,title,file,status,visibility`,
+      { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } }
     );
     if (!docRes.ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    const { data: doc } = await docRes.json();
+    const { data: doc } = await docRes.json() as { data: { id: string; title: string; file: string; status: string; visibility: string } };
     if (!doc || doc.status !== 'published') {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
@@ -47,7 +47,7 @@ export async function GET(
       );
     }
 
-    const fileRes = await fetch(
+    const fileRes = await undiciFetch(
       `${DIRECTUS_URL}/assets/${doc.file}`,
       { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } }
     );
@@ -55,8 +55,7 @@ export async function GET(
 
     const contentType = fileRes.headers.get('content-type') ?? 'application/octet-stream';
 
-    // View-only — always inline, never allow download via Content-Disposition attachment
-    return new NextResponse(fileRes.body, {
+    return new NextResponse(fileRes.body as unknown as BodyInit, {
       headers: {
         'Content-Type': contentType,
         'Content-Disposition': 'inline',
