@@ -71,6 +71,7 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       CACHE_ENABLED: "true"
       CACHE_STORE: redis
+      CACHE_AUTO_PURGE: "true"
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
       PUBLIC_URL: ${DIRECTUS_PUBLIC_URL}
