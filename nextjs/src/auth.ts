@@ -164,7 +164,7 @@ async function syncGoogleUserWithDirectus(
           headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             user_id: directusUserId,
-            status: 'pending',
+            status: 'incomplete',
             email_verified_at: new Date().toISOString(),
           }),
         });
@@ -193,7 +193,7 @@ async function syncGoogleUserWithDirectus(
         headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: directusUserId,
-          status: 'pending',
+          status: 'incomplete',
           email_verified_at: new Date().toISOString(),
         }),
       });

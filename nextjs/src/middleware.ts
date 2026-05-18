@@ -46,7 +46,7 @@ const intlMiddleware = createIntlMiddleware({
   localeDetection: false,
 });
 
-const PUBLIC_ASOCIADOS = ['/asociados/login', '/asociados/pendiente'];
+const PUBLIC_ASOCIADOS = ['/asociados/login', '/asociados/pendiente', '/asociados/completar-perfil'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -126,7 +126,11 @@ export async function middleware(request: NextRequest) {
 
       const status = token.profileStatus as string | null | undefined;
 
-      if (status === 'pending') {
+      if (status === 'incomplete') {
+        if (!localePath.startsWith('/asociados/completar-perfil')) {
+          return NextResponse.redirect(new URL(`/${locale}/asociados/completar-perfil`, request.url));
+        }
+      } else if (status === 'pending') {
         if (!localePath.startsWith('/asociados/pendiente')) {
           return NextResponse.redirect(new URL(`/${locale}/asociados/pendiente`, request.url));
         }

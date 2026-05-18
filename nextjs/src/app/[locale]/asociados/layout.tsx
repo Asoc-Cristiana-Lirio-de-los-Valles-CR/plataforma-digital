@@ -43,7 +43,7 @@ const NAV = [
   },
 ];
 
-const NO_LAYOUT_PATHS = ['/asociados/login', '/asociados/pendiente', '/asociados/registro'];
+const NO_LAYOUT_PATHS = ['/asociados/login', '/asociados/pendiente', '/asociados/registro', '/asociados/completar-perfil'];
 
 export default function AsociadosLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
