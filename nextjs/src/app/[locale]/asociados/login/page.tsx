@@ -121,7 +121,7 @@ function PortalContent() {
   const urlError = params.get('error');
   const [error, setError] = useState(() => {
     if (!urlError || urlError === 'suspended') return '';
-    if (urlError === 'no_profile') return 'Tu cuenta no está registrada como asociado. Solicita acceso usando el tab "Solicitar acceso".';
+    if (urlError === 'no_profile') return 'Tu cuenta no está registrada como asociado. Por favor solicita acceso usando la pestaña "Solicitar acceso".';
     return 'Error al iniciar sesión con Google. Intenta de nuevo o usa email y contraseña.';
   });
   const [done, setDone] = useState(false);
