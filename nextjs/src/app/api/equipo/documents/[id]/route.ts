@@ -37,8 +37,11 @@ export async function GET(
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
+    const authorized = await isAuthorized(request);
+    console.log(`[equipo/doc] id=${id} visibility=${doc.visibility} authorized=${authorized}`);
+
     // private docs require valid cookie; link docs allow direct access
-    if (doc.visibility !== 'link' && !await isAuthorized(request)) {
+    if (doc.visibility !== 'link' && !authorized) {
       return new NextResponse(
         `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Acceso restringido</title><style>*{margin:0;padding:0;box-sizing:border-box}body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a14;font-family:system-ui,sans-serif;color:#fff}div{text-align:center;padding:2rem}.icon{font-size:3rem;margin-bottom:1rem}h1{font-size:1.25rem;font-weight:600;margin-bottom:.5rem}p{font-size:.875rem;color:rgba(255,255,255,.4);margin-bottom:1.5rem}a{display:inline-block;padding:.625rem 1.25rem;background:#4f3d8a;color:#fff;border-radius:.75rem;font-size:.875rem;text-decoration:none}a:hover{background:#5e4aa0}</style></head><body><div><div class="icon">🔒</div><h1>Documento restringido</h1><p>Este documento requiere autorización para ser visualizado.</p><a href="/es/equipo/acceso">Ingresar con clave de acceso</a></div></body></html>`,
         { status: 401, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
