@@ -46,7 +46,7 @@ const intlMiddleware = createIntlMiddleware({
   localeDetection: false,
 });
 
-const PUBLIC_ASOCIADOS = ['/asociados/login', '/asociados/registro', '/asociados/pendiente'];
+const PUBLIC_ASOCIADOS = ['/asociados/login', '/asociados/pendiente'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -133,7 +133,7 @@ export async function middleware(request: NextRequest) {
       } else if (status === 'suspended') {
         return NextResponse.redirect(new URL(`/${locale}/asociados/login?error=suspended`, request.url));
       } else if (!status) {
-        return NextResponse.redirect(new URL(`/${locale}/asociados/registro`, request.url));
+        return NextResponse.redirect(new URL(`/${locale}/asociados/login`, request.url));
       }
     }
   }
