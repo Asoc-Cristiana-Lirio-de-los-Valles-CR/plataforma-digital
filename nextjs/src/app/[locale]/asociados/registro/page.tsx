@@ -70,6 +70,15 @@ export default function RegistroPage() {
           <p className="text-xs text-white/40 mt-1">Tu solicitud será revisada manualmente</p>
         </div>
 
+        {/* Already registered notice */}
+        <div className="mb-4 p-3 rounded-xl bg-white/5 border border-white/10 text-xs text-white/50 text-center">
+          ¿Ya tienes cuenta?{' '}
+          <a href="/es/asociados/login" className="text-[#b48af7] hover:underline font-medium">
+            Inicia sesión aquí
+          </a>
+          {' '}— este formulario es solo para nuevos usuarios.
+        </div>
+
         {/* Google */}
         <button
           type="button"
@@ -115,8 +124,7 @@ export default function RegistroPage() {
           </button>
 
           <p className="text-center text-xs text-white/30">
-            ¿Ya tienes acceso?{' '}
-            <a href="/es/asociados/login" className="text-[#b48af7] hover:underline">Ingresar</a>
+            Al enviar, aceptas que tus datos se usen para verificar tu membresía.
           </p>
         </form>
       </div>
