@@ -1,10 +1,8 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
-import { useSession } from 'next-auth/react';
 
 export default function RegistroPage() {
-  const { data: session } = useSession();
   const [step, setStep] = useState<'form' | 'done'>('form');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -12,20 +10,6 @@ export default function RegistroPage() {
     first_name: '', last_name: '', email: '', password: '',
     cedula: '', telefono: '',
   });
-
-  // Pre-fill from Google session if available
-  const isGoogleUser = !!session?.user?.email;
-  useEffect(() => {
-    if (session?.user) {
-      const [first, ...rest] = (session.user.name ?? '').split(' ');
-      setForm(f => ({
-        ...f,
-        first_name: first ?? f.first_name,
-        last_name: rest.join(' ') || f.last_name,
-        email: session.user.email ?? f.email,
-      }));
-    }
-  }, [session]);
 
   function update(field: string, val: string) {
     setForm(f => ({ ...f, [field]: val }));
@@ -39,7 +23,7 @@ export default function RegistroPage() {
       const res = await fetch('/api/asociados/registro', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, isGoogleUser }),
+        body: JSON.stringify(form),
       });
       if (!res.ok) {
         const d = await res.json();
@@ -52,9 +36,6 @@ export default function RegistroPage() {
     }
     setLoading(false);
   }
-
-  const inputClass = 'w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-[#b48af7]/60 text-sm';
-  const readonlyClass = 'w-full px-3 py-2.5 rounded-xl bg-white/3 border border-white/6 text-white/50 text-sm cursor-default';
 
   if (step === 'done') {
     return (
@@ -77,6 +58,8 @@ export default function RegistroPage() {
     );
   }
 
+  const inputClass = 'w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-[#b48af7]/60 text-sm';
+
   return (
     <div className="min-h-screen bg-[#0d0a19] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
@@ -88,29 +71,11 @@ export default function RegistroPage() {
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            {isGoogleUser ? (
-              <>
-                <div className={readonlyClass}>{form.first_name || 'Nombre'}</div>
-                <div className={readonlyClass}>{form.last_name || 'Apellido'}</div>
-              </>
-            ) : (
-              <>
-                <input type="text" placeholder="Nombre" value={form.first_name} onChange={e => update('first_name', e.target.value)} required className={inputClass} />
-                <input type="text" placeholder="Apellido" value={form.last_name} onChange={e => update('last_name', e.target.value)} required className={inputClass} />
-              </>
-            )}
+            <input type="text" placeholder="Nombre" value={form.first_name} onChange={e => update('first_name', e.target.value)} required className={inputClass} />
+            <input type="text" placeholder="Apellido" value={form.last_name} onChange={e => update('last_name', e.target.value)} required className={inputClass} />
           </div>
-
-          {isGoogleUser ? (
-            <div className={readonlyClass}>{form.email}</div>
-          ) : (
-            <input type="email" placeholder="Correo electrónico" value={form.email} onChange={e => update('email', e.target.value)} required className={inputClass} />
-          )}
-
-          {!isGoogleUser && (
-            <input type="password" placeholder="Contraseña (mínimo 8 caracteres)" value={form.password} onChange={e => update('password', e.target.value)} required minLength={8} className={inputClass} />
-          )}
-
+          <input type="email" placeholder="Correo electrónico" value={form.email} onChange={e => update('email', e.target.value)} required className={inputClass} />
+          <input type="password" placeholder="Contraseña (mínimo 8 caracteres)" value={form.password} onChange={e => update('password', e.target.value)} required minLength={8} className={inputClass} />
           <input type="text" placeholder="Número de cédula" value={form.cedula} onChange={e => update('cedula', e.target.value)} required className={inputClass} />
           <input type="tel" placeholder="Teléfono" value={form.telefono} onChange={e => update('telefono', e.target.value)} className={inputClass} />
 
