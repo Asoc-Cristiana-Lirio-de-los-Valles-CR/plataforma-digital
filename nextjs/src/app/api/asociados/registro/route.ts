@@ -33,12 +33,12 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { first_name, last_name, email, password, cedula, telefono, congregacion } = body;
+  const { first_name, last_name, email, password, cedula, telefono, isGoogleUser } = body;
 
-  if (!first_name || !last_name || !email || !password || !cedula) {
+  if (!first_name || !last_name || !email || !cedula) {
     return NextResponse.json({ error: 'Faltan campos obligatorios.' }, { status: 400 });
   }
-  if (password.length < 8) {
+  if (!isGoogleUser && (!password || password.length < 8)) {
     return NextResponse.json({ error: 'La contraseña debe tener al menos 8 caracteres.' }, { status: 400 });
   }
 
@@ -61,9 +61,9 @@ export async function POST(request: NextRequest) {
         first_name,
         last_name,
         email,
-        password,
+        ...(password ? { password } : { password: crypto.randomUUID() + crypto.randomUUID() }),
         role: ASOCIADO_ROLE_ID,
-        status: 'active', // Directus user active, profile status = pending
+        status: 'active',
       }),
     });
     if (!createRes.ok) {
@@ -81,7 +81,6 @@ export async function POST(request: NextRequest) {
         status: 'pending',
         cedula,
         telefono: telefono ?? null,
-        congregacion: congregacion ?? null,
         accepted_terms_at: new Date().toISOString(),
       }),
     });
