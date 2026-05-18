@@ -188,7 +188,7 @@ function PortalContent() {
 export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[#0d0a19] flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-sm -mt-16">
         <div className="text-center mb-6">
           <Image src="/logo.webp" alt="Lirio de los Valles" width={56} height={56} className="mx-auto mb-4 opacity-90" />
           <h1 className="text-2xl font-display font-semibold text-white">Portal de Asociados</h1>
