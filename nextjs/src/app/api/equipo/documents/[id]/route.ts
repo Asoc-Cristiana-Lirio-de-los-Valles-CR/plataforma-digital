@@ -29,7 +29,7 @@ export async function GET(
   try {
     // Use undici to bypass Next.js fetch cache entirely
     const docRes = await undiciFetch(
-      `${DIRECTUS_URL}/items/team_documents/${id}?fields=id,title,file,status,visibility`,
+      `${DIRECTUS_URL}/items/team_documents/${id}?fields=id,title,file,status,visibility&_t=${Date.now()}`,
       { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } }
     );
     if (!docRes.ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
