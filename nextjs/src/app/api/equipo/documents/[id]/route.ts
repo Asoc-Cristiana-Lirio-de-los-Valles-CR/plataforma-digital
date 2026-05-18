@@ -1,5 +1,6 @@
 import { fetch as undiciFetch } from 'undici';
 import { NextRequest, NextResponse } from 'next/server';
+import { getTeamSecret } from '@/lib/teamSecret';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL ?? 'http://directus:8055';
 const ADMIN_TOKEN = process.env.DIRECTUS_ADMIN_TOKEN!;
@@ -12,7 +13,7 @@ async function computeTeamToken(secret: string): Promise<string> {
 }
 
 async function isAuthorized(request: NextRequest): Promise<boolean> {
-  const secret = process.env.TEAM_SECRET;
+  const secret = await getTeamSecret();
   if (!secret) return false;
   const cookie = request.cookies.get('team_access');
   return cookie?.value === await computeTeamToken(secret);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getTeamSecret } from '@/lib/teamSecret';
 
 async function computeTeamToken(secret: string): Promise<string> {
   const enc = new TextEncoder();
@@ -8,7 +9,7 @@ async function computeTeamToken(secret: string): Promise<string> {
 }
 
 export async function POST(request: NextRequest) {
-  const secret = process.env.TEAM_SECRET;
+  const secret = await getTeamSecret();
   if (!secret) return NextResponse.json({ error: 'Not configured' }, { status: 500 });
 
   const { key, locale } = await request.json().catch(() => ({}));
