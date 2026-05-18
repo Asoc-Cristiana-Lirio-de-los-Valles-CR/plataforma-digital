@@ -1,3 +1,4 @@
+import { unstable_noStore as noStore } from 'next/cache';
 import { NextRequest, NextResponse } from 'next/server';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL ?? 'http://directus:8055';
@@ -23,6 +24,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  noStore();
   const { id } = await params;
 
   try {
