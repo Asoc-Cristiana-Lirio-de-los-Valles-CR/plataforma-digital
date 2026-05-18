@@ -43,6 +43,8 @@ const NAV = [
   },
 ];
 
+const NO_LAYOUT_PATHS = ['/asociados/login', '/asociados/pendiente', '/asociados/registro'];
+
 export default function AsociadosLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const locale = useLocale();
@@ -53,6 +55,11 @@ export default function AsociadosLayout({ children }: { children: React.ReactNod
       ? pathname === full
       : pathname.startsWith(full);
   };
+
+  const localePath = pathname.replace(`/${locale}`, '');
+  if (NO_LAYOUT_PATHS.some(p => localePath === p || localePath.startsWith(p + '/'))) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="min-h-screen bg-[#0d0a19] text-white flex flex-col">
