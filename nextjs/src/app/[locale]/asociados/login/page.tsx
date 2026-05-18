@@ -15,19 +15,22 @@ const GOOGLE_ICON = (
 
 const inputClass = 'w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-[#b48af7]/60 text-sm transition-colors';
 
-function LoginForm({ onError }: { onError: (msg: string) => void }) {
+function LoginForm({ onError, onSwitchToRegistro }: { onError: (msg: string) => void; onSwitchToRegistro: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showRegistroCta, setShowRegistroCta] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     onError('');
+    setShowRegistroCta(false);
     const res = await signIn('credentials', { email, password, redirect: false });
     setLoading(false);
     if (res?.error) {
       onError('Correo o contraseña incorrectos.');
+      setShowRegistroCta(true);
     } else {
       window.location.href = '/es/asociados';
     }
@@ -41,6 +44,18 @@ function LoginForm({ onError }: { onError: (msg: string) => void }) {
         className="w-full py-3 rounded-xl bg-[#461a7a] hover:bg-[#5a239a] text-white font-semibold text-sm transition-colors disabled:opacity-50">
         {loading ? 'Ingresando...' : 'Ingresar'}
       </button>
+      {showRegistroCta && (
+        <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-center">
+          <p className="text-xs text-white/50 mb-2">¿No tienes una cuenta aún?</p>
+          <button
+            type="button"
+            onClick={onSwitchToRegistro}
+            className="text-xs text-[#b48af7] hover:underline font-medium"
+          >
+            Solicitar acceso como asociado →
+          </button>
+        </div>
+      )}
     </form>
   );
 }
@@ -178,7 +193,7 @@ function PortalContent() {
       {error && <p className="text-xs text-red-400 text-center mb-3">{error}</p>}
 
       {tab === 'login'
-        ? <LoginForm onError={setError} />
+        ? <LoginForm onError={setError} onSwitchToRegistro={() => { setTab('registro'); setError(''); }} />
         : <RegistroForm onDone={() => setDone(true)} />
       }
     </>
