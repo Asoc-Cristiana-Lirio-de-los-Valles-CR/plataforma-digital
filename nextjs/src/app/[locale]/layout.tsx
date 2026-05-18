@@ -4,8 +4,10 @@ import type { Metadata } from 'next';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { Cormorant_Garamond, DM_Sans } from 'next/font/google';
+import { headers } from 'next/headers';
 import { Providers } from './providers';
-import { PublicShell } from '@/components/layout/PublicShell';
+import { Header } from '@/components/layout/Header';
+import { Footer } from '@/components/layout/Footer';
 import { getChurchInfo } from '@/lib/directus';
 import '@/app/globals.css';
 
@@ -65,6 +67,9 @@ export default async function LocaleLayout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  const headersList = await headers();
+  const pathname = headersList.get('x-pathname') ?? headersList.get('next-url') ?? '';
+  const isPortal = pathname.includes('/asociados') || pathname.includes('/equipo');
   const [messages, churchInfo] = await Promise.all([getMessages(), getChurchInfo()]);
 
   return (
@@ -76,9 +81,9 @@ export default async function LocaleLayout({
       <body className="font-sans antialiased">
         <NextIntlClientProvider messages={messages}>
           <Providers>
-            <PublicShell churchName={churchInfo?.name}>
-              {children}
-            </PublicShell>
+            {!isPortal && <Header churchName={churchInfo?.name} />}
+            <main>{children}</main>
+            {!isPortal && <Footer />}
           </Providers>
         </NextIntlClientProvider>
       </body>
