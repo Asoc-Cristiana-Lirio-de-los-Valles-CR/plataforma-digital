@@ -5,8 +5,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { Cormorant_Garamond, DM_Sans } from 'next/font/google';
 import { Providers } from './providers';
-import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
+import { PublicShell } from '@/components/layout/PublicShell';
 import { getChurchInfo } from '@/lib/directus';
 import '@/app/globals.css';
 
@@ -77,9 +76,9 @@ export default async function LocaleLayout({
       <body className="font-sans antialiased">
         <NextIntlClientProvider messages={messages}>
           <Providers>
-            <Header churchName={churchInfo?.name} />
-            <main>{children}</main>
-            <Footer />
+            <PublicShell churchName={churchInfo?.name}>
+              {children}
+            </PublicShell>
           </Providers>
         </NextIntlClientProvider>
       </body>
