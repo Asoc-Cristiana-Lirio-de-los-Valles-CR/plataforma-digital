@@ -29,7 +29,7 @@ export async function GET(
 
   try {
     const docRes = await fetch(
-      `${DIRECTUS_URL}/items/team_documents/${id}?fields=id,title,file,status,visibility`,
+      `${DIRECTUS_URL}/items/team_documents/${id}?fields=id,title,file,status,visibility&_t=${Date.now()}`,
       { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }, cache: 'no-store' }
     );
     if (!docRes.ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
