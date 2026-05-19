@@ -94,8 +94,8 @@ export default function AsociadosLayout({ children }: { children: React.ReactNod
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.webp" alt="Lirio" className="h-7 w-auto" />
           <div className="hidden sm:flex flex-col">
-            <span className="text-sm font-semibold text-white/80 leading-tight">Portal Asociados</span>
-            <span className="text-[10px] text-white/25 leading-tight">Asociación Cristiana Lirio de los Valles</span>
+            <span className="text-sm font-semibold text-white leading-tight">Asociación Cristiana Lirio de los Valles</span>
+            <span className="text-[10px] text-white/35 leading-tight">Portal Asociados</span>
           </div>
         </div>
         <div className="flex items-center gap-3">
