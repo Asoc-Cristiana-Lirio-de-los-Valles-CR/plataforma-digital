@@ -17,7 +17,7 @@ const intlMiddleware = createIntlMiddleware({
   localeDetection: false,
 });
 
-const PUBLIC_ASOCIADOS = ['/asociados/login', '/asociados/pendiente', '/asociados/completar-perfil'];
+const PUBLIC_ASOCIADOS = ['/asociados/login', '/asociados/pendiente', '/asociados/completar-perfil', '/asociados/registro'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
