@@ -88,6 +88,26 @@ export async function PUT(request: NextRequest) {
   }
 }
 
+export async function DELETE(request: NextRequest) {
+  const session = await auth() as Session | null;
+  const deny = requireAdmin(session);
+  if (deny) return deny;
+
+  const { id } = await request.json();
+  if (!id) return NextResponse.json({ error: 'ID requerido.' }, { status: 400 });
+
+  try {
+    const res = await fetch(`${DIRECTUS_URL}/items/announcements/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    if (!res.ok && res.status !== 204) return NextResponse.json({ error: 'Error al eliminar.' }, { status: 400 });
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: 'Error interno.' }, { status: 500 });
+  }
+}
+
 export async function PATCH(request: NextRequest) {
   const session = await auth() as Session | null;
   const deny = requireAdmin(session);

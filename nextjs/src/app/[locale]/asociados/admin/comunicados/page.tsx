@@ -105,6 +105,23 @@ export default function AdminComunicadosPage() {
     else showToast(data.error ?? 'Error al reenviar.', false);
   }
 
+  async function eliminar(item: Comunicado) {
+    if (!confirm(`¿Eliminar permanentemente "${item.title}"? Esta acción no se puede deshacer.`)) return;
+    const r = await fetch('/api/asociados/admin/comunicados', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: item.id }),
+    });
+    if (r.ok) {
+      setItems(prev => prev.filter(i => i.id !== item.id));
+      setExpanded(null);
+      showToast('Comunicado eliminado.');
+    } else {
+      const data = await r.json();
+      showToast(data.error ?? 'Error al eliminar.', false);
+    }
+  }
+
   async function changeStatus(id: number, status: string) {
     const r = await fetch('/api/asociados/admin/comunicados', {
       method: 'PATCH',
@@ -315,6 +332,12 @@ export default function AdminComunicadosPage() {
                           Archivar
                         </button>
                       )}
+                      <button
+                        onClick={() => eliminar(item)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors ml-auto"
+                      >
+                        Eliminar
+                      </button>
                     </div>
                   </div>
                 )}
