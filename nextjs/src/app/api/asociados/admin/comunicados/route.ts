@@ -61,6 +61,54 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PUT — reenviar comunicado por email a todos los asociados activos
+export async function PUT(request: NextRequest) {
+  const session = await auth() as Session | null;
+  const deny = requireAdmin(session);
+  if (deny) return deny;
+
+  const { id } = await request.json();
+  if (!id) return NextResponse.json({ error: 'ID requerido.' }, { status: 400 });
+
+  try {
+    // Obtener el comunicado
+    const annRes = await fetch(`${DIRECTUS_URL}/items/announcements/${id}?fields=title,body,status`, {
+      headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    const { data: ann } = await annRes.json();
+    if (!ann) return NextResponse.json({ error: 'Comunicado no encontrado.' }, { status: 404 });
+    if (ann.status !== 'published') return NextResponse.json({ error: 'Solo se pueden reenviar comunicados publicados.' }, { status: 400 });
+
+    // Obtener emails de asociados activos
+    const emailRes = await fetch(
+      `${DIRECTUS_URL}/items/member_accesses?filter[area][_eq]=asociados&filter[status][_eq]=active&fields=profile_id.email&limit=500`,
+      { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } }
+    );
+    const { data: accesses } = await emailRes.json();
+    const emails: string[] = (accesses ?? [])
+      .map((a: { profile_id?: { email?: string } }) => a.profile_id?.email)
+      .filter(Boolean);
+
+    if (emails.length === 0) return NextResponse.json({ error: 'No hay asociados activos con email.' }, { status: 400 });
+
+    // Enviar via Directus mail endpoint
+    await fetch(`${DIRECTUS_URL}/mail`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ADMIN_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: emails,
+        subject: `Comunicado: ${ann.title}`,
+        type: 'markdown',
+        body: `## ${ann.title}\n\n${ann.body}\n\n---\n*Portal de Asociados — Iglesia Cristiana Lirio de los Valles*\n\nAccede al portal: https://liriodelosvallescr.org/es/asociados/comunicados`,
+      }),
+    });
+
+    return NextResponse.json({ ok: true, sent: emails.length });
+  } catch {
+    return NextResponse.json({ error: 'Error interno.' }, { status: 500 });
+  }
+}
+
 export async function PATCH(request: NextRequest) {
   const session = await auth() as Session | null;
   const deny = requireAdmin(session);
