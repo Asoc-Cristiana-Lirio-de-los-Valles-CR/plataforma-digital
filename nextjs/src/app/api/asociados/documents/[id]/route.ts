@@ -42,10 +42,11 @@ export async function GET(
   const isView = request.nextUrl.searchParams.get('view') === '1';
 
   try {
-    // Get document metadata (using scoped token)
+    // Get document metadata
+    const fetchToken = DOCUMENTS_TOKEN || ADMIN_TOKEN;
     const docRes = await fetch(
       `${DIRECTUS_URL}/items/asociados_documents/${id}?fields=id,title,file,status,allow_download`,
-      { headers: { Authorization: `Bearer ${DOCUMENTS_TOKEN}` } }
+      { headers: { Authorization: `Bearer ${fetchToken}` } }
     );
     if (!docRes.ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
@@ -57,10 +58,10 @@ export async function GET(
       return NextResponse.json({ error: 'Download not allowed' }, { status: 403 });
     }
 
-    // Get file asset (using scoped token)
+    // Get file asset
     const fileRes = await fetch(
       `${DIRECTUS_URL}/assets/${doc.file}`,
-      { headers: { Authorization: `Bearer ${DOCUMENTS_TOKEN}` } }
+      { headers: { Authorization: `Bearer ${fetchToken}` } }
     );
     if (!fileRes.ok) return NextResponse.json({ error: 'File not found' }, { status: 404 });
 
