@@ -40,6 +40,9 @@ services:
       AUTH_TRUST_HOST: "true"
       TEAM_SECRET: ${TEAM_SECRET}
       NODE_TLS_REJECT_UNAUTHORIZED: "0"
+      EMAIL_SMTP_USER: ${EMAIL_SMTP_USER}
+      EMAIL_SMTP_PASSWORD: ${EMAIL_SMTP_PASSWORD}
+      EMAIL_FROM: ${EMAIL_FROM}
     extra_hosts:
       - "liriodelosvallescr.org:20.12.207.240"
       - "api.liriodelosvallescr.org:20.12.207.240"

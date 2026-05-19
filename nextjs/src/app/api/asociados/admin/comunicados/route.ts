@@ -1,6 +1,7 @@
 import { auth } from '@/auth';
 import { type Session } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
+import nodemailer from 'nodemailer';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL ?? 'http://directus:8055';
 const ADMIN_TOKEN = process.env.DIRECTUS_ADMIN_TOKEN!;
@@ -99,16 +100,23 @@ export async function PUT(request: NextRequest) {
 
     if (emails.length === 0) return NextResponse.json({ error: 'No hay asociados activos con email.' }, { status: 400 });
 
-    // Enviar via Directus mail endpoint
-    await fetch(`${DIRECTUS_URL}/mail`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${ADMIN_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to: emails,
-        subject: `Comunicado: ${ann.title}`,
-        type: 'markdown',
-        body: `## ${ann.title}\n\n${ann.body}\n\n---\n*Portal de Asociados — Iglesia Cristiana Lirio de los Valles*\n\nAccede al portal: https://liriodelosvallescr.org/es/asociados/comunicados`,
-      }),
+    // Enviar via SMTP directo (Directus /mail no existe en v11)
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.EMAIL_SMTP_USER,
+        pass: process.env.EMAIL_SMTP_PASSWORD,
+      },
+    });
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM ?? process.env.EMAIL_SMTP_USER,
+      bcc: emails,
+      subject: `Comunicado: ${ann.title}`,
+      text: `${ann.title}\n\n${ann.body}\n\n---\nPortal de Asociados — Iglesia Cristiana Lirio de los Valles\nAccede al portal: https://liriodelosvallescr.org/es/asociados/comunicados`,
+      html: `<h2>${ann.title}</h2><p style="white-space:pre-wrap">${ann.body}</p><hr><p><em>Portal de Asociados — Iglesia Cristiana Lirio de los Valles</em><br><a href="https://liriodelosvallescr.org/es/asociados/comunicados">Accede al portal</a></p>`,
     });
 
     return NextResponse.json({ ok: true, sent: emails.length });
