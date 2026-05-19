@@ -128,10 +128,11 @@ export default function CompletarPerfilPage() {
               onChange={e => update('tipo_identificacion', e.target.value)}
               required
               className={`${inputClass} [color-scheme:dark]`}
+              style={{ colorScheme: 'dark' }}
             >
-              <option value="">Selecciona un tipo</option>
+              <option value="" style={{ background: '#1a1230', color: '#fff' }}>Selecciona un tipo</option>
               {TIPOS_ID.map(t => (
-                <option key={t.value} value={t.value}>{t.label}</option>
+                <option key={t.value} value={t.value} style={{ background: '#1a1230', color: '#fff' }}>{t.label}</option>
               ))}
             </select>
           </div>
