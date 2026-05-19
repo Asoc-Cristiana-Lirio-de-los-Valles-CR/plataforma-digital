@@ -77,6 +77,12 @@ export default function AsociadosLayout({ children }: { children: React.ReactNod
     return <>{children}</>;
   }
 
+  const ADMIN_NAV = [
+    { href: '/asociados/admin/solicitudes', label: 'Solicitudes', icon: '🛡️' },
+    { href: '/asociados/admin/documentos', label: 'Documentos', icon: '📁' },
+    { href: '/asociados/admin/comunicados', label: 'Comunicados', icon: '📢' },
+  ];
+
   const adminHref = '/asociados/admin/solicitudes';
   const adminActive = pathname.startsWith(`/${locale}/asociados/admin`);
 
@@ -151,6 +157,7 @@ export default function AsociadosLayout({ children }: { children: React.ReactNod
               )}
             </Link>
           )}
+
         </div>
       </nav>
 
@@ -178,32 +185,38 @@ export default function AsociadosLayout({ children }: { children: React.ReactNod
         {isAdmin && (
           <>
             <div className="my-3 h-px bg-white/5" />
-            <Link
-              href={`/${locale}${adminHref}`}
-              className={clsx(
-                'flex items-center gap-3 px-3 py-3 rounded-xl mb-1 transition-all duration-150 relative',
-                adminActive
-                  ? 'bg-amber-500/20 text-amber-400'
-                  : 'text-white/40 hover:text-amber-400/70 hover:bg-amber-500/10'
-              )}
-            >
-              <div className="relative shrink-0">
-                <svg className="w-6 h-6" fill={adminActive ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-                </svg>
-                {pendingCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-amber-500 text-[9px] font-bold text-black flex items-center justify-center">
-                    {pendingCount > 9 ? '9+' : pendingCount}
-                  </span>
-                )}
-              </div>
-              <span className="hidden lg:block text-sm font-medium">Administración</span>
-              {pendingCount > 0 && (
-                <span className="hidden lg:flex ml-auto items-center justify-center px-1.5 py-0.5 rounded-full bg-amber-500 text-[10px] font-bold text-black min-w-[20px]">
-                  {pendingCount > 9 ? '9+' : pendingCount}
-                </span>
-              )}
-            </Link>
+            <p className="hidden lg:block text-[10px] text-white/20 uppercase tracking-widest px-3 mb-1">Administración</p>
+            {ADMIN_NAV.map(({ href, label, icon }) => {
+              const active = pathname.startsWith(`/${locale}${href}`);
+              const isSolicitudes = href.includes('solicitudes');
+              return (
+                <Link
+                  key={href}
+                  href={`/${locale}${href}`}
+                  className={clsx(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl mb-0.5 transition-all duration-150 relative',
+                    active
+                      ? 'bg-amber-500/20 text-amber-400'
+                      : 'text-white/40 hover:text-amber-400/70 hover:bg-amber-500/10'
+                  )}
+                >
+                  <div className="relative shrink-0 w-6 flex items-center justify-center text-base leading-none">
+                    {icon}
+                    {isSolicitudes && pendingCount > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-amber-500 text-[9px] font-bold text-black flex items-center justify-center">
+                        {pendingCount > 9 ? '9+' : pendingCount}
+                      </span>
+                    )}
+                  </div>
+                  <span className="hidden lg:block text-sm font-medium">{label}</span>
+                  {isSolicitudes && pendingCount > 0 && (
+                    <span className="hidden lg:flex ml-auto items-center justify-center px-1.5 py-0.5 rounded-full bg-amber-500 text-[10px] font-bold text-black min-w-[20px]">
+                      {pendingCount > 9 ? '9+' : pendingCount}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
           </>
         )}
       </nav>
