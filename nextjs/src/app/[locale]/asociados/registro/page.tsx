@@ -173,9 +173,10 @@ export default function RegistroPage() {
           <div>
             <label className={labelClass}>Teléfono <span className="text-red-400">*</span></label>
             <div className="flex gap-2">
-              <div className={`${inputClass} w-24 shrink-0 opacity-60 cursor-not-allowed flex items-center`}>+506</div>
+              <div className="w-16 shrink-0 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white/60 text-sm flex items-center">+506</div>
               <input type="tel" placeholder="8888-8888" value={form.telefono}
-                onChange={e => update('telefono', e.target.value)} required className={`${inputClass} flex-1`} />
+                onChange={e => update('telefono', e.target.value)} required
+                className="flex-1 min-w-0 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-[#b48af7]/60 text-sm transition-colors" />
             </div>
           </div>
 
