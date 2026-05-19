@@ -33,14 +33,20 @@ interface MemberProfile {
   accesses?: MemberAccess[];
 }
 
+// Roles that can approve members and upload documents
+const ADMIN_ROLE_IDS = new Set([
+  '66a4441e-7091-40aa-b4e6-384dec12fc1b', // Administrator (root@) — full access
+  '3882241c-6ca8-4c6f-b703-527199fdb013', // Administrador CMS (admin@) — approve members + upload docs
+]);
+
 async function checkIsAdmin(userId: string, adminToken: string): Promise<boolean> {
   try {
     const res = await fetch(
-      `${DIRECTUS_URL}/users/${userId}?fields=role.admin_access`,
+      `${DIRECTUS_URL}/users/${userId}?fields=role`,
       { headers: { Authorization: `Bearer ${adminToken}` }, cache: 'no-store' }
     );
     const { data } = await res.json();
-    return data?.role?.admin_access === true;
+    return ADMIN_ROLE_IDS.has(data?.role);
   } catch {
     return false;
   }
