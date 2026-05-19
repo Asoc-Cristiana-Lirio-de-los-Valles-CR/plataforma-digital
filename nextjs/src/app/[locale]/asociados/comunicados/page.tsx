@@ -1,12 +1,13 @@
 import { auth } from '@/auth';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL ?? 'http://directus:8055';
+const ADMIN_TOKEN = process.env.DIRECTUS_ADMIN_TOKEN!;
 
-async function getAnnouncements(token: string) {
+async function getAnnouncements() {
   try {
     const res = await fetch(
-      `${DIRECTUS_URL}/items/announcements?filter[status][_eq]=published&filter[visibility][_in]=public,asociados&sort=-date_created&fields=id,title,body,priority,visibility,date_created`,
-      { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }
+      `${DIRECTUS_URL}/items/announcements?filter[status][_eq]=published&filter[visibility][_in]=all,asociados&sort=-date_created&fields=id,title,body,priority,visibility,date_created&limit=50`,
+      { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }, cache: 'no-store' }
     );
     return (await res.json())?.data ?? [];
   } catch {
@@ -16,16 +17,17 @@ async function getAnnouncements(token: string) {
 
 const PRIORITY_BADGE: Record<string, string> = {
   normal: 'bg-white/10 text-white/50',
+  high: 'bg-amber-900/40 text-amber-300',
   important: 'bg-amber-900/40 text-amber-300',
   urgent: 'bg-red-900/40 text-red-300',
 };
 
-const PRIORITY_LABELS: Record<string, string> = { normal: 'Normal', important: 'Importante', urgent: 'Urgente' };
+const PRIORITY_LABELS: Record<string, string> = { normal: 'Normal', high: 'Importante', important: 'Importante', urgent: 'Urgente' };
 
 export default async function ComunicadosPage() {
   const session = await auth();
-  const token = session?.user?.directusToken;
-  const items = token ? await getAnnouncements(token) : [];
+  if (!session?.user?.id) return null;
+  const items = await getAnnouncements();
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
