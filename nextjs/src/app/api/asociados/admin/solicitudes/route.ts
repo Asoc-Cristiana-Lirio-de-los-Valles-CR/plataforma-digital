@@ -1,10 +1,11 @@
 import { auth } from '@/auth';
+import { type Session } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL ?? 'http://directus:8055';
 const ADMIN_TOKEN = process.env.DIRECTUS_ADMIN_TOKEN!;
 
-function requireAdmin(session: Awaited<ReturnType<typeof auth>>) {
+function requireAdmin(session: Session | null) {
   if (!session?.user?.id) return NextResponse.json({ error: 'No autenticado.' }, { status: 401 });
   if (!session.user.isAdmin) return NextResponse.json({ error: 'Sin permisos.' }, { status: 403 });
   return null;
@@ -12,7 +13,7 @@ function requireAdmin(session: Awaited<ReturnType<typeof auth>>) {
 
 // GET — list pending member requests
 export async function GET() {
-  const session = await auth();
+  const session = await auth() as Session | null;
   const deny = requireAdmin(session);
   if (deny) return deny;
 
@@ -33,7 +34,7 @@ export async function GET() {
 
 // PATCH — approve or reject a member_access
 export async function PATCH(request: NextRequest) {
-  const session = await auth();
+  const session = await auth() as Session | null;
   const deny = requireAdmin(session);
   if (deny) return deny;
 
