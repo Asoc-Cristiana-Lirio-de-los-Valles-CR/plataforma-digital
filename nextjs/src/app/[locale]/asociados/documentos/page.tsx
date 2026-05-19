@@ -34,8 +34,8 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default async function DocumentosPage() {
   const session = await auth();
-  const token = session?.user?.directusToken;
-  const documents = token ? await getDocuments() : [];
+  if (!session?.user?.id) return null;
+  const documents = await getDocuments();
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
