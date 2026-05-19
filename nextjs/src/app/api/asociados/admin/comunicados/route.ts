@@ -1,7 +1,7 @@
 import { auth } from '@/auth';
 import { type Session } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
-import nodemailer from 'nodemailer';
+import { sendComunicadoEmail } from '@/lib/sendComunicadoEmail';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL ?? 'http://directus:8055';
 const ADMIN_TOKEN = process.env.DIRECTUS_ADMIN_TOKEN!;
@@ -80,46 +80,9 @@ export async function PUT(request: NextRequest) {
     if (!ann) return NextResponse.json({ error: 'Comunicado no encontrado.' }, { status: 404 });
     if (ann.status !== 'published') return NextResponse.json({ error: 'Solo se pueden reenviar comunicados publicados.' }, { status: 400 });
 
-    // Paso 1: obtener profile_ids de asociados activos
-    const accessRes = await fetch(
-      `${DIRECTUS_URL}/items/member_accesses?filter[area][_eq]=asociados&filter[status][_eq]=active&fields=profile_id&limit=500`,
-      { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } }
-    );
-    const { data: accesses } = await accessRes.json();
-    const profileIds: number[] = (accesses ?? []).map((a: { profile_id: number }) => a.profile_id).filter(Boolean);
-
-    if (profileIds.length === 0) return NextResponse.json({ error: 'No hay asociados activos con email.' }, { status: 400 });
-
-    // Paso 2: obtener emails de esos perfiles
-    const profileRes = await fetch(
-      `${DIRECTUS_URL}/items/member_profiles?filter[id][_in]=${profileIds.join(',')}&fields=email&limit=500`,
-      { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } }
-    );
-    const { data: profiles } = await profileRes.json();
-    const emails: string[] = (profiles ?? []).map((p: { email?: string }) => p.email).filter(Boolean);
-
-    if (emails.length === 0) return NextResponse.json({ error: 'No hay asociados activos con email.' }, { status: 400 });
-
-    // Enviar via SMTP directo (Directus /mail no existe en v11)
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_SMTP_USER,
-        pass: process.env.EMAIL_SMTP_PASSWORD,
-      },
-    });
-
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM ?? process.env.EMAIL_SMTP_USER,
-      bcc: emails,
-      subject: `Comunicado: ${ann.title}`,
-      text: `${ann.title}\n\n${ann.body}\n\n---\nPortal de Asociados — Iglesia Cristiana Lirio de los Valles\nAccede al portal: https://liriodelosvallescr.org/es/asociados/comunicados`,
-      html: `<h2>${ann.title}</h2><p style="white-space:pre-wrap">${ann.body}</p><hr><p><em>Portal de Asociados — Iglesia Cristiana Lirio de los Valles</em><br><a href="https://liriodelosvallescr.org/es/asociados/comunicados">Accede al portal</a></p>`,
-    });
-
-    return NextResponse.json({ ok: true, sent: emails.length });
+    const sent = await sendComunicadoEmail(ann.title, ann.body);
+    if (sent === 0) return NextResponse.json({ error: 'No hay asociados activos con email.' }, { status: 400 });
+    return NextResponse.json({ ok: true, sent });
   } catch {
     return NextResponse.json({ error: 'Error interno.' }, { status: 500 });
   }

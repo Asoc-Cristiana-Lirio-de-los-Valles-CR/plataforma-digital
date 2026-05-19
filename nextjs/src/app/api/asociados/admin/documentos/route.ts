@@ -1,6 +1,7 @@
 import { auth } from '@/auth';
 import { type Session } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
+import { sendComunicadoEmail } from '@/lib/sendComunicadoEmail';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL ?? 'http://directus:8055';
 const ADMIN_TOKEN = process.env.DIRECTUS_ADMIN_TOKEN!;
@@ -100,6 +101,35 @@ export async function POST(request: NextRequest) {
         metadata: { document_id: doc.id, title, category },
       }),
     }).catch(() => {});
+
+    // Auto-crear comunicado y notificar por email
+    const CATEGORY_LABEL: Record<string, string> = {
+      financial_report: 'Informe financiero',
+      minutes: 'Acta',
+      regulation: 'Reglamento',
+      announcement: 'Anuncio',
+      other: 'Documento',
+    };
+    const docLabel = CATEGORY_LABEL[category] ?? 'Documento';
+    const announcementTitle = `Nuevo ${docLabel} disponible: ${title}`;
+    const announcementBody = description?.trim()
+      ? `Se ha publicado un nuevo documento para asociados:\n\n${title}\n\n${description}\n\nAccede al portal para consultarlo.`
+      : `Se ha publicado un nuevo documento para asociados:\n\n${title}\n\nAccede al portal para consultarlo y descargarlo.`;
+
+    Promise.all([
+      fetch(`${DIRECTUS_URL}/items/announcements`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${ADMIN_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: announcementTitle,
+          body: announcementBody,
+          priority: 'normal',
+          visibility: 'asociados',
+          status: 'published',
+        }),
+      }),
+      sendComunicadoEmail(announcementTitle, announcementBody),
+    ]).catch(() => {});
 
     return NextResponse.json({ ok: true, id: doc.id }, { status: 201 });
   } catch {
