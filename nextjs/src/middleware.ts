@@ -77,6 +77,22 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(`/${locale}/equipo/acceso`, request.url));
   }
 
+  // ── Admin Asociados ───────────────────────────────────────────────────────
+  if (localePath.startsWith('/asociados/admin')) {
+    const token = await getToken({
+      req: request,
+      secret: process.env.AUTH_SECRET,
+      cookieName: '__Secure-authjs.session-token',
+      secureCookie: true,
+    });
+    if (!token?.isAdmin) {
+      return NextResponse.redirect(new URL(`/${locale}/asociados`, request.url));
+    }
+    const response = intlMiddleware(request);
+    response.headers.set('x-pathname', pathname);
+    return response;
+  }
+
   // ── Portal Asociados ──────────────────────────────────────────────────────
   if (localePath.startsWith('/asociados')) {
     const isPublic = PUBLIC_ASOCIADOS.some(p => localePath === p || localePath.startsWith(p + '/'));

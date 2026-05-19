@@ -12,12 +12,14 @@ declare module 'next-auth' {
       directusToken: string;
       asociadosStatus: 'incomplete' | 'pending' | 'active' | 'suspended' | null;
       equipoStatus: 'active' | 'pending' | 'suspended' | null;
+      isAdmin: boolean;
     } & DefaultSession['user'];
   }
   interface User {
     directusToken?: string;
     asociadosStatus?: 'incomplete' | 'pending' | 'active' | 'suspended' | null;
     equipoStatus?: 'active' | 'pending' | 'suspended' | null;
+    isAdmin?: boolean;
   }
 }
 
@@ -29,6 +31,19 @@ interface MemberAccess {
 interface MemberProfile {
   id: number;
   accesses?: MemberAccess[];
+}
+
+async function checkIsAdmin(userId: string, adminToken: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `${DIRECTUS_URL}/users/${userId}?fields=role.admin_access`,
+      { headers: { Authorization: `Bearer ${adminToken}` }, cache: 'no-store' }
+    );
+    const { data } = await res.json();
+    return data?.role?.admin_access === true;
+  } catch {
+    return false;
+  }
 }
 
 async function getMemberProfile(userId: string, adminToken: string): Promise<MemberProfile | null> {
@@ -91,7 +106,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           if (!user) return null;
 
           const adminToken = process.env.DIRECTUS_ADMIN_TOKEN!;
-          const profile = await getMemberProfile(user.id, adminToken);
+          const [profile, isAdmin] = await Promise.all([
+            getMemberProfile(user.id, adminToken),
+            checkIsAdmin(user.id, adminToken),
+          ]);
 
           return {
             id: user.id,
@@ -100,6 +118,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             directusToken: token,
             asociadosStatus: profile ? extractStatus(profile.accesses ?? [], 'asociados') : null,
             equipoStatus: profile ? extractStatus(profile.accesses ?? [], 'equipo') as 'active' | 'pending' | 'suspended' | null : null,
+            isAdmin,
           };
         } catch {
           return null;
@@ -120,6 +139,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.directusToken = user.directusToken;
         token.asociadosStatus = user.asociadosStatus;
         token.equipoStatus = user.equipoStatus;
+        token.isAdmin = user.isAdmin ?? false;
         (token as Record<string, unknown>).profileCheckedAt = Date.now();
       }
 
@@ -129,9 +149,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.directusToken = directusToken;
         if (directusUserId) {
           token.sub = directusUserId;
-          const profile = await getMemberProfile(directusUserId, adminToken);
+          const [profile, isAdmin] = await Promise.all([
+            getMemberProfile(directusUserId, adminToken),
+            checkIsAdmin(directusUserId, adminToken),
+          ]);
           token.asociadosStatus = profile ? extractStatus(profile.accesses ?? [], 'asociados') : null;
           token.equipoStatus = profile ? extractStatus(profile.accesses ?? [], 'equipo') as 'active' | 'pending' | 'suspended' | null : null;
+          token.isAdmin = isAdmin;
           (token as Record<string, unknown>).profileCheckedAt = Date.now();
           // Update last activity
           if (profile?.id) {
@@ -147,9 +171,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // Re-check statuses every 5 minutes
       const lastCheck = (token.profileCheckedAt as number | undefined) ?? 0;
       if (token.sub && adminToken && Date.now() - lastCheck > PROFILE_CHECK_INTERVAL_MS) {
-        const profile = await getMemberProfile(token.sub, adminToken);
+        const [profile, isAdmin] = await Promise.all([
+          getMemberProfile(token.sub, adminToken),
+          checkIsAdmin(token.sub, adminToken),
+        ]);
         token.asociadosStatus = profile ? extractStatus(profile.accesses ?? [], 'asociados') : null;
         token.equipoStatus = profile ? extractStatus(profile.accesses ?? [], 'equipo') as 'active' | 'pending' | 'suspended' | null : null;
+        token.isAdmin = isAdmin;
         (token as Record<string, unknown>).profileCheckedAt = Date.now();
       }
 
@@ -161,6 +189,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       session.user.directusToken = token.directusToken as string;
       session.user.asociadosStatus = token.asociadosStatus as 'incomplete' | 'pending' | 'active' | 'suspended' | null;
       session.user.equipoStatus = token.equipoStatus as 'active' | 'pending' | 'suspended' | null;
+      session.user.isAdmin = (token.isAdmin as boolean) ?? false;
       return session;
     },
   },
