@@ -167,14 +167,17 @@ export default function CompletarPerfilPage() {
           {/* Teléfono */}
           <div>
             <label className={labelClass}>Teléfono <span className="text-red-400">*</span></label>
-            <input
-              type="tel"
-              placeholder="Ej: 8888-8888"
-              value={form.telefono}
-              onChange={e => update('telefono', e.target.value)}
-              required
-              className={inputClass}
-            />
+            <div className="flex gap-2">
+              <div className={`${inputClass} w-24 shrink-0 opacity-60 cursor-not-allowed flex items-center`}>+506</div>
+              <input
+                type="tel"
+                placeholder="8888-8888"
+                value={form.telefono}
+                onChange={e => update('telefono', e.target.value)}
+                required
+                className={`${inputClass} flex-1`}
+              />
+            </div>
           </div>
 
           {/* Fecha de bautismo */}
