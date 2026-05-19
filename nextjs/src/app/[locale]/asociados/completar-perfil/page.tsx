@@ -1,7 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { useSession } from 'next-auth/react';
 
 const inputClass = 'w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-[#b48af7]/60 text-sm transition-colors';
 const labelClass = 'block text-xs text-white/50 mb-1 font-medium';
@@ -13,7 +12,7 @@ const TIPOS_ID = [
 ];
 
 export default function CompletarPerfilPage() {
-  const { data: session } = useSession();
+  const [sessionUser, setSessionUser] = useState<{ name?: string | null; email?: string | null } | null>(null);
   const [form, setForm] = useState({
     nombre: '',
     tipo_identificacion: '',
@@ -26,8 +25,14 @@ export default function CompletarPerfilPage() {
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
 
-  const nombreValue = session?.user?.name ?? form.nombre;
-  const emailValue = session?.user?.email ?? '';
+  useEffect(() => {
+    fetch('/api/auth/session').then(r => r.json()).then(s => {
+      if (s?.user) setSessionUser(s.user);
+    }).catch(() => {});
+  }, []);
+
+  const nombreValue = sessionUser?.name ?? form.nombre;
+  const emailValue = sessionUser?.email ?? '';
 
   function update(field: string, val: string) {
     setForm(f => ({ ...f, [field]: val }));
