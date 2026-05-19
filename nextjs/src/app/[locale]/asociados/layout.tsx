@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useLocale } from 'next-intl';
 import { clsx } from 'clsx';
 import { useState, useEffect } from 'react';
+import { signOut } from 'next-auth/react';
 
 const NAV = [
   {
@@ -88,12 +89,23 @@ export default function AsociadosLayout({ children }: { children: React.ReactNod
           <img src="/logo.webp" alt="Lirio" className="h-7 w-auto" />
           <span className="text-sm font-semibold text-white/80 hidden sm:block">Portal Asociados</span>
         </div>
-        <Link
-          href={`/${locale}`}
-          className="text-xs text-white/40 hover:text-white/70 transition-colors"
-        >
-          Sitio público
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href={`/${locale}`} className="text-xs text-white/40 hover:text-white/70 transition-colors hidden sm:block">
+            Sitio público
+          </Link>
+          <button
+            onClick={() => signOut({ callbackUrl: '/es/asociados/login' })}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
+                       text-white/50 hover:text-red-400 hover:bg-red-500/10
+                       border border-white/10 hover:border-red-500/30
+                       transition-all duration-150"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span className="hidden sm:inline">Cerrar sesión</span>
+          </button>
+        </div>
       </header>
 
       {/* Main content */}
