@@ -104,6 +104,22 @@ export function Header({ churchName }: { churchName?: string }) {
                 {t('members')}
               </Link>
 
+              {/* Registro button — desktop */}
+              <Link
+                href={`/${locale}/asociados/registro`}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                           text-xs font-semibold
+                           bg-brand-600 dark:bg-brand-700 text-white
+                           hover:bg-brand-700 dark:hover:bg-brand-600
+                           transition-colors duration-150"
+                aria-label="Registro de miembros"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+                Registrarse
+              </Link>
+
               {/* Equipo — icono discreto */}
               <Link
                 href={`/${locale}/equipo/manuales`}
@@ -231,6 +247,19 @@ export function Header({ churchName }: { churchName?: string }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
               {t('members')}
+            </Link>
+
+            {/* Registro link mobile */}
+            <Link
+              href={`/${locale}/asociados/registro`}
+              className="flex items-center gap-2 px-4 py-3.5 rounded-xl text-base font-semibold
+                         bg-brand-600 dark:bg-brand-700 text-white mt-1
+                         hover:bg-brand-700 dark:hover:bg-brand-600 transition-colors duration-150"
+            >
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+              Registrarse
             </Link>
           </nav>
 
