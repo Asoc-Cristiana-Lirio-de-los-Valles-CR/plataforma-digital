@@ -86,6 +86,13 @@ services:
       AUTH_GOOGLE_SCOPE: "email profile"
       STORAGE_LOCATIONS: local
       STORAGE_LOCAL_ROOT: /directus/uploads
+      EMAIL_TRANSPORT: smtp
+      EMAIL_SMTP_HOST: smtp.gmail.com
+      EMAIL_SMTP_PORT: "587"
+      EMAIL_SMTP_SECURE: "false"
+      EMAIL_SMTP_USER: ${EMAIL_SMTP_USER}
+      EMAIL_SMTP_PASSWORD: ${EMAIL_SMTP_PASSWORD}
+      EMAIL_FROM: ${EMAIL_FROM}
     volumes:
       - directus_uploads:/directus/uploads
     depends_on:
