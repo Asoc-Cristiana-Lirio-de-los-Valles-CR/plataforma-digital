@@ -33,9 +33,9 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { first_name, last_name, email, password, cedula, telefono, isGoogleUser } = body;
+  const { first_name, last_name, email, password, tipo_identificacion, numero_identificacion, fecha_nacimiento, telefono, isGoogleUser } = body;
 
-  if (!first_name || !last_name || !email || !cedula) {
+  if (!first_name || !last_name || !email || !tipo_identificacion || !numero_identificacion || !fecha_nacimiento || !telefono) {
     return NextResponse.json({ error: 'Faltan campos obligatorios.' }, { status: 400 });
   }
   if (!isGoogleUser && (!password || password.length < 8)) {
@@ -79,9 +79,14 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         user_id: newUser.id,
         status: 'pending',
-        cedula,
-        telefono: telefono ?? null,
-        accepted_terms_at: new Date().toISOString(),
+        nombre: `${first_name} ${last_name}`.trim(),
+        email,
+        tipo_identificacion,
+        numero_identificacion,
+        fecha_nacimiento,
+        telefono,
+        ultima_actividad: new Date().toISOString(),
+        email_verified_at: new Date().toISOString(),
       }),
     });
 

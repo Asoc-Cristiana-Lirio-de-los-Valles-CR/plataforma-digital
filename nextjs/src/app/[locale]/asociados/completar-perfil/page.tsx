@@ -1,17 +1,33 @@
 'use client';
 import { useState } from 'react';
 import Image from 'next/image';
+import { useSession } from 'next-auth/react';
 
 const inputClass = 'w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-[#b48af7]/60 text-sm transition-colors';
 const labelClass = 'block text-xs text-white/50 mb-1 font-medium';
 
+const TIPOS_ID = [
+  { value: 'cedula_identidad', label: 'Cédula de Identidad' },
+  { value: 'dimex', label: 'DIMEX' },
+  { value: 'pasaporte', label: 'Pasaporte' },
+];
+
 export default function CompletarPerfilPage() {
+  const { data: session } = useSession();
   const [form, setForm] = useState({
-    cedula: '', telefono: '', congregacion: '', ministerio: '', fecha_bautismo: '',
+    nombre: '',
+    tipo_identificacion: '',
+    numero_identificacion: '',
+    fecha_nacimiento: '',
+    telefono: '',
+    ministerio: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
+
+  const nombreValue = session?.user?.name ?? form.nombre;
+  const emailValue = session?.user?.email ?? '';
 
   function update(field: string, val: string) {
     setForm(f => ({ ...f, [field]: val }));
@@ -25,7 +41,11 @@ export default function CompletarPerfilPage() {
       const res = await fetch('/api/asociados/completar-perfil', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          nombre: nombreValue,
+          email: emailValue,
+        }),
       });
       if (!res.ok) {
         const d = await res.json();
@@ -62,7 +82,7 @@ export default function CompletarPerfilPage() {
 
   return (
     <div className="min-h-screen bg-[#0d0a19] flex items-center justify-center p-4">
-      <div className="w-full max-w-sm -mt-8">
+      <div className="w-full max-w-sm py-8">
         <div className="text-center mb-6">
           <Image src="/logo.webp" alt="Lirio" width={48} height={48} className="mx-auto mb-3 opacity-90" />
           <h1 className="text-xl font-display font-semibold text-white">Completa tu perfil</h1>
@@ -70,30 +90,96 @@ export default function CompletarPerfilPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Nombre — pre-rellenado desde Google */}
           <div>
-            <label className={labelClass}>Número de cédula <span className="text-red-400">*</span></label>
-            <input type="text" placeholder="Ej: 1-2345-6789" value={form.cedula} onChange={e => update('cedula', e.target.value)} required className={inputClass} />
+            <label className={labelClass}>Nombre completo <span className="text-red-400">*</span></label>
+            {nombreValue ? (
+              <div className={`${inputClass} opacity-60 cursor-not-allowed`}>{nombreValue}</div>
+            ) : (
+              <input
+                type="text"
+                placeholder="Tu nombre completo"
+                value={form.nombre}
+                onChange={e => update('nombre', e.target.value)}
+                required
+                className={inputClass}
+              />
+            )}
           </div>
 
+          {/* Email — solo lectura */}
+          {emailValue && (
+            <div>
+              <label className={labelClass}>Correo electrónico</label>
+              <div className={`${inputClass} opacity-60 cursor-not-allowed`}>{emailValue}</div>
+            </div>
+          )}
+
+          {/* Tipo de identificación */}
           <div>
-            <label className={labelClass}>Teléfono <span className="text-white/30">(opcional)</span></label>
-            <input type="tel" placeholder="Ej: 8888-8888" value={form.telefono} onChange={e => update('telefono', e.target.value)} className={inputClass} />
+            <label className={labelClass}>Tipo de identificación <span className="text-red-400">*</span></label>
+            <select
+              value={form.tipo_identificacion}
+              onChange={e => update('tipo_identificacion', e.target.value)}
+              required
+              className={`${inputClass} [color-scheme:dark]`}
+            >
+              <option value="">Selecciona un tipo</option>
+              {TIPOS_ID.map(t => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
           </div>
 
+          {/* Número de identificación */}
           <div>
-            <label className={labelClass}>Congregación <span className="text-white/30">(opcional)</span></label>
-            <input type="text" placeholder="Nombre de tu congregación" value={form.congregacion} onChange={e => update('congregacion', e.target.value)} className={inputClass} />
+            <label className={labelClass}>Número de identificación <span className="text-red-400">*</span></label>
+            <input
+              type="text"
+              placeholder="Ej: 1-2345-6789"
+              value={form.numero_identificacion}
+              onChange={e => update('numero_identificacion', e.target.value)}
+              required
+              className={inputClass}
+            />
           </div>
 
+          {/* Fecha de nacimiento */}
+          <div>
+            <label className={labelClass}>Fecha de nacimiento <span className="text-red-400">*</span></label>
+            <input
+              type="date"
+              value={form.fecha_nacimiento}
+              onChange={e => update('fecha_nacimiento', e.target.value)}
+              required
+              max={new Date(new Date().setFullYear(new Date().getFullYear() - 10)).toISOString().split('T')[0]}
+              className={`${inputClass} [color-scheme:dark]`}
+            />
+          </div>
+
+          {/* Teléfono */}
+          <div>
+            <label className={labelClass}>Teléfono <span className="text-red-400">*</span></label>
+            <input
+              type="tel"
+              placeholder="Ej: 8888-8888"
+              value={form.telefono}
+              onChange={e => update('telefono', e.target.value)}
+              required
+              className={inputClass}
+            />
+          </div>
+
+          {/* Ministerio */}
           <div>
             <label className={labelClass}>Ministerio <span className="text-white/30">(opcional)</span></label>
-            <input type="text" placeholder="Ej: Alabanza, Jóvenes..." value={form.ministerio} onChange={e => update('ministerio', e.target.value)} className={inputClass} />
-          </div>
-
-          <div>
-            <label className={labelClass}>Fecha de Bautismo <span className="text-white/30">(opcional)</span></label>
-            <input type="date" value={form.fecha_bautismo} onChange={e => update('fecha_bautismo', e.target.value)}
-              className={`${inputClass} [color-scheme:dark]`} />
+            <input
+              type="text"
+              placeholder="Ej: Alabanza, Jóvenes..."
+              value={form.ministerio}
+              onChange={e => update('ministerio', e.target.value)}
+              className={inputClass}
+            />
           </div>
 
           <p className="text-xs text-white/30 leading-relaxed">
@@ -102,8 +188,11 @@ export default function CompletarPerfilPage() {
 
           {error && <p className="text-xs text-red-400 text-center">{error}</p>}
 
-          <button type="submit" disabled={loading}
-            className="w-full py-3 rounded-xl bg-[#461a7a] hover:bg-[#5a239a] text-white font-semibold text-sm transition-colors disabled:opacity-50">
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 rounded-xl bg-[#461a7a] hover:bg-[#5a239a] text-white font-semibold text-sm transition-colors disabled:opacity-50"
+          >
             {loading ? 'Guardando...' : 'Enviar solicitud'}
           </button>
         </form>

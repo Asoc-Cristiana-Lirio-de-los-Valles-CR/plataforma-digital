@@ -11,11 +11,13 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { cedula, telefono, congregacion, ministerio, fecha_bautismo } = body;
+  const { nombre, email, tipo_identificacion, numero_identificacion, fecha_nacimiento, telefono, ministerio } = body;
 
-  if (!cedula?.trim()) {
-    return NextResponse.json({ error: 'La cédula es requerida.' }, { status: 400 });
-  }
+  if (!nombre?.trim()) return NextResponse.json({ error: 'El nombre es requerido.' }, { status: 400 });
+  if (!tipo_identificacion) return NextResponse.json({ error: 'El tipo de identificación es requerido.' }, { status: 400 });
+  if (!numero_identificacion?.trim()) return NextResponse.json({ error: 'El número de identificación es requerido.' }, { status: 400 });
+  if (!fecha_nacimiento) return NextResponse.json({ error: 'La fecha de nacimiento es requerida.' }, { status: 400 });
+  if (!telefono?.trim()) return NextResponse.json({ error: 'El teléfono es requerido.' }, { status: 400 });
 
   try {
     const res = await fetch(
@@ -33,11 +35,14 @@ export async function POST(request: NextRequest) {
       headers: { Authorization: `Bearer ${ADMIN_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         status: 'pending',
-        cedula: cedula.trim(),
-        telefono: telefono?.trim() || null,
-        congregacion: congregacion?.trim() || null,
+        nombre: nombre.trim(),
+        email: email?.trim() || null,
+        tipo_identificacion,
+        numero_identificacion: numero_identificacion.trim(),
+        fecha_nacimiento,
+        telefono: telefono.trim(),
         ministerio: ministerio?.trim() || null,
-        fecha_bautismo: fecha_bautismo || null,
+        ultima_actividad: new Date().toISOString(),
       }),
     });
 

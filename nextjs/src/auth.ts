@@ -24,7 +24,7 @@ declare module 'next-auth' {
 async function getDirectusProfile(userId: string, adminToken: string) {
   try {
     const res = await fetch(
-      `${DIRECTUS_URL}/items/asociados_profiles?filter[user_id][_eq]=${userId}&fields=status&limit=1`,
+      `${DIRECTUS_URL}/items/asociados_profiles?filter[user_id][_eq]=${userId}&fields=id,status&limit=1`,
       { headers: { Authorization: `Bearer ${adminToken}` }, cache: 'no-store' }
     );
     const data = await res.json();
@@ -107,6 +107,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const profile = await getDirectusProfile(directusUserId, adminToken);
           token.profileStatus = profile?.status ?? null;
           (token as Record<string, unknown>).profileCheckedAt = Date.now();
+          // Record last activity on sign-in
+          if (profile?.id) {
+            fetch(`${DIRECTUS_URL}/items/asociados_profiles/${profile.id}`, {
+              method: 'PATCH',
+              headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ultima_actividad: new Date().toISOString() }),
+            }).catch(() => {});
+          }
         }
       }
 
@@ -165,6 +173,8 @@ async function syncGoogleUserWithDirectus(
           body: JSON.stringify({
             user_id: directusUserId,
             status: 'incomplete',
+            nombre: user.name ?? '',
+            email: user.email,
             email_verified_at: new Date().toISOString(),
           }),
         });
@@ -194,6 +204,8 @@ async function syncGoogleUserWithDirectus(
         body: JSON.stringify({
           user_id: directusUserId,
           status: 'incomplete',
+          nombre: user.name ?? '',
+          email: user.email,
           email_verified_at: new Date().toISOString(),
         }),
       });
