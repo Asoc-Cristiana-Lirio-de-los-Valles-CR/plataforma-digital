@@ -60,91 +60,16 @@ function LoginForm({ onError, onSwitchToRegistro }: { onError: (msg: string) => 
   );
 }
 
-function RegistroForm({ onDone }: { onDone: () => void }) {
-  const [form, setForm] = useState({ first_name: '', last_name: '', email: '', password: '', cedula: '', telefono: '' });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  function update(field: string, val: string) {
-    setForm(f => ({ ...f, [field]: val }));
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch('/api/asociados/registro', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-      if (!res.ok) {
-        const d = await res.json();
-        setError(d.error ?? 'Error al registrar. Intenta de nuevo.');
-      } else {
-        onDone();
-      }
-    } catch {
-      setError('Error de conexión. Intenta de nuevo.');
-    }
-    setLoading(false);
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
-        <input type="text" placeholder="Nombre" value={form.first_name} onChange={e => update('first_name', e.target.value)} required className={inputClass} />
-        <input type="text" placeholder="Apellido" value={form.last_name} onChange={e => update('last_name', e.target.value)} required className={inputClass} />
-      </div>
-      <input type="email" placeholder="Correo electrónico" value={form.email} onChange={e => update('email', e.target.value)} required className={inputClass} />
-      <input type="password" placeholder="Contraseña (mínimo 8 caracteres)" value={form.password} onChange={e => update('password', e.target.value)} required minLength={8} className={inputClass} />
-      <input type="text" placeholder="Número de cédula" value={form.cedula} onChange={e => update('cedula', e.target.value)} required className={inputClass} />
-      <input type="tel" placeholder="Teléfono (opcional)" value={form.telefono} onChange={e => update('telefono', e.target.value)} className={inputClass} />
-      <p className="text-xs text-white/30 leading-relaxed">
-        Tu solicitud será revisada manualmente. El acceso se habilita una vez aprobado.
-      </p>
-      {error && <p className="text-xs text-red-400 text-center">{error}</p>}
-      <button type="submit" disabled={loading}
-        className="w-full py-3 rounded-xl bg-[#461a7a] hover:bg-[#5a239a] text-white font-semibold text-sm transition-colors disabled:opacity-50">
-        {loading ? 'Enviando solicitud...' : 'Enviar solicitud'}
-      </button>
-    </form>
-  );
-}
 
 function PortalContent() {
   const params = useSearchParams();
-  const [tab, setTab] = useState<'login' | 'registro'>(
-    params.get('tab') === 'registro' ? 'registro' : 'login'
-  );
   const urlError = params.get('error');
   const [error, setError] = useState(() => {
-    if (!urlError || urlError === 'suspended') return '';
-    if (urlError === 'no_profile') return 'Tu cuenta no está registrada como asociado. Por favor solicita acceso usando la pestaña "Solicitar acceso".';
+    if (!urlError || urlError === 'suspended' || urlError === 'no_profile') return '';
     return 'Error al iniciar sesión con Google. Intenta de nuevo o usa email y contraseña.';
   });
-  const [done, setDone] = useState(false);
   const isSuspended = urlError === 'suspended';
-
-  if (done) {
-    return (
-      <div className="text-center">
-        <div className="w-16 h-16 rounded-full bg-[#461a7a]/40 border border-[#b48af7]/30 flex items-center justify-center mx-auto mb-6">
-          <svg className="w-8 h-8 text-[#b48af7]" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-          </svg>
-        </div>
-        <h2 className="text-xl font-display font-semibold text-white mb-2">Solicitud enviada</h2>
-        <p className="text-white/50 text-sm mb-6">
-          Tu solicitud fue recibida. Un administrador revisará tu información y te notificará por correo cuando sea aprobada.
-        </p>
-        <button onClick={() => { setDone(false); setTab('login'); }} className="text-sm text-[#b48af7] hover:underline">
-          Volver al inicio de sesión
-        </button>
-      </div>
-    );
-  }
+  const isNoProfile = urlError === 'no_profile';
 
   return (
     <>
@@ -154,31 +79,26 @@ function PortalContent() {
         </div>
       )}
 
-      {/* Tab switcher */}
-      <div className="flex rounded-xl bg-white/5 border border-white/10 p-1 mb-5">
-        <button
-          onClick={() => { setTab('login'); setError(''); }}
-          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
-            tab === 'login'
-              ? 'bg-[#461a7a] text-white'
-              : 'text-white/40 hover:text-white/70'
-          }`}
-        >
-          Ingresar
-        </button>
-        <button
-          onClick={() => { setTab('registro'); setError(''); }}
-          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
-            tab === 'registro'
-              ? 'bg-[#461a7a] text-white'
-              : 'text-white/40 hover:text-white/70'
-          }`}
-        >
-          Solicitar acceso
-        </button>
-      </div>
+      {isNoProfile && (
+        <div className="mb-5 p-4 rounded-xl bg-[#461a7a]/20 border border-[#b48af7]/30 text-center">
+          <p className="text-sm text-white/70 mb-3">
+            Tu cuenta de Google no está registrada como miembro.
+          </p>
+          <a
+            href="/es/asociados/registro"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg
+                       bg-[#461a7a] hover:bg-[#5a239a] text-white text-sm font-semibold
+                       transition-colors duration-150"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+            Registrarme como miembro
+          </a>
+        </div>
+      )}
 
-      {/* Google — funciona para login y registro */}
+      {/* Google login */}
       <button
         onClick={() => signIn('google', { callbackUrl: '/es/asociados' })}
         className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl
@@ -186,7 +106,7 @@ function PortalContent() {
                    hover:bg-gray-100 transition-colors duration-150 mb-4"
       >
         {GOOGLE_ICON}
-        {tab === 'login' ? 'Continuar con Google' : 'Registrarse con Google'}
+        Continuar con Google
       </button>
 
       <div className="flex items-center gap-3 mb-4">
@@ -197,10 +117,14 @@ function PortalContent() {
 
       {error && <p className="text-xs text-red-400 text-center mb-3">{error}</p>}
 
-      {tab === 'login'
-        ? <LoginForm onError={setError} onSwitchToRegistro={() => { setTab('registro'); setError(''); }} />
-        : <RegistroForm onDone={() => setDone(true)} />
-      }
+      <LoginForm onError={setError} onSwitchToRegistro={() => { window.location.href = '/es/asociados/registro'; }} />
+
+      <p className="text-center text-xs text-white/30 mt-4">
+        ¿No tienes cuenta?{' '}
+        <a href="/es/asociados/registro" className="text-[#b48af7] hover:underline">
+          Registrarse
+        </a>
+      </p>
     </>
   );
 }
