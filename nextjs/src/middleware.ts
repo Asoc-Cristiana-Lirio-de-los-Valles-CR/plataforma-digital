@@ -79,13 +79,17 @@ export async function middleware(request: NextRequest) {
 
   // ── Admin Asociados ───────────────────────────────────────────────────────
   if (localePath.startsWith('/asociados/admin')) {
-    const token = await getToken({
-      req: request,
-      secret: process.env.AUTH_SECRET,
-      cookieName: '__Secure-authjs.session-token',
-      secureCookie: true,
-    });
-    if (!token?.isAdmin) {
+    try {
+      const token = await getToken({
+        req: request,
+        secret: process.env.AUTH_SECRET,
+        cookieName: '__Secure-authjs.session-token',
+        secureCookie: true,
+      });
+      if (!token?.isAdmin) {
+        return NextResponse.redirect(new URL(`/${locale}/asociados`, request.url));
+      }
+    } catch {
       return NextResponse.redirect(new URL(`/${locale}/asociados`, request.url));
     }
     const response = intlMiddleware(request);
