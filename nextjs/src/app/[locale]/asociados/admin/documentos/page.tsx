@@ -112,6 +112,21 @@ export default function AdminDocumentosPage() {
     }
   }
 
+  async function deleteDoc(doc: Doc) {
+    if (!confirm(`¿Eliminar permanentemente "${doc.title}"? Esta acción no se puede deshacer.`)) return;
+    const r = await fetch('/api/asociados/admin/documentos', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: doc.id }),
+    });
+    if (r.ok) {
+      setDocs(prev => prev.filter(d => d.id !== doc.id));
+      showToast('Documento eliminado.');
+    } else {
+      showToast('Error al eliminar.', false);
+    }
+  }
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       {toast && (
@@ -280,16 +295,24 @@ export default function AdminDocumentosPage() {
                   )}
                 </div>
               </div>
-              <button
-                onClick={() => toggleStatus(doc)}
-                className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
-                  doc.status === 'active'
-                    ? 'border-red-500/30 text-red-400 hover:bg-red-500/10'
-                    : 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10'
-                }`}
-              >
-                {doc.status === 'active' ? 'Desactivar' : 'Activar'}
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => toggleStatus(doc)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                    doc.status === 'active'
+                      ? 'border-amber-500/30 text-amber-400 hover:bg-amber-500/10'
+                      : 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10'
+                  }`}
+                >
+                  {doc.status === 'active' ? 'Desactivar' : 'Activar'}
+                </button>
+                <button
+                  onClick={() => deleteDoc(doc)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-red-500/30 text-red-400 hover:bg-red-500/10"
+                >
+                  Eliminar
+                </button>
+              </div>
             </div>
           ))}
         </div>

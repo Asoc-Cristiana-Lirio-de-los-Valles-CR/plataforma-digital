@@ -107,6 +107,42 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// DELETE — remove document record and file from Directus
+export async function DELETE(request: NextRequest) {
+  const session = await auth() as Session | null;
+  const deny = requireAdmin(session);
+  if (deny) return deny;
+
+  const { id } = await request.json();
+  if (!id) return NextResponse.json({ error: 'ID requerido.' }, { status: 400 });
+
+  try {
+    // Get file ID before deleting the record
+    const docRes = await fetch(`${DIRECTUS_URL}/items/asociados_documents/${id}?fields=file`, {
+      headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    const { data: doc } = await docRes.json();
+
+    // Delete document record
+    await fetch(`${DIRECTUS_URL}/items/asociados_documents/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+
+    // Delete the file from Directus storage
+    if (doc?.file) {
+      await fetch(`${DIRECTUS_URL}/files/${doc.file}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+      });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: 'Error interno.' }, { status: 500 });
+  }
+}
+
 // PATCH — update document status (activate/deactivate)
 export async function PATCH(request: NextRequest) {
   const session = await auth() as Session | null;

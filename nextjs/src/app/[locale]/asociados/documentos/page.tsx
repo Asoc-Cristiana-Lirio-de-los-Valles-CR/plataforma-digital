@@ -1,12 +1,13 @@
 import { auth } from '@/auth';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL ?? 'http://directus:8055';
+const ADMIN_TOKEN = process.env.DIRECTUS_ADMIN_TOKEN!;
 
-async function getDocuments(token: string) {
+async function getDocuments() {
   try {
     const res = await fetch(
       `${DIRECTUS_URL}/items/asociados_documents?filter[status][_eq]=active&sort=-date_created&fields=id,title,description,category,allow_download,requires_ack,version,date_created`,
-      { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }
+      { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }, cache: 'no-store' }
     );
     const data = await res.json();
     return data?.data ?? [];
@@ -34,7 +35,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 export default async function DocumentosPage() {
   const session = await auth();
   const token = session?.user?.directusToken;
-  const documents = token ? await getDocuments(token) : [];
+  const documents = token ? await getDocuments() : [];
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
