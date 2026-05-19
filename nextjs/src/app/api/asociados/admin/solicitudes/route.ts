@@ -18,15 +18,33 @@ export async function GET() {
   if (deny) return deny;
 
   try {
+    // Paso 1: obtener accesses pendientes
     const res = await fetch(
       `${DIRECTUS_URL}/items/member_accesses` +
       `?filter[area][_eq]=asociados&filter[status][_in]=pending,incomplete` +
-      `&fields=id,status,requested_at,approved_at,notes,profile_id.id,profile_id.nombre,profile_id.email,profile_id.tipo_identificacion,profile_id.numero_identificacion,profile_id.fecha_nacimiento,profile_id.fecha_bautismo,profile_id.telefono,profile_id.ultima_actividad` +
+      `&fields=id,status,requested_at,approved_at,notes,profile_id` +
       `&sort=-requested_at&limit=100`,
       { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }, cache: 'no-store' }
     );
-    const { data } = await res.json();
-    return NextResponse.json({ data: data ?? [] });
+    const { data: accesses } = await res.json();
+    if (!accesses?.length) return NextResponse.json({ data: [] });
+
+    // Paso 2: obtener perfiles de esos IDs
+    const profileIds = accesses.map((a: { profile_id: number }) => a.profile_id).filter(Boolean);
+    const profileRes = await fetch(
+      `${DIRECTUS_URL}/items/member_profiles?filter[id][_in]=${profileIds.join(',')}&fields=id,nombre,email,tipo_identificacion,numero_identificacion,fecha_nacimiento,fecha_bautismo,telefono,ultima_actividad&limit=100`,
+      { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }, cache: 'no-store' }
+    );
+    const { data: profiles } = await profileRes.json();
+    const profileMap = Object.fromEntries((profiles ?? []).map((p: { id: number }) => [p.id, p]));
+
+    // Combinar
+    const data = accesses.map((a: { profile_id: number; [key: string]: unknown }) => ({
+      ...a,
+      profile_id: profileMap[a.profile_id] ?? null,
+    }));
+
+    return NextResponse.json({ data });
   } catch {
     return NextResponse.json({ error: 'Error interno.' }, { status: 500 });
   }
