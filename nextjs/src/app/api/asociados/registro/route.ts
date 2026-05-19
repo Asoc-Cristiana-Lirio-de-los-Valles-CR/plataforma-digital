@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
         numero_identificacion,
         fecha_nacimiento,
         fecha_bautismo: fecha_bautismo || null,
-        telefono,
+        telefono: telefono.trim().startsWith('+') ? telefono.trim() : `+506${telefono.trim().replace(/^0+/, '')}`,
         ultima_actividad: new Date().toISOString(),
         email_verified_at: new Date().toISOString(),
       }),
