@@ -132,6 +132,17 @@ function PortalContent() {
 export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[#0d0a19] flex items-center justify-center p-4">
+      <a
+        href="/"
+        className="fixed top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                   text-xs text-white/40 hover:text-white/70 border border-white/10 hover:border-white/20
+                   bg-white/3 hover:bg-white/6 transition-all duration-150"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Sitio público
+      </a>
       <div className="w-full max-w-sm -mt-16">
         <div className="text-center mb-6">
           <Image src="/logo.webp" alt="Lirio de los Valles" width={56} height={56} className="mx-auto mb-4 opacity-90" />
