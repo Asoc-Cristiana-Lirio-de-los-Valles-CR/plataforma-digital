@@ -79,15 +79,23 @@ export async function PUT(request: NextRequest) {
     if (!ann) return NextResponse.json({ error: 'Comunicado no encontrado.' }, { status: 404 });
     if (ann.status !== 'published') return NextResponse.json({ error: 'Solo se pueden reenviar comunicados publicados.' }, { status: 400 });
 
-    // Obtener emails de asociados activos
-    const emailRes = await fetch(
-      `${DIRECTUS_URL}/items/member_accesses?filter[area][_eq]=asociados&filter[status][_eq]=active&fields=profile_id.email&limit=500`,
+    // Paso 1: obtener profile_ids de asociados activos
+    const accessRes = await fetch(
+      `${DIRECTUS_URL}/items/member_accesses?filter[area][_eq]=asociados&filter[status][_eq]=active&fields=profile_id&limit=500`,
       { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } }
     );
-    const { data: accesses } = await emailRes.json();
-    const emails: string[] = (accesses ?? [])
-      .map((a: { profile_id?: { email?: string } }) => a.profile_id?.email)
-      .filter(Boolean);
+    const { data: accesses } = await accessRes.json();
+    const profileIds: number[] = (accesses ?? []).map((a: { profile_id: number }) => a.profile_id).filter(Boolean);
+
+    if (profileIds.length === 0) return NextResponse.json({ error: 'No hay asociados activos con email.' }, { status: 400 });
+
+    // Paso 2: obtener emails de esos perfiles
+    const profileRes = await fetch(
+      `${DIRECTUS_URL}/items/member_profiles?filter[id][_in]=${profileIds.join(',')}&fields=email&limit=500`,
+      { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } }
+    );
+    const { data: profiles } = await profileRes.json();
+    const emails: string[] = (profiles ?? []).map((p: { email?: string }) => p.email).filter(Boolean);
 
     if (emails.length === 0) return NextResponse.json({ error: 'No hay asociados activos con email.' }, { status: 400 });
 
