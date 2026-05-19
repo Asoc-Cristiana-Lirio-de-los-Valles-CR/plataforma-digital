@@ -18,6 +18,7 @@ export default function CompletarPerfilPage() {
     tipo_identificacion: '',
     numero_identificacion: '',
     fecha_nacimiento: '',
+    fecha_bautismo: '',
     telefono: '',
     ministerio: '',
   });
@@ -173,6 +174,17 @@ export default function CompletarPerfilPage() {
               onChange={e => update('telefono', e.target.value)}
               required
               className={inputClass}
+            />
+          </div>
+
+          {/* Fecha de bautismo */}
+          <div>
+            <label className={labelClass}>Fecha de bautismo <span className="text-white/30">(opcional)</span></label>
+            <input
+              type="date"
+              value={form.fecha_bautismo}
+              onChange={e => update('fecha_bautismo', e.target.value)}
+              className={`${inputClass} [color-scheme:dark]`}
             />
           </div>
 

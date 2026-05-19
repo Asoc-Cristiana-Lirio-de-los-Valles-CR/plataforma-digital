@@ -20,7 +20,6 @@ function checkRegLimit(ip: string): boolean {
 }
 
 export async function POST(request: NextRequest) {
-  // CSRF: only accept requests from the same origin
   const origin = request.headers.get('origin');
   const siteUrl = process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? '';
   if (!origin || (siteUrl && !origin.startsWith(siteUrl))) {
@@ -33,7 +32,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { first_name, last_name, email, password, tipo_identificacion, numero_identificacion, fecha_nacimiento, telefono, isGoogleUser } = body;
+  const { first_name, last_name, email, password, tipo_identificacion, numero_identificacion, fecha_nacimiento, fecha_bautismo, telefono, isGoogleUser } = body;
 
   if (!first_name || !last_name || !email || !tipo_identificacion || !numero_identificacion || !fecha_nacimiento || !telefono) {
     return NextResponse.json({ error: 'Faltan campos obligatorios.' }, { status: 400 });
@@ -43,7 +42,6 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Check if email already exists
     const checkRes = await fetch(
       `${DIRECTUS_URL}/users?filter[email][_eq]=${encodeURIComponent(email)}&fields=id`,
       { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } }
@@ -53,7 +51,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Ya existe una cuenta con ese correo.' }, { status: 409 });
     }
 
-    // Create Directus user with Asociado role
     const createRes = await fetch(`${DIRECTUS_URL}/users`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${ADMIN_TOKEN}`, 'Content-Type': 'application/json' },
@@ -72,25 +69,39 @@ export async function POST(request: NextRequest) {
     }
     const { data: newUser } = await createRes.json();
 
-    // Create asociados_profile with pending status
-    await fetch(`${DIRECTUS_URL}/items/asociados_profiles`, {
+    // Create member_profile
+    const mpRes = await fetch(`${DIRECTUS_URL}/items/member_profiles`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${ADMIN_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         user_id: newUser.id,
-        status: 'pending',
         nombre: `${first_name} ${last_name}`.trim(),
         email,
         tipo_identificacion,
         numero_identificacion,
         fecha_nacimiento,
+        fecha_bautismo: fecha_bautismo || null,
         telefono,
         ultima_actividad: new Date().toISOString(),
         email_verified_at: new Date().toISOString(),
       }),
     });
+    const { data: newProfile } = await mpRes.json();
 
-    // Log activity
+    // Create member_access for asociados
+    if (newProfile?.id) {
+      await fetch(`${DIRECTUS_URL}/items/member_accesses`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${ADMIN_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile_id: newProfile.id,
+          area: 'asociados',
+          status: 'pending',
+          requested_at: new Date().toISOString(),
+        }),
+      });
+    }
+
     await fetch(`${DIRECTUS_URL}/items/activity_logs`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${ADMIN_TOKEN}`, 'Content-Type': 'application/json' },

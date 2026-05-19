@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { nombre, email, tipo_identificacion, numero_identificacion, fecha_nacimiento, telefono, ministerio } = body;
+  const { nombre, email, tipo_identificacion, numero_identificacion, fecha_nacimiento, fecha_bautismo, telefono, ministerio } = body;
 
   if (!nombre?.trim()) return NextResponse.json({ error: 'El nombre es requerido.' }, { status: 400 });
   if (!tipo_identificacion) return NextResponse.json({ error: 'El tipo de identificación es requerido.' }, { status: 400 });
@@ -20,31 +20,71 @@ export async function POST(request: NextRequest) {
   if (!telefono?.trim()) return NextResponse.json({ error: 'El teléfono es requerido.' }, { status: 400 });
 
   try {
+    // Find member_profile
     const res = await fetch(
-      `${DIRECTUS_URL}/items/asociados_profiles?filter[user_id][_eq]=${session.user.id}&limit=1`,
+      `${DIRECTUS_URL}/items/member_profiles?filter[user_id][_eq]=${session.user.id}&fields=id&limit=1`,
       { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } }
     );
     const { data } = await res.json();
     if (!data?.length) {
       return NextResponse.json({ error: 'Perfil no encontrado.' }, { status: 404 });
     }
-
     const profileId = data[0].id;
-    await fetch(`${DIRECTUS_URL}/items/asociados_profiles/${profileId}`, {
+
+    // Update member_profile with personal data
+    await fetch(`${DIRECTUS_URL}/items/member_profiles/${profileId}`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${ADMIN_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        status: 'pending',
         nombre: nombre.trim(),
         email: email?.trim() || null,
         tipo_identificacion,
         numero_identificacion: numero_identificacion.trim(),
         fecha_nacimiento,
+        fecha_bautismo: fecha_bautismo || null,
         telefono: telefono.trim(),
-        ministerio: ministerio?.trim() || null,
         ultima_actividad: new Date().toISOString(),
       }),
     });
+
+    // Update member_access for asociados: status → pending
+    const accessRes = await fetch(
+      `${DIRECTUS_URL}/items/member_accesses?filter[profile_id][_eq]=${profileId}&filter[area][_eq]=asociados&fields=id&limit=1`,
+      { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } }
+    );
+    const { data: accessData } = await accessRes.json();
+    if (accessData?.length) {
+      await fetch(`${DIRECTUS_URL}/items/member_accesses/${accessData[0].id}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${ADMIN_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'pending' }),
+      });
+    }
+
+    // Handle ministerio text → member_ministerios
+    if (ministerio?.trim()) {
+      const mSearch = await fetch(
+        `${DIRECTUS_URL}/items/ministerios?filter[nombre][_eq]=${encodeURIComponent(ministerio.trim())}&fields=id&limit=1`,
+        { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } }
+      );
+      const { data: mData } = await mSearch.json();
+      let ministerioId = mData?.[0]?.id;
+      if (!ministerioId) {
+        const mCreate = await fetch(`${DIRECTUS_URL}/items/ministerios`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${ADMIN_TOKEN}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre: ministerio.trim(), status: 'active', tiene_area_privada: false }),
+        });
+        ministerioId = (await mCreate.json()).data?.id;
+      }
+      if (ministerioId) {
+        await fetch(`${DIRECTUS_URL}/items/member_ministerios`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${ADMIN_TOKEN}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profile_id: profileId, ministerio_id: ministerioId, status: 'active', assigned_at: new Date().toISOString() }),
+        });
+      }
+    }
 
     return NextResponse.json({ ok: true });
   } catch {

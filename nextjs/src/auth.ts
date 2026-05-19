@@ -1,9 +1,8 @@
-﻿import NextAuth, { type DefaultSession } from 'next-auth';
+import NextAuth, { type DefaultSession } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL ?? 'http://directus:8055';
-// Profile status re-check interval: 5 minutes
 const PROFILE_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
 declare module 'next-auth' {
@@ -11,27 +10,51 @@ declare module 'next-auth' {
     user: {
       id: string;
       directusToken: string;
-      profileStatus: 'pending' | 'active' | 'suspended' | null;
+      asociadosStatus: 'incomplete' | 'pending' | 'active' | 'suspended' | null;
+      equipoStatus: 'active' | 'pending' | 'suspended' | null;
     } & DefaultSession['user'];
   }
   interface User {
     directusToken?: string;
-    profileStatus?: 'pending' | 'active' | 'suspended' | null;
+    asociadosStatus?: 'incomplete' | 'pending' | 'active' | 'suspended' | null;
+    equipoStatus?: 'active' | 'pending' | 'suspended' | null;
   }
 }
 
+interface MemberAccess {
+  area: string;
+  status: string;
+}
 
-async function getDirectusProfile(userId: string, adminToken: string) {
+interface MemberProfile {
+  id: number;
+  accesses?: MemberAccess[];
+}
+
+async function getMemberProfile(userId: string, adminToken: string): Promise<MemberProfile | null> {
   try {
     const res = await fetch(
-      `${DIRECTUS_URL}/items/asociados_profiles?filter[user_id][_eq]=${userId}&fields=id,status&limit=1`,
+      `${DIRECTUS_URL}/items/member_profiles?filter[user_id][_eq]=${userId}&fields=id&limit=1`,
       { headers: { Authorization: `Bearer ${adminToken}` }, cache: 'no-store' }
     );
     const data = await res.json();
-    return data?.data?.[0] ?? null;
+    const profile = data?.data?.[0];
+    if (!profile) return null;
+
+    const accessRes = await fetch(
+      `${DIRECTUS_URL}/items/member_accesses?filter[profile_id][_eq]=${profile.id}&fields=area,status`,
+      { headers: { Authorization: `Bearer ${adminToken}` }, cache: 'no-store' }
+    );
+    const accessData = await accessRes.json();
+    return { id: profile.id, accesses: accessData?.data ?? [] };
   } catch {
     return null;
   }
+}
+
+function extractStatus(accesses: MemberAccess[], area: string) {
+  const access = accesses.find(a => a.area === area);
+  return (access?.status ?? null) as 'incomplete' | 'pending' | 'active' | 'suspended' | null;
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -68,14 +91,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           if (!user) return null;
 
           const adminToken = process.env.DIRECTUS_ADMIN_TOKEN!;
-          const profile = await getDirectusProfile(user.id, adminToken);
+          const profile = await getMemberProfile(user.id, adminToken);
 
           return {
             id: user.id,
             email: user.email,
             name: `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim(),
             directusToken: token,
-            profileStatus: profile?.status ?? null,
+            asociadosStatus: profile ? extractStatus(profile.accesses ?? [], 'asociados') : null,
+            equipoStatus: profile ? extractStatus(profile.accesses ?? [], 'equipo') as 'active' | 'pending' | 'suspended' | null : null,
           };
         } catch {
           return null;
@@ -94,7 +118,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.sub = user.id;
         token.directusToken = user.directusToken;
-        token.profileStatus = user.profileStatus;
+        token.asociadosStatus = user.asociadosStatus;
+        token.equipoStatus = user.equipoStatus;
         (token as Record<string, unknown>).profileCheckedAt = Date.now();
       }
 
@@ -103,13 +128,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const { directusToken, directusUserId } = await syncGoogleUserWithDirectus(user, adminToken);
         token.directusToken = directusToken;
         if (directusUserId) {
-          token.sub = directusUserId; // overwrite Google subject ID with Directus UUID
-          const profile = await getDirectusProfile(directusUserId, adminToken);
-          token.profileStatus = profile?.status ?? null;
+          token.sub = directusUserId;
+          const profile = await getMemberProfile(directusUserId, adminToken);
+          token.asociadosStatus = profile ? extractStatus(profile.accesses ?? [], 'asociados') : null;
+          token.equipoStatus = profile ? extractStatus(profile.accesses ?? [], 'equipo') as 'active' | 'pending' | 'suspended' | null : null;
           (token as Record<string, unknown>).profileCheckedAt = Date.now();
-          // Record last activity on sign-in
+          // Update last activity
           if (profile?.id) {
-            fetch(`${DIRECTUS_URL}/items/asociados_profiles/${profile.id}`, {
+            fetch(`${DIRECTUS_URL}/items/member_profiles/${profile.id}`, {
               method: 'PATCH',
               headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({ ultima_actividad: new Date().toISOString() }),
@@ -118,11 +144,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
       }
 
-      // Re-check profile status at most every 5 minutes (catches suspensions without hammering Directus)
+      // Re-check statuses every 5 minutes
       const lastCheck = (token.profileCheckedAt as number | undefined) ?? 0;
       if (token.sub && adminToken && Date.now() - lastCheck > PROFILE_CHECK_INTERVAL_MS) {
-        const profile = await getDirectusProfile(token.sub, adminToken);
-        token.profileStatus = profile?.status ?? null;
+        const profile = await getMemberProfile(token.sub, adminToken);
+        token.asociadosStatus = profile ? extractStatus(profile.accesses ?? [], 'asociados') : null;
+        token.equipoStatus = profile ? extractStatus(profile.accesses ?? [], 'equipo') as 'active' | 'pending' | 'suspended' | null : null;
         (token as Record<string, unknown>).profileCheckedAt = Date.now();
       }
 
@@ -132,7 +159,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       session.user.id = token.sub!;
       session.user.directusToken = token.directusToken as string;
-      session.user.profileStatus = token.profileStatus as 'pending' | 'active' | 'suspended' | null;
+      session.user.asociadosStatus = token.asociadosStatus as 'incomplete' | 'pending' | 'active' | 'suspended' | null;
+      session.user.equipoStatus = token.equipoStatus as 'active' | 'pending' | 'suspended' | null;
       return session;
     },
   },
@@ -160,24 +188,32 @@ async function syncGoogleUserWithDirectus(
 
     if (existing?.length > 0) {
       directusUserId = existing[0].id;
-      // Ensure asociados_profile exists — create pending if missing
+      // Ensure member_profile exists
       const profileCheck = await fetch(
-        `${DIRECTUS_URL}/items/asociados_profiles?filter[user_id][_eq]=${directusUserId}&fields=id&limit=1`,
+        `${DIRECTUS_URL}/items/member_profiles?filter[user_id][_eq]=${directusUserId}&fields=id&limit=1`,
         { headers: { Authorization: `Bearer ${adminToken}` } }
       );
       const { data: profileData } = await profileCheck.json();
       if (!profileData?.length) {
-        await fetch(`${DIRECTUS_URL}/items/asociados_profiles`, {
+        const mpRes = await fetch(`${DIRECTUS_URL}/items/member_profiles`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             user_id: directusUserId,
-            status: 'incomplete',
             nombre: user.name ?? '',
             email: user.email,
             email_verified_at: new Date().toISOString(),
           }),
         });
+        const mpData = await mpRes.json();
+        const profileId = mpData.data?.id;
+        if (profileId) {
+          await fetch(`${DIRECTUS_URL}/items/member_accesses`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ profile_id: profileId, area: 'asociados', status: 'incomplete', requested_at: new Date().toISOString() }),
+          });
+        }
       }
     } else {
       const [firstName, ...rest] = (user.name ?? user.email).split(' ');
@@ -198,29 +234,35 @@ async function syncGoogleUserWithDirectus(
       directusUserId = created?.data?.id;
       if (!directusUserId) return {};
 
-      await fetch(`${DIRECTUS_URL}/items/asociados_profiles`, {
+      const mpRes = await fetch(`${DIRECTUS_URL}/items/member_profiles`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: directusUserId,
-          status: 'incomplete',
           nombre: user.name ?? '',
           email: user.email,
           email_verified_at: new Date().toISOString(),
         }),
       });
+      const mpData = await mpRes.json();
+      const profileId = mpData.data?.id;
+      if (profileId) {
+        await fetch(`${DIRECTUS_URL}/items/member_accesses`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profile_id: profileId, area: 'asociados', status: 'incomplete', requested_at: new Date().toISOString() }),
+        });
+      }
     }
 
     // Log Google login
     await fetch(`${DIRECTUS_URL}/items/activity_logs`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: directusUserId, action: 'login', metadata: { provider: 'google' } }),
+      body: JSON.stringify({ user_id: directusUserId!, action: 'login', metadata: { provider: 'google' } }),
     }).catch(() => {});
 
-    // Return static token for Google users: admin token scoped via profile read
-    // Directus user token via static token endpoint
-    const tokenRes = await fetch(`${DIRECTUS_URL}/users/${directusUserId}/token`, {
+    const tokenRes = await fetch(`${DIRECTUS_URL}/users/${directusUserId!}/token`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${adminToken}` },
     });
@@ -230,4 +272,3 @@ async function syncGoogleUserWithDirectus(
     return {};
   }
 }
-
