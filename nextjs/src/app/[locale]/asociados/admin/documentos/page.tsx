@@ -327,6 +327,53 @@ export default function AdminDocumentosPage() {
   );
 }
 
+// ─── Emoji picker ─────────────────────────────────────────────────────────────
+
+const EMOJI_GROUPS = [
+  { label: 'Documentos', emojis: ['📄','📃','📋','📊','📈','📉','📑','📝','🗒️','🗃️','🗂️','📂','📁','🗄️'] },
+  { label: 'Finanzas', emojis: ['💰','💵','💴','💶','💷','💳','🏦','💹','🪙','💸','🤑','📦'] },
+  { label: 'Legal / Normas', emojis: ['⚖️','📜','🏛️','🔏','🔒','🛡️','✅','❌','⚠️','🔖','🏷️'] },
+  { label: 'Iglesia', emojis: ['✝️','🕊️','📖','🙏','⛪','🌿','🌸','🌟','💒','🎶','🎵','🕯️'] },
+  { label: 'Misc', emojis: ['📢','📣','🔔','💡','🗓️','📅','📌','📍','🔑','🏠','👥','🤝','✉️','📧'] },
+];
+
+function EmojiPicker({ value, onChange }: { value: string; onChange: (e: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full h-9 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 hover:border-violet-500/40 text-xl transition-colors"
+        title="Seleccionar icono"
+      >
+        {value || <span className="text-white/20 text-xs">+</span>}
+      </button>
+      {open && (
+        <div className="absolute left-0 top-10 z-50 w-72 bg-[#1a1530] border border-white/15 rounded-xl shadow-2xl p-3 max-h-64 overflow-y-auto">
+          {EMOJI_GROUPS.map(g => (
+            <div key={g.label} className="mb-3">
+              <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">{g.label}</p>
+              <div className="flex flex-wrap gap-1">
+                {g.emojis.map(em => (
+                  <button
+                    key={em}
+                    type="button"
+                    onClick={() => { onChange(em); setOpen(false); }}
+                    className={`w-8 h-8 rounded-lg text-lg flex items-center justify-center transition-colors hover:bg-violet-500/20 ${value === em ? 'bg-violet-500/30 ring-1 ring-violet-500/50' : ''}`}
+                  >
+                    {em}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Modal de gestión de categorías ───────────────────────────────────────────
 
 interface CategoriasModalProps {
@@ -439,12 +486,9 @@ function CategoriasModal({ onClose, showToast }: CategoriasModalProps) {
                 <div key={cat.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/3 border border-white/8">
                   {isEditing ? (
                     <>
-                      <input
-                        value={ed.icon}
-                        onChange={e => setEditing(p => ({ ...p, [cat.id]: { ...p[cat.id], icon: e.target.value } }))}
-                        placeholder="💰"
-                        className="w-12 px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm text-center focus:outline-none focus:border-violet-500/60"
-                      />
+                      <div className="w-12 shrink-0">
+                        <EmojiPicker value={ed.icon} onChange={v => setEditing(p => ({ ...p, [cat.id]: { ...p[cat.id], icon: v } }))} />
+                      </div>
                       <input
                         value={ed.label}
                         onChange={e => setEditing(p => ({ ...p, [cat.id]: { ...p[cat.id], label: e.target.value } }))}
@@ -498,12 +542,7 @@ function CategoriasModal({ onClose, showToast }: CategoriasModalProps) {
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="block text-xs text-white/40 mb-1">Icono</label>
-                  <input
-                    value={newForm.icon}
-                    onChange={e => setNewForm(p => ({ ...p, icon: e.target.value }))}
-                    placeholder="📊"
-                    className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm text-center focus:outline-none focus:border-violet-500/60"
-                  />
+                  <EmojiPicker value={newForm.icon} onChange={v => setNewForm(p => ({ ...p, icon: v }))} />
                 </div>
                 <div className="col-span-2">
                   <label className="block text-xs text-white/40 mb-1">Nombre *</label>
