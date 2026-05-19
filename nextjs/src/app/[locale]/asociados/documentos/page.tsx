@@ -16,13 +16,18 @@ async function getDocuments() {
   }
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  financial_report: 'Estado Financiero',
-  minutes: 'Acta',
-  announcement: 'Comunicado',
-  regulation: 'Reglamento',
-  other: 'Otro',
-};
+async function getCategories(): Promise<Record<string, { label: string; icon: string | null }>> {
+  try {
+    const res = await fetch(
+      `${DIRECTUS_URL}/items/document_categories?filter[status][_eq]=active&fields=key,label,icon&limit=200`,
+      { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }, cache: 'no-store' }
+    );
+    const { data } = await res.json();
+    return Object.fromEntries((data ?? []).map((c: { key: string; label: string; icon: string | null }) => [c.key, c]));
+  } catch {
+    return {};
+  }
+}
 
 const CATEGORY_COLORS: Record<string, string> = {
   financial_report: 'bg-emerald-900/40 text-emerald-300 border-emerald-500/20',
@@ -35,7 +40,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 export default async function DocumentosPage() {
   const session = await auth();
   if (!session?.user?.id) return null;
-  const documents = await getDocuments();
+  const [documents, catMap] = await Promise.all([getDocuments(), getCategories()]);
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -58,7 +63,7 @@ export default async function DocumentosPage() {
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     {doc.category && (
                       <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${CATEGORY_COLORS[doc.category] ?? CATEGORY_COLORS.other}`}>
-                        {CATEGORY_LABELS[doc.category] ?? doc.category}
+                        {catMap[doc.category]?.icon ? `${catMap[doc.category].icon} ` : ''}{catMap[doc.category]?.label ?? doc.category}
                       </span>
                     )}
                     {doc.version && (

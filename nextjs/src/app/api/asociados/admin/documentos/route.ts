@@ -103,14 +103,15 @@ export async function POST(request: NextRequest) {
     }).catch(() => {});
 
     // Auto-crear comunicado y notificar por email
-    const CATEGORY_LABEL: Record<string, string> = {
-      financial_report: 'Informe financiero',
-      minutes: 'Acta',
-      regulation: 'Reglamento',
-      announcement: 'Anuncio',
-      other: 'Documento',
-    };
-    const docLabel = CATEGORY_LABEL[category] ?? 'Documento';
+    let docLabel = 'Documento';
+    try {
+      const catRes = await fetch(
+        `${DIRECTUS_URL}/items/document_categories?filter[key][_eq]=${category}&fields=label&limit=1`,
+        { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } }
+      );
+      const { data: catData } = await catRes.json();
+      if (catData?.[0]?.label) docLabel = catData[0].label;
+    } catch { /* usa fallback */ }
     const announcementTitle = `Nuevo ${docLabel} disponible: ${title}`;
     const announcementBody = description?.trim()
       ? `Se ha publicado un nuevo documento para asociados:\n\n${title}\n\n${description}\n\nAccede al portal para consultarlo.`
