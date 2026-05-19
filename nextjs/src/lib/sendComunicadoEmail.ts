@@ -32,10 +32,11 @@ export async function sendComunicadoEmail(title: string, body: string): Promise<
 
   await transporter.sendMail({
     from: process.env.EMAIL_FROM ?? process.env.EMAIL_SMTP_USER,
+    replyTo: 'soporte@liriodelosvallescr.org',
     bcc: emails,
     subject: `Comunicado: ${title}`,
-    text: `${title}\n\n${body}\n\n---\nPortal de Asociados — Iglesia Cristiana Lirio de los Valles\nhttps://liriodelosvallescr.org/es/asociados/comunicados`,
-    html: `<h2>${title}</h2><p style="white-space:pre-wrap">${body}</p><hr><p><em>Portal de Asociados — Iglesia Cristiana Lirio de los Valles</em><br><a href="https://liriodelosvallescr.org/es/asociados/comunicados">Ver todos los comunicados</a></p>`,
+    text: `${title}\n\n${body}\n\n---\nPortal de Asociados — Iglesia Cristiana Lirio de los Valles\nhttps://liriodelosvallescr.org/es/asociados/comunicados\n\nEste correo es solo de notificaciones automáticas. Por favor no responda a este mensaje — no es monitoreado. Para comunicarse con la iglesia, visite liriodelosvallescr.org.`,
+    html: `<h2>${title}</h2><p style="white-space:pre-wrap">${body}</p><hr><p><em>Portal de Asociados — Iglesia Cristiana Lirio de los Valles</em><br><a href="https://liriodelosvallescr.org/es/asociados/comunicados">Ver todos los comunicados</a></p><p style="font-size:12px;color:#888;margin-top:16px">Este correo es solo de notificaciones automáticas. Por favor no responda a este mensaje — no es monitoreado. Para comunicarse con la iglesia, visite <a href="https://liriodelosvallescr.org" style="color:#888">liriodelosvallescr.org</a>.</p>`,
   });
 
   return emails.length;
