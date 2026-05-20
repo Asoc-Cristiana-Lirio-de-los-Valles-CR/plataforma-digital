@@ -4,6 +4,10 @@
 .env.production
 usuarios.txt
 credenciales.txt
+credentials/
+
+# SSL certs (no subir claves privadas)
+cert/
 
 # Node
 node_modules/
