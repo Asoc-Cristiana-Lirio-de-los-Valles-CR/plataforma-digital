@@ -20,7 +20,7 @@ export async function GET() {
 
   try {
     const res = await fetch(
-      `${DIRECTUS_URL}/items/asociados_documents?sort=-date_created&fields=id,title,description,category,status,allow_download,version,date_created&limit=200`,
+      `${DIRECTUS_URL}/items/asociados_documents?sort=-date_created&fields=id,title,description,category,status,allow_download,version,document_date,date_created&limit=200`,
       { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }, cache: 'no-store' }
     );
     const { data } = await res.json();
@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
     const category = formData.get('category') as string;
     const allow_download = formData.get('allow_download') === 'true';
     const version = formData.get('version') as string;
+    const document_date = formData.get('document_date') as string | null;
 
     if (!file || !title || !category) {
       return NextResponse.json({ error: 'Archivo, título y categoría son requeridos.' }, { status: 400 });
@@ -80,6 +81,7 @@ export async function POST(request: NextRequest) {
         status: 'active',
         allow_download,
         version: version || null,
+        document_date: document_date || null,
         uploaded_by: session!.user.id,
         document_scope: 'asociados',
       }),

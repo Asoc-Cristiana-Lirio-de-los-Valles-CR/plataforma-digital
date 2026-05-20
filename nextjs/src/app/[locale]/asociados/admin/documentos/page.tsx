@@ -9,6 +9,7 @@ interface Doc {
   status: 'active' | 'inactive';
   allow_download: boolean;
   version: string | null;
+  document_date: string | null;
   date_created: string;
 }
 
@@ -20,8 +21,14 @@ interface Category {
   status: 'active' | 'archived';
 }
 
-function formatDate(s: string) {
+function formatDate(doc: Doc) {
+  const s = doc.document_date || doc.date_created;
   return new Date(s).toLocaleDateString('es-CR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function docYear(doc: Doc): number {
+  const s = doc.document_date || doc.date_created;
+  return new Date(s).getFullYear();
 }
 
 export default function AdminDocumentosPage() {
@@ -35,7 +42,8 @@ export default function AdminDocumentosPage() {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [form, setForm] = useState({ title: '', description: '', category: '', allow_download: true, version: '' });
+  const [form, setForm] = useState({ title: '', description: '', category: '', allow_download: true, version: '', document_date: new Date().toISOString().slice(0, 10) });
+  const [activeYear, setActiveYear] = useState('all');
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -72,7 +80,9 @@ export default function AdminDocumentosPage() {
 
   const catMap = Object.fromEntries(categories.map(c => [c.key, c]));
   const allCategories = [{ id: 0, key: 'all', label: 'Todos', icon: '📁', status: 'active' as const }, ...categories];
-  const filtered = activeCategory === 'all' ? docs : docs.filter(d => d.category === activeCategory);
+  const catFiltered = activeCategory === 'all' ? docs : docs.filter(d => d.category === activeCategory);
+  const availableYears = [...new Set(catFiltered.map(docYear))].sort((a, b) => b - a);
+  const filtered = activeYear === 'all' ? catFiltered : catFiltered.filter(d => docYear(d) === Number(activeYear));
 
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault();
@@ -87,6 +97,7 @@ export default function AdminDocumentosPage() {
     fd.append('category', form.category);
     fd.append('allow_download', String(form.allow_download));
     if (form.version.trim()) fd.append('version', form.version.trim());
+    if (form.document_date) fd.append('document_date', form.document_date);
 
     setUploading(true);
     try {
@@ -95,7 +106,7 @@ export default function AdminDocumentosPage() {
       if (!r.ok) { showToast(data.error ?? 'Error al subir.', false); return; }
       showToast('Documento subido exitosamente.');
       setShowForm(false);
-      setForm({ title: '', description: '', category: categories[0]?.key ?? '', allow_download: true, version: '' });
+      setForm({ title: '', description: '', category: categories[0]?.key ?? '', allow_download: true, version: '', document_date: new Date().toISOString().slice(0, 10) });
       if (fileRef.current) fileRef.current.value = '';
       load();
     } finally {
@@ -211,6 +222,15 @@ export default function AdminDocumentosPage() {
               />
             </div>
             <div>
+              <label className="block text-xs text-white/50 mb-1">Fecha del documento *</label>
+              <input
+                type="date"
+                value={form.document_date}
+                onChange={e => setForm(p => ({ ...p, document_date: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-violet-500/60"
+              />
+            </div>
+            <div>
               <label className="block text-xs text-white/50 mb-1">Archivo *</label>
               <input
                 ref={fileRef}
@@ -256,11 +276,11 @@ export default function AdminDocumentosPage() {
       )}
 
       {/* Category tabs */}
-      <div className="flex gap-2 flex-wrap mb-5">
+      <div className="flex gap-2 flex-wrap mb-3">
         {allCategories.map(cat => {
           const count = cat.key === 'all' ? docs.length : docs.filter(d => d.category === cat.key).length;
           return (
-            <button key={cat.key} onClick={() => setActiveCategory(cat.key)}
+            <button key={cat.key} onClick={() => { setActiveCategory(cat.key); setActiveYear('all'); }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 activeCategory === cat.key ? 'bg-violet-600 text-white' : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70'
               }`}>
@@ -271,6 +291,22 @@ export default function AdminDocumentosPage() {
           );
         })}
       </div>
+
+      {/* Year filter */}
+      {availableYears.length > 1 && (
+        <div className="flex gap-1.5 flex-wrap mb-5">
+          <button onClick={() => setActiveYear('all')}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${activeYear === 'all' ? 'bg-white/15 text-white' : 'text-white/35 hover:text-white/60 hover:bg-white/8'}`}>
+            Todos
+          </button>
+          {availableYears.map(y => (
+            <button key={y} onClick={() => setActiveYear(String(y))}
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${activeYear === String(y) ? 'bg-white/15 text-white' : 'text-white/35 hover:text-white/60 hover:bg-white/8'}`}>
+              {y}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-12 text-white/30 text-sm">Cargando...</div>
@@ -296,7 +332,7 @@ export default function AdminDocumentosPage() {
                 <div className="flex items-center gap-3 mt-0.5">
                   <span className="text-xs text-white/30">{catMap[doc.category]?.label ?? doc.category}</span>
                   <span className="text-white/20">·</span>
-                  <span className="text-xs text-white/30">{formatDate(doc.date_created)}</span>
+                  <span className="text-xs text-white/30">{formatDate(doc)}</span>
                   {doc.description && (
                     <>
                       <span className="text-white/20">·</span>

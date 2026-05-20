@@ -1,32 +1,21 @@
-import { auth } from '@/auth';
+'use client';
+import { useState, useEffect } from 'react';
 
-const DIRECTUS_URL = process.env.DIRECTUS_URL ?? 'http://directus:8055';
-const ADMIN_TOKEN = process.env.DIRECTUS_ADMIN_TOKEN!;
-
-async function getDocuments() {
-  try {
-    const res = await fetch(
-      `${DIRECTUS_URL}/items/asociados_documents?filter[status][_eq]=active&sort=-date_created&fields=id,title,description,category,allow_download,requires_ack,version,date_created`,
-      { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }, cache: 'no-store' }
-    );
-    const data = await res.json();
-    return data?.data ?? [];
-  } catch {
-    return [];
-  }
+interface Doc {
+  id: number;
+  title: string;
+  description: string | null;
+  category: string;
+  allow_download: boolean;
+  version: string | null;
+  document_date: string | null;
+  date_created: string;
 }
 
-async function getCategories(): Promise<Record<string, { label: string; icon: string | null }>> {
-  try {
-    const res = await fetch(
-      `${DIRECTUS_URL}/items/document_categories?filter[status][_eq]=active&fields=key,label,icon&limit=200`,
-      { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }, cache: 'no-store' }
-    );
-    const { data } = await res.json();
-    return Object.fromEntries((data ?? []).map((c: { key: string; label: string; icon: string | null }) => [c.key, c]));
-  } catch {
-    return {};
-  }
+interface Category {
+  key: string;
+  label: string;
+  icon: string | null;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -37,10 +26,40 @@ const CATEGORY_COLORS: Record<string, string> = {
   other: 'bg-white/10 text-white/50 border-white/10',
 };
 
-export default async function DocumentosPage() {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-  const [documents, catMap] = await Promise.all([getDocuments(), getCategories()]);
+function formatDate(doc: Doc) {
+  const s = doc.document_date || doc.date_created;
+  return new Date(s).toLocaleDateString('es-CR', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function docYear(doc: Doc): number {
+  const s = doc.document_date || doc.date_created;
+  return new Date(s).getFullYear();
+}
+
+export default function DocumentosPage() {
+  const [docs, setDocs] = useState<Doc[]>([]);
+  const [catMap, setCatMap] = useState<Record<string, Category>>({});
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [activeYear, setActiveYear] = useState('all');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/asociados/documents?fields=id,title,description,category,allow_download,version,document_date,date_created&limit=200').then(r => r.json()),
+      fetch('/api/asociados/admin/categorias').then(r => r.json()),
+    ]).then(([docsRes, catsRes]) => {
+      setDocs(docsRes?.data ?? []);
+      const cats: Category[] = (catsRes?.data ?? []).filter((c: { status: string }) => c.status === 'active');
+      setCatMap(Object.fromEntries(cats.map((c: Category) => [c.key, c])));
+    }).finally(() => setLoading(false));
+  }, []);
+
+  const categories = Object.values(catMap);
+  const allCats = [{ key: 'all', label: 'Todos', icon: null }, ...categories];
+
+  const catFiltered = activeCategory === 'all' ? docs : docs.filter(d => d.category === activeCategory);
+  const availableYears = [...new Set(catFiltered.map(docYear))].sort((a, b) => b - a);
+  const filtered = activeYear === 'all' ? catFiltered : catFiltered.filter(d => docYear(d) === Number(activeYear));
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -49,15 +68,50 @@ export default async function DocumentosPage() {
         <p className="text-sm text-white/40 mt-1">Documentos privados de la asociación</p>
       </div>
 
-      {documents.length === 0 ? (
+      {/* Category filter */}
+      {categories.length > 0 && (
+        <div className="flex gap-2 flex-wrap mb-3">
+          {allCats.map(cat => (
+            <button
+              key={cat.key}
+              onClick={() => { setActiveCategory(cat.key); setActiveYear('all'); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                activeCategory === cat.key ? 'bg-violet-600 text-white' : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/70'
+              }`}
+            >
+              {cat.icon && <span>{cat.icon}</span>}
+              {cat.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Year filter */}
+      {availableYears.length > 1 && (
+        <div className="flex gap-1.5 flex-wrap mb-5">
+          <button onClick={() => setActiveYear('all')}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${activeYear === 'all' ? 'bg-white/15 text-white' : 'text-white/30 hover:text-white/60 hover:bg-white/8'}`}>
+            Todos los años
+          </button>
+          {availableYears.map(y => (
+            <button key={y} onClick={() => setActiveYear(String(y))}
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${activeYear === String(y) ? 'bg-white/15 text-white' : 'text-white/30 hover:text-white/60 hover:bg-white/8'}`}>
+              {y}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="text-center py-16 text-white/30 text-sm">Cargando...</div>
+      ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-white/30">
-          <span className="text-4xl block mb-3">📂</span>
-          <p className="text-sm">No hay documentos disponibles por el momento</p>
+          <p className="text-sm">No hay documentos disponibles</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {documents.map((doc: any) => (
-            <div key={doc.id} className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/8 transition-colors">
+          {filtered.map((doc) => (
+            <div key={doc.id} className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/[0.08] transition-colors">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -74,9 +128,7 @@ export default async function DocumentosPage() {
                   {doc.description && (
                     <p className="text-xs text-white/40 mt-1 line-clamp-2">{doc.description}</p>
                   )}
-                  <p className="text-[10px] text-white/25 mt-2">
-                    {new Date(doc.date_created).toLocaleDateString('es-CR', { year: 'numeric', month: 'long', day: 'numeric' })}
-                  </p>
+                  <p className="text-[10px] text-white/25 mt-2">{formatDate(doc)}</p>
                 </div>
                 <div className="flex flex-col gap-2 flex-shrink-0">
                   <a
