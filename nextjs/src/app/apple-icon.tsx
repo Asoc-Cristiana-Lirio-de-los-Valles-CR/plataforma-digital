@@ -1,13 +1,12 @@
 import { ImageResponse } from 'next/og';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 
 export const size = { width: 180, height: 180 };
 export const contentType = 'image/png';
 
-export default function AppleIcon() {
-  const logoBuffer = readFileSync(join(process.cwd(), 'public', 'logo.png'));
-  const logoSrc = `data:image/png;base64,${logoBuffer.toString('base64')}`;
+export default async function AppleIcon() {
+  const logoData = await fetch(
+    new URL('../../public/logo.png', import.meta.url)
+  ).then(r => r.arrayBuffer());
 
   return new ImageResponse(
     (
@@ -22,7 +21,7 @@ export default function AppleIcon() {
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={logoSrc} width={120} height={120} style={{ objectFit: 'contain' }} alt="" />
+        <img src={logoData as unknown as string} width={120} height={120} style={{ objectFit: 'contain' }} alt="" />
       </div>
     ),
     { ...size },

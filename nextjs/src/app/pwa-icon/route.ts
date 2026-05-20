@@ -1,10 +1,9 @@
 import { ImageResponse } from 'next/og';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 
 export async function GET() {
-  const logoBuffer = readFileSync(join(process.cwd(), 'public', 'logo.png'));
-  const logoSrc = `data:image/png;base64,${logoBuffer.toString('base64')}`;
+  const logoData = await fetch(
+    new URL('../../../public/logo.png', import.meta.url)
+  ).then(r => r.arrayBuffer());
 
   return new ImageResponse(
     (
@@ -19,7 +18,7 @@ export async function GET() {
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={logoSrc} width={340} height={340} style={{ objectFit: 'contain' }} alt="" />
+        <img src={logoData as unknown as string} width={340} height={340} style={{ objectFit: 'contain' }} alt="" />
       </div>
     ),
     { width: 512, height: 512 },
