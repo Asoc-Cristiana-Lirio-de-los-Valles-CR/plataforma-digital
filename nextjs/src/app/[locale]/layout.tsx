@@ -29,6 +29,7 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://liriodelosvallescr.
 
 export const viewport = {
   themeColor: '#461a7a',
+  viewportFit: 'cover',
 };
 
 export const metadata: Metadata = {
@@ -57,6 +58,11 @@ export const metadata: Metadata = {
     follow: true,
   },
   manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'Portal Lirio',
+    statusBarStyle: 'black-translucent',
+  },
 };
 
 export default async function LocaleLayout({

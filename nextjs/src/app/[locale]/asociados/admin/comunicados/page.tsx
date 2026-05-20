@@ -296,45 +296,47 @@ export default function AdminComunicadosPage() {
                 {isOpen && (
                   <div className="px-4 pb-4 border-t border-white/5">
                     <p className="text-sm text-white/60 leading-relaxed mt-3 whitespace-pre-wrap">{item.body}</p>
-                    <div className="flex gap-2 mt-4 flex-wrap">
-                      {item.status === 'published' && (
-                        <button
-                          onClick={() => reenviar(item)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 transition-colors"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                          </svg>
-                          Reenviar email
-                        </button>
-                      )}
-                      {item.status !== 'published' && (
-                        <button
-                          onClick={() => changeStatus(item.id, 'published')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-colors"
-                        >
-                          Publicar
-                        </button>
-                      )}
-                      {item.status !== 'draft' && item.status !== 'archived' && (
-                        <button
-                          onClick={() => changeStatus(item.id, 'draft')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 text-white/40 hover:bg-white/5 transition-colors"
-                        >
-                          Mover a borrador
-                        </button>
-                      )}
-                      {item.status !== 'archived' && (
-                        <button
-                          onClick={() => changeStatus(item.id, 'archived')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 text-white/30 hover:bg-white/5 transition-colors"
-                        >
-                          Archivar
-                        </button>
-                      )}
+                    <div className="flex items-start justify-between gap-3 mt-4">
+                      <div className="flex gap-2 flex-wrap">
+                        {item.status === 'published' && (
+                          <button
+                            onClick={() => reenviar(item)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 transition-colors"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            Reenviar email
+                          </button>
+                        )}
+                        {item.status !== 'published' && (
+                          <button
+                            onClick={() => changeStatus(item.id, 'published')}
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                          >
+                            Publicar
+                          </button>
+                        )}
+                        {item.status !== 'draft' && item.status !== 'archived' && (
+                          <button
+                            onClick={() => changeStatus(item.id, 'draft')}
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 text-white/40 hover:bg-white/5 transition-colors"
+                          >
+                            Mover a borrador
+                          </button>
+                        )}
+                        {item.status !== 'archived' && (
+                          <button
+                            onClick={() => changeStatus(item.id, 'archived')}
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 text-white/30 hover:bg-white/5 transition-colors"
+                          >
+                            Archivar
+                          </button>
+                        )}
+                      </div>
                       <button
                         onClick={() => eliminar(item)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors ml-auto"
+                        className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"
                       >
                         Eliminar
                       </button>

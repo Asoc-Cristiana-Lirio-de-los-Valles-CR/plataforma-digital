@@ -2,6 +2,7 @@
   "name": "Portal Lirio de los Valles",
   "short_name": "Portal Lirio",
   "description": "Portal exclusivo para asociados de la Iglesia Cristiana Lirio de los Valles",
+  "id": "/es/asociados",
   "start_url": "/es/asociados",
   "scope": "/",
   "display": "standalone",

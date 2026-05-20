@@ -318,33 +318,35 @@ export default function AdminDocumentosPage() {
       ) : (
         <div className="space-y-2">
           {filtered.map(doc => (
-            <div key={doc.id} className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${
+            <div key={doc.id} className={`flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl border transition-all ${
               doc.status === 'active' ? 'bg-white/3 border-white/8 hover:border-white/15' : 'bg-white/1 border-white/4 opacity-50'
             }`}>
-              <div className="text-2xl shrink-0">{catMap[doc.category]?.icon ?? '📄'}</div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-medium text-white truncate">{doc.title}</p>
-                  {doc.version && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/20">{doc.version}</span>
-                  )}
-                  {!doc.allow_download && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/20">Solo lectura</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 mt-0.5">
-                  <span className="text-xs text-white/30">{catMap[doc.category]?.label ?? doc.category}</span>
-                  <span className="text-white/20">·</span>
-                  <span className="text-xs text-white/30">{formatDate(doc)}</span>
-                  {doc.description && (
-                    <>
-                      <span className="text-white/20">·</span>
-                      <span className="text-xs text-white/30 truncate max-w-[200px]">{doc.description}</span>
-                    </>
-                  )}
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="text-2xl shrink-0">{catMap[doc.category]?.icon ?? '📄'}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-white truncate">{doc.title}</p>
+                    {doc.version && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/20">{doc.version}</span>
+                    )}
+                    {!doc.allow_download && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/20">Solo lectura</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                    <span className="text-xs text-white/30">{catMap[doc.category]?.label ?? doc.category}</span>
+                    <span className="text-white/20">·</span>
+                    <span className="text-xs text-white/30">{formatDate(doc)}</span>
+                    {doc.description && (
+                      <>
+                        <span className="text-white/20 hidden sm:inline">·</span>
+                        <span className="text-xs text-white/30 truncate max-w-[200px] hidden sm:inline">{doc.description}</span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 ml-9 sm:ml-0 sm:shrink-0">
                 <button onClick={() => toggleStatus(doc)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
                     doc.status === 'active'
