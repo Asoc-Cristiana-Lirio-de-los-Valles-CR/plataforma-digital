@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next';
 import createNextIntlPlugin from 'next-intl/plugin';
 import withPWAInit from 'next-pwa';
+import { withSentryConfig } from '@sentry/nextjs';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 const withPWA = withPWAInit({
@@ -98,5 +99,15 @@ const nextConfig: NextConfig = {
   },
 };
 
+const combinedConfig = withPWA(withNextIntl(nextConfig) as any) as NextConfig;
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default withPWA(withNextIntl(nextConfig) as any) as NextConfig;
+export default withSentryConfig(combinedConfig as any, {
+  org: 'asoc-cristiana-lirio-de-los-va',
+  project: 'plataforma-digital',
+  silent: true,
+  widenClientFileUpload: true,
+  hideSourceMaps: true,
+  disableLogger: true,
+  automaticVercelMonitors: false,
+});
