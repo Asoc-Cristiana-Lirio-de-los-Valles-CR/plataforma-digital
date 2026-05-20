@@ -1,10 +1,13 @@
 import { ImageResponse } from 'next/og';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 export const size = { width: 180, height: 180 };
 export const contentType = 'image/png';
 
 export default function AppleIcon() {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://liriodelosvallescr.org';
+  const logoBuffer = readFileSync(join(process.cwd(), 'public', 'logo.png'));
+  const logoSrc = `data:image/png;base64,${logoBuffer.toString('base64')}`;
 
   return new ImageResponse(
     (
@@ -15,17 +18,11 @@ export default function AppleIcon() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(145deg, #3d1466 0%, #1a0a30 100%)',
+          backgroundColor: '#2e0f52',
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={`${siteUrl}/logo.png`}
-          width={120}
-          height={120}
-          style={{ objectFit: 'contain' }}
-          alt=""
-        />
+        <img src={logoSrc} width={120} height={120} style={{ objectFit: 'contain' }} alt="" />
       </div>
     ),
     { ...size },
