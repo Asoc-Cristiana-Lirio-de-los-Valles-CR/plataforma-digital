@@ -26,14 +26,17 @@ const CATEGORY_COLORS: Record<string, string> = {
   other: 'bg-white/10 text-white/50 border-white/10',
 };
 
+function parseDocDate(doc: Doc): Date {
+  if (doc.document_date) return new Date(doc.document_date + 'T12:00:00');
+  return new Date(doc.date_created);
+}
+
 function formatDate(doc: Doc) {
-  const s = doc.document_date || doc.date_created;
-  return new Date(s).toLocaleDateString('es-CR', { year: 'numeric', month: 'long', day: 'numeric' });
+  return parseDocDate(doc).toLocaleDateString('es-CR', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
 function docYear(doc: Doc): number {
-  const s = doc.document_date || doc.date_created;
-  return new Date(s).getFullYear();
+  return parseDocDate(doc).getFullYear();
 }
 
 export default function DocumentosPage() {
