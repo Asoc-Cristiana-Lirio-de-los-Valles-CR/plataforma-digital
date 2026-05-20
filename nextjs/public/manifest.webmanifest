@@ -12,13 +12,13 @@
   "lang": "es",
   "icons": [
     {
-      "src": "/apple-icon",
+      "src": "/apple-touch-icon.png",
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/pwa-icon",
+      "src": "/pwa-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
