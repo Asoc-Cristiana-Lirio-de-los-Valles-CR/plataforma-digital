@@ -107,7 +107,7 @@ export default withSentryConfig(combinedConfig as any, {
   project: 'plataforma-digital',
   silent: true,
   widenClientFileUpload: true,
-  hideSourceMaps: true,
+  sourcemaps: { disable: true },
   disableLogger: true,
   automaticVercelMonitors: false,
 });
