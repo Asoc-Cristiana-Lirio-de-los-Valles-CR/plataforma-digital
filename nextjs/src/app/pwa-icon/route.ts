@@ -1,12 +1,9 @@
 import { ImageResponse } from 'next/og';
 
-export const size = { width: 180, height: 180 };
-export const contentType = 'image/png';
-
-export default function AppleIcon() {
+export async function GET() {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://liriodelosvallescr.org';
 
-  return new ImageResponse(
+  const response = new ImageResponse(
     (
       <div
         style={{
@@ -21,13 +18,15 @@ export default function AppleIcon() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={`${siteUrl}/logo.png`}
-          width={120}
-          height={120}
+          width={340}
+          height={340}
           style={{ objectFit: 'contain' }}
           alt=""
         />
       </div>
     ),
-    { ...size },
+    { width: 512, height: 512 },
   );
+
+  return response;
 }
