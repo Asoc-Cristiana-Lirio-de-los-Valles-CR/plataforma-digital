@@ -252,14 +252,17 @@ async function syncGoogleUserWithDirectus(
         }
       }
     } else {
-      const [firstName, ...rest] = (user.name ?? user.email).split(' ');
+      const displayName = user.name?.trim() || '';
+      const nameParts = displayName ? displayName.split(' ') : [];
+      const firstName = nameParts[0] || 'Usuario';
+      const lastName = nameParts.slice(1).join(' ') || '';
       const createRes = await fetch(`${DIRECTUS_URL}/users`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: user.email,
           first_name: firstName,
-          last_name: rest.join(' ') || '',
+          last_name: lastName,
           role: '7da07205-4811-45fb-b8c4-c6d0170b4d39',
           status: 'active',
         }),
