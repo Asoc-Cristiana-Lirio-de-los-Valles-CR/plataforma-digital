@@ -53,13 +53,13 @@ export function Header({ churchName }: { churchName?: string }) {
             <Logo churchName={churchName} />
 
             {/* Desktop nav */}
-            <nav className="hidden lg:flex items-center gap-1" aria-label="Navegación principal">
+            <nav className="hidden xl:flex items-center gap-0.5" aria-label="Navegación principal">
               {NAV_LINKS.map(({ href, key }) => (
                 <Link
                   key={key}
                   href={`/${locale}${href === '/' ? '' : href}`}
                   className={clsx(
-                    'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150',
+                    'px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150',
                     isActive(href)
                       ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50'
                       : 'text-gray-700 dark:text-gray-300 hover:text-brand-700 dark:hover:text-brand-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
@@ -75,7 +75,7 @@ export function Header({ churchName }: { churchName?: string }) {
               {/* Live CTA — desktop */}
               <Link
                 href={`/${locale}/en-vivo`}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                className="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
                            text-xs font-bold tracking-widest uppercase
                            text-red-600 dark:text-red-400
                            border border-red-200 dark:border-red-800
@@ -90,7 +90,7 @@ export function Header({ churchName }: { churchName?: string }) {
               {/* Asociados button — desktop */}
               <Link
                 href={`/${locale}/asociados`}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                className="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
                            text-xs font-semibold
                            text-brand-700 dark:text-brand-300
                            border border-brand-200 dark:border-brand-800
@@ -107,7 +107,7 @@ export function Header({ churchName }: { churchName?: string }) {
               {/* Registro button — desktop */}
               <Link
                 href={`/${locale}/asociados/registro`}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                className="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
                            text-xs font-semibold
                            bg-brand-600 dark:bg-brand-700 text-white
                            hover:bg-brand-700 dark:hover:bg-brand-600
@@ -123,7 +123,7 @@ export function Header({ churchName }: { churchName?: string }) {
               {/* Equipo — icono discreto */}
               <Link
                 href={`/${locale}/equipo/manuales`}
-                className="hidden sm:inline-flex items-center justify-center w-8 h-8 rounded-lg
+                className="hidden xl:inline-flex items-center justify-center w-8 h-8 rounded-lg
                            hover:bg-gray-100 dark:hover:bg-gray-800/60
                            transition-colors duration-150"
                 aria-label="Zona del Equipo"
@@ -143,7 +143,7 @@ export function Header({ churchName }: { churchName?: string }) {
               {/* Hamburger */}
               <button
                 onClick={() => setMobileOpen(!mobileOpen)}
-                className="lg:hidden w-9 h-9 flex flex-col items-center justify-center gap-1.5
+                className="xl:hidden w-9 h-9 flex flex-col items-center justify-center gap-1.5
                            text-gray-700 dark:text-gray-300
                            hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg
                            transition-colors duration-150"
@@ -166,7 +166,7 @@ export function Header({ churchName }: { churchName?: string }) {
       {/* Mobile menu overlay */}
       <div
         className={clsx(
-          'fixed inset-0 z-40 lg:hidden transition-all duration-300',
+          'fixed inset-0 z-40 xl:hidden transition-all duration-300',
           mobileOpen ? 'visible' : 'invisible'
         )}
       >

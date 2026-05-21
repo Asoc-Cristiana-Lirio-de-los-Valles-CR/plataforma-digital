@@ -17,7 +17,6 @@ export const NAV_LINKS = [
   { href: '/historia', key: 'history' },
   { href: '/biblioteca', key: 'library' },
   { href: '/ministerios', key: 'ministerios' },
-  { href: '/en-vivo', key: 'live' },
   { href: '/donaciones', key: 'donate' },
   { href: '/contacto', key: 'contact' },
 ] as const;
