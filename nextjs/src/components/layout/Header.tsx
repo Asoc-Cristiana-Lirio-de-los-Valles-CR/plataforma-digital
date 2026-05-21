@@ -9,7 +9,28 @@ import { LanguageToggle } from '@/components/ui/LanguageToggle';
 import { NAV_LINKS } from '@/lib/constants';
 import { clsx } from 'clsx';
 
-type NavKey = 'home' | 'history' | 'ministerios' | 'live' | 'liveStream' | 'library' | 'donate' | 'contact';
+type NavKey = 'home' | 'history' | 'ministerios' | 'recursos' | 'register' | 'members' | 'live' | 'liveStream' | 'library' | 'donate' | 'contact';
+
+const NAV_ICONS: Record<string, React.ReactNode> = {
+  members: (
+    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+  ),
+  register: (
+    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+    </svg>
+  ),
+  liveStream: (
+    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+  ),
+  library: (
+    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+    </svg>
+  ),
+};
 
 export function Header({ churchName }: { churchName?: string }) {
   const [scrolled, setScrolled] = useState(false);
@@ -58,20 +79,51 @@ export function Header({ churchName }: { churchName?: string }) {
 
             {/* Desktop nav */}
             <nav className="hidden xl:flex items-center gap-0.5" aria-label="Navegación principal">
-              {NAV_LINKS.filter(({ key }) => key !== 'live').map(({ href, key }) => (
-                <Link
-                  key={key}
-                  href={`/${locale}${href === '/' ? '' : href}`}
-                  className={clsx(
-                    'px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150',
-                    isActive(href!)
-                      ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50'
-                      : 'text-gray-700 dark:text-gray-300 hover:text-brand-700 dark:hover:text-brand-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                  )}
-                >
-                  {t(key as NavKey)}
-                </Link>
-              ))}
+              {NAV_LINKS.filter(({ key }) => key !== 'live').map(({ href, key, children }) => {
+                if (children) {
+                  const active = isDropdownActive(children);
+                  return (
+                    <div key={key} className="relative group">
+                      <button className={clsx(
+                        'px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 flex items-center gap-1',
+                        active
+                          ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50'
+                          : 'text-gray-700 dark:text-gray-300 hover:text-brand-700 dark:hover:text-brand-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                      )}>
+                        {t(key as NavKey)}
+                        <svg className="w-3 h-3 mt-0.5 transition-transform duration-150 group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      <div className="absolute top-full left-0 mt-1 w-52 rounded-xl shadow-lg border bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 py-1 z-10">
+                        {children.map((child) => (
+                          <Link key={child.key} href={`/${locale}${child.href}`}
+                            className={clsx(
+                              'flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium transition-colors duration-150',
+                              isActive(child.href)
+                                ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50'
+                                : 'text-gray-700 dark:text-gray-300 hover:text-brand-700 dark:hover:text-brand-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                            )}>
+                            {NAV_ICONS[child.key]}
+                            {t(child.key as NavKey)}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <Link key={key} href={`/${locale}${href === '/' ? '' : href}`}
+                    className={clsx(
+                      'px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150',
+                      isActive(href!)
+                        ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50'
+                        : 'text-gray-700 dark:text-gray-300 hover:text-brand-700 dark:hover:text-brand-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                    )}>
+                    {t(key as NavKey)}
+                  </Link>
+                );
+              })}
             </nav>
 
             {/* Right actions */}
@@ -122,39 +174,6 @@ export function Header({ churchName }: { churchName?: string }) {
                   </Link>
                 </div>
               </div>
-
-              {/* Asociados button — desktop */}
-              <Link
-                href={`/${locale}/asociados`}
-                className="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                           text-xs font-semibold
-                           text-brand-700 dark:text-brand-300
-                           border border-brand-200 dark:border-brand-800
-                           hover:bg-brand-50 dark:hover:bg-brand-950/40
-                           transition-colors duration-150"
-                aria-label="Portal de Asociados"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                {t('members')}
-              </Link>
-
-              {/* Registro button — desktop */}
-              <Link
-                href={`/${locale}/asociados/registro`}
-                className="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                           text-xs font-semibold
-                           bg-brand-600 dark:bg-brand-700 text-white
-                           hover:bg-brand-700 dark:hover:bg-brand-600
-                           transition-colors duration-150"
-                aria-label="Registro de miembros"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                </svg>
-                Registrarse
-              </Link>
 
               {/* Equipo — icono discreto */}
               <Link
@@ -244,48 +263,57 @@ export function Header({ churchName }: { churchName?: string }) {
 
           {/* Nav links */}
           <nav className="flex-1 overflow-y-auto py-4 px-4">
-            {NAV_LINKS.filter(({ key }) => key !== 'live').map(({ href, key }) => (
-              <Link
-                key={key}
-                href={`/${locale}${href === '/' ? '' : href}`}
-                className={clsx(
-                  'flex items-center px-4 py-3.5 rounded-xl text-base font-medium mb-1',
-                  'transition-all duration-150',
-                  isActive(href!)
-                    ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                )}
-              >
-                {t(key as NavKey)}
-              </Link>
-            ))}
-
-            {/* Asociados link mobile */}
-            <Link
-              href={`/${locale}/asociados`}
-              className="flex items-center gap-2 px-4 py-3.5 rounded-xl text-base font-medium mt-2
-                         text-brand-700 dark:text-brand-300
-                         border border-brand-200 dark:border-brand-800
-                         hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors duration-150"
-            >
-              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              {t('members')}
-            </Link>
-
-            {/* Registro link mobile */}
-            <Link
-              href={`/${locale}/asociados/registro`}
-              className="flex items-center gap-2 px-4 py-3.5 rounded-xl text-base font-semibold
-                         bg-brand-600 dark:bg-brand-700 text-white mt-1
-                         hover:bg-brand-700 dark:hover:bg-brand-600 transition-colors duration-150"
-            >
-              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-              </svg>
-              Registrarse
-            </Link>
+            {NAV_LINKS.filter(({ key }) => key !== 'live').map(({ href, key, children }) => {
+              if (children) {
+                const isOpen = openDropdown === key;
+                const active = isDropdownActive(children);
+                return (
+                  <div key={key}>
+                    <button
+                      onClick={() => setOpenDropdown(isOpen ? null : key)}
+                      className={clsx(
+                        'w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium mb-1 transition-all duration-150',
+                        active
+                          ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                      )}
+                    >
+                      {t(key as NavKey)}
+                      <svg className={clsx('w-4 h-4 transition-transform duration-200', isOpen && 'rotate-180')} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {isOpen && (
+                      <div className="ml-4 mb-1 border-l-2 border-brand-100 dark:border-brand-900 pl-3">
+                        {children.map((child) => (
+                          <Link key={child.key} href={`/${locale}${child.href}`}
+                            className={clsx(
+                              'flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium mb-0.5 transition-all duration-150',
+                              isActive(child.href)
+                                ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                            )}>
+                            {NAV_ICONS[child.key]}
+                            {t(child.key as NavKey)}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              return (
+                <Link key={key} href={`/${locale}${href === '/' ? '' : href}`}
+                  className={clsx(
+                    'flex items-center px-4 py-3.5 rounded-xl text-base font-medium mb-1 transition-all duration-150',
+                    isActive(href!)
+                      ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                  )}>
+                  {t(key as NavKey)}
+                </Link>
+              );
+            })}
           </nav>
 
           {/* Bottom actions */}

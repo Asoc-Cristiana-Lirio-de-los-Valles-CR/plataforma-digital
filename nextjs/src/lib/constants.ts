@@ -23,6 +23,13 @@ export const NAV_LINKS: NavLink[] = [
   { href: '/historia', key: 'history' },
   { href: '/ministerios', key: 'ministerios' },
   {
+    key: 'recursos',
+    children: [
+      { href: '/asociados', key: 'members' },
+      { href: '/asociados/registro', key: 'register' },
+    ],
+  },
+  {
     key: 'live',
     children: [
       { href: '/en-vivo', key: 'liveStream' },
