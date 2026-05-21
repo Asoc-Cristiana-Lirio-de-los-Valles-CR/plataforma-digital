@@ -6,7 +6,17 @@
     "live": "Live",
     "donate": "Donate",
     "contact": "Contact",
+    "ministerios": "Ministries",
     "members": "Members"
+  },
+  "ministerios": {
+    "title": "Ministries",
+    "subtitle": "Discover the ministries of our church",
+    "leader": "Leader",
+    "schedule": "Schedule",
+    "phone": "Phone",
+    "noMinistries": "No ministries published",
+    "back": "← Back to Ministries"
   },
   "home": {
     "title": "Welcome Home",

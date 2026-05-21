@@ -65,7 +65,7 @@ export function Header({ churchName }: { churchName?: string }) {
                       : 'text-gray-700 dark:text-gray-300 hover:text-brand-700 dark:hover:text-brand-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
                   )}
                 >
-                  {t(key as 'home' | 'history' | 'library' | 'live' | 'donate' | 'contact')}
+                  {t(key as 'home' | 'history' | 'library' | 'ministerios' | 'live' | 'donate' | 'contact')}
                 </Link>
               ))}
             </nav>
@@ -220,7 +220,7 @@ export function Header({ churchName }: { churchName?: string }) {
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
                 )}
               >
-                {t(key as 'home' | 'history' | 'live' | 'donate' | 'contact')}
+                {t(key as 'home' | 'history' | 'library' | 'ministerios' | 'live' | 'donate' | 'contact')}
               </Link>
             ))}
 

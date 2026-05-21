@@ -6,7 +6,17 @@
     "live": "En Vivo",
     "donate": "Donar",
     "contact": "Contacto",
+    "ministerios": "Ministerios",
     "members": "Asociados"
+  },
+  "ministerios": {
+    "title": "Ministerios",
+    "subtitle": "Conoce los ministerios de nuestra iglesia",
+    "leader": "Líder",
+    "schedule": "Horario",
+    "phone": "Teléfono",
+    "noMinistries": "No hay ministerios publicados",
+    "back": "← Volver a Ministerios"
   },
   "home": {
     "title": "Bienvenido a Casa",
