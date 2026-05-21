@@ -20,19 +20,37 @@ const transporter = nodemailer.createTransport({
 });
 
 const FROM = process.env.EMAIL_FROM ?? 'notificaciones@liriodelosvallescr.org';
-const NOTIFY_ADDRS = [
-  process.env.EMAIL_NOTIFY_ROOT ?? 'root@liriodelosvallescr.org',
-  process.env.EMAIL_NOTIFY_ADMIN ?? 'admin@liriodelosvallescr.org',
-];
+const DIRECTUS_URL = process.env.DIRECTUS_URL ?? 'http://directus:8055';
+const ADMIN_TOKEN = process.env.DIRECTUS_ADMIN_TOKEN!;
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://liriodelosvallescr.org';
 const ADMIN_URL = `${SITE_URL}/es/asociados/admin/solicitudes`;
 
-export function sendNewRequestNotification(nombre: string, email: string): void {
+async function getNotifyAddrs(): Promise<string[]> {
+  try {
+    const res = await fetch(
+      `${DIRECTUS_URL}/items/notification_recipients?filter[activo][_eq]=true&fields=email&limit=50`,
+      { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }, cache: 'no-store' }
+    );
+    const { data } = await res.json();
+    const emails = (data ?? []).map((r: { email: string }) => r.email).filter(Boolean);
+    if (emails.length === 0) {
+      console.warn('[email] notification_recipients vacío — no se envía notificación');
+    }
+    return emails;
+  } catch (err) {
+    console.error('[email] getNotifyAddrs failed:', err);
+    return [];
+  }
+}
+
+export async function sendNewRequestNotification(nombre: string, email: string): Promise<void> {
+  const addrs = await getNotifyAddrs();
+  if (addrs.length === 0) return;
   const safeName = escapeHtml(nombre);
   const safeEmail = escapeHtml(email);
   void transporter.sendMail({
     from: FROM,
-    to: NOTIFY_ADDRS.join(', '),
+    to: addrs.join(', '),
     subject: '📋 Nueva solicitud de asociado — Lirio de los Valles',
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:auto">
