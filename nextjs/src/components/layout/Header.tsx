@@ -120,20 +120,52 @@ export function Header({ churchName }: { churchName?: string }) {
 
             {/* Right actions */}
             <div className="flex items-center gap-2">
-              {/* Live CTA — desktop */}
-              <Link
-                href={`/${locale}/en-vivo`}
-                className="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                           text-xs font-bold tracking-widest uppercase
-                           text-red-600 dark:text-red-400
-                           border border-red-200 dark:border-red-800
-                           hover:bg-red-50 dark:hover:bg-red-950/40
-                           transition-colors duration-150"
-                aria-label="Ver en vivo"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                Live
-              </Link>
+              {/* Live CTA — desktop dropdown */}
+              <div className="relative group hidden xl:block">
+                <button
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                             text-xs font-bold tracking-widest uppercase
+                             text-red-600 dark:text-red-400
+                             border border-red-200 dark:border-red-800
+                             hover:bg-red-50 dark:hover:bg-red-950/40
+                             transition-colors duration-150"
+                  aria-label="Ver en vivo"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  Live
+                  <svg className="w-3 h-3 mt-0.5 transition-transform duration-150 group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <div className="absolute top-full right-0 mt-1 w-52 rounded-xl shadow-lg border
+                                bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800
+                                opacity-0 invisible group-hover:opacity-100 group-hover:visible
+                                transition-all duration-150 py-1 z-10">
+                  <Link
+                    href={`/${locale}/en-vivo`}
+                    className={clsx(
+                      'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors duration-150',
+                      isActive('/en-vivo')
+                        ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30'
+                        : 'text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30'
+                    )}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+                    {t('liveStream')}
+                  </Link>
+                  <Link
+                    href={`/${locale}/biblioteca`}
+                    className={clsx(
+                      'flex items-center px-4 py-2.5 text-sm font-medium transition-colors duration-150',
+                      isActive('/biblioteca')
+                        ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50'
+                        : 'text-gray-700 dark:text-gray-300 hover:text-brand-700 dark:hover:text-brand-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                    )}
+                  >
+                    {t('library')}
+                  </Link>
+                </div>
+              </div>
 
               {/* Asociados button — desktop */}
               <Link
