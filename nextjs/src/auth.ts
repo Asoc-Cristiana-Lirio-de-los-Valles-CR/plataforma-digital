@@ -262,13 +262,14 @@ async function syncGoogleUserWithDirectus(
           last_name: rest.join(' ') || '',
           role: '7da07205-4811-45fb-b8c4-c6d0170b4d39',
           status: 'active',
-          provider: 'google',
-          external_identifier: user.id,
         }),
       });
       const created = await createRes.json();
       directusUserId = created?.data?.id;
-      if (!directusUserId) return {};
+      if (!directusUserId) {
+        console.error('[syncGoogle] user creation failed:', JSON.stringify(created));
+        return {};
+      }
 
       const mpRes = await fetch(`${DIRECTUS_URL}/items/member_profiles`, {
         method: 'POST',
@@ -304,7 +305,8 @@ async function syncGoogleUserWithDirectus(
     });
     const tokenData = await tokenRes.json();
     return { directusToken: tokenData?.data?.token ?? undefined, directusUserId };
-  } catch {
+  } catch (err) {
+    console.error('[syncGoogle] unexpected error:', err);
     return {};
   }
 }
