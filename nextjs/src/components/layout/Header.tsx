@@ -58,64 +58,20 @@ export function Header({ churchName }: { churchName?: string }) {
 
             {/* Desktop nav */}
             <nav className="hidden xl:flex items-center gap-0.5" aria-label="Navegación principal">
-              {NAV_LINKS.map(({ href, key, children }) => {
-                if (children) {
-                  const active = isDropdownActive(children);
-                  return (
-                    <div key={key} className="relative group">
-                      <button
-                        className={clsx(
-                          'px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 flex items-center gap-1',
-                          active
-                            ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50'
-                            : 'text-gray-700 dark:text-gray-300 hover:text-brand-700 dark:hover:text-brand-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                        )}
-                      >
-                        {t(key as NavKey)}
-                        <svg className="w-3 h-3 mt-0.5 transition-transform duration-150 group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-                      <div className={clsx(
-                        'absolute top-full left-0 mt-1 w-52 rounded-xl shadow-lg border',
-                        'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800',
-                        'opacity-0 invisible group-hover:opacity-100 group-hover:visible',
-                        'transition-all duration-150 py-1 z-10'
-                      )}>
-                        {children.map((child) => (
-                          <Link
-                            key={child.key}
-                            href={`/${locale}${child.href}`}
-                            className={clsx(
-                              'flex items-center px-4 py-2.5 text-sm font-medium transition-colors duration-150',
-                              isActive(child.href)
-                                ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50'
-                                : 'text-gray-700 dark:text-gray-300 hover:text-brand-700 dark:hover:text-brand-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                            )}
-                          >
-                            {t(child.key as NavKey)}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                }
-
-                return (
-                  <Link
-                    key={key}
-                    href={`/${locale}${href === '/' ? '' : href}`}
-                    className={clsx(
-                      'px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150',
-                      isActive(href!)
-                        ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50'
-                        : 'text-gray-700 dark:text-gray-300 hover:text-brand-700 dark:hover:text-brand-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                    )}
-                  >
-                    {t(key as NavKey)}
-                  </Link>
-                );
-              })}
+              {NAV_LINKS.filter(({ key }) => key !== 'live').map(({ href, key }) => (
+                <Link
+                  key={key}
+                  href={`/${locale}${href === '/' ? '' : href}`}
+                  className={clsx(
+                    'px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150',
+                    isActive(href!)
+                      ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50'
+                      : 'text-gray-700 dark:text-gray-300 hover:text-brand-700 dark:hover:text-brand-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                  )}
+                >
+                  {t(key as NavKey)}
+                </Link>
+              ))}
             </nav>
 
             {/* Right actions */}
@@ -288,69 +244,21 @@ export function Header({ churchName }: { churchName?: string }) {
 
           {/* Nav links */}
           <nav className="flex-1 overflow-y-auto py-4 px-4">
-            {NAV_LINKS.map(({ href, key, children }) => {
-              if (children) {
-                const isOpen = openDropdown === key;
-                const active = isDropdownActive(children);
-                return (
-                  <div key={key}>
-                    <button
-                      onClick={() => setOpenDropdown(isOpen ? null : key)}
-                      className={clsx(
-                        'w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium mb-1',
-                        'transition-all duration-150',
-                        active
-                          ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                      )}
-                    >
-                      {t(key as NavKey)}
-                      <svg
-                        className={clsx('w-4 h-4 transition-transform duration-200', isOpen && 'rotate-180')}
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    {isOpen && (
-                      <div className="ml-4 mb-1 border-l-2 border-brand-100 dark:border-brand-900 pl-3">
-                        {children.map((child) => (
-                          <Link
-                            key={child.key}
-                            href={`/${locale}${child.href}`}
-                            className={clsx(
-                              'flex items-center px-4 py-3 rounded-xl text-sm font-medium mb-0.5',
-                              'transition-all duration-150',
-                              isActive(child.href)
-                                ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50'
-                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                            )}
-                          >
-                            {t(child.key as NavKey)}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              }
-
-              return (
-                <Link
-                  key={key}
-                  href={`/${locale}${href === '/' ? '' : href}`}
-                  className={clsx(
-                    'flex items-center px-4 py-3.5 rounded-xl text-base font-medium mb-1',
-                    'transition-all duration-150',
-                    isActive(href!)
-                      ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                  )}
-                >
-                  {t(key as NavKey)}
-                </Link>
-              );
-            })}
+            {NAV_LINKS.filter(({ key }) => key !== 'live').map(({ href, key }) => (
+              <Link
+                key={key}
+                href={`/${locale}${href === '/' ? '' : href}`}
+                className={clsx(
+                  'flex items-center px-4 py-3.5 rounded-xl text-base font-medium mb-1',
+                  'transition-all duration-150',
+                  isActive(href!)
+                    ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                )}
+              >
+                {t(key as NavKey)}
+              </Link>
+            ))}
 
             {/* Asociados link mobile */}
             <Link
