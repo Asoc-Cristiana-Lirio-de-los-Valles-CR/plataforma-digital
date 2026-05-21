@@ -254,8 +254,8 @@ async function syncGoogleUserWithDirectus(
     } else {
       const displayName = user.name?.trim() || '';
       const nameParts = displayName ? displayName.split(' ') : [];
-      const firstName = nameParts[0] || 'Usuario';
-      const lastName = nameParts.slice(1).join(' ') || '';
+      const firstName = (nameParts[0] || 'Usuario').substring(0, 50);
+      const lastName = nameParts.slice(1).join(' ').substring(0, 50);
       const createRes = await fetch(`${DIRECTUS_URL}/users`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
