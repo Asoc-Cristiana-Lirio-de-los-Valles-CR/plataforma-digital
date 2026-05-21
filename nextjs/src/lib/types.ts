@@ -151,3 +151,50 @@ export interface Sermon {
   youtube_published_at: string | null;
   view_count: number;
 }
+
+// ─── Page Builder ────────────────────────────────────────────────────────────
+
+export interface BlockHero {
+  id: number;
+  title: string;
+  title_en?: string;
+  subtitle?: string;
+  subtitle_en?: string;
+  background_image?: string;
+  cta_text?: string;
+  cta_text_en?: string;
+  cta_link?: string;
+}
+
+export interface BlockText {
+  id: number;
+  heading?: string;
+  heading_en?: string;
+  content: string;
+  content_en?: string;
+  alignment: 'left' | 'center' | 'right';
+}
+
+export interface BlockScripture {
+  id: number;
+  verse: string;
+  verse_en?: string;
+  reference: string;
+  background_style: 'light' | 'dark' | 'gold';
+}
+
+export type PageBlock =
+  | { collection: 'block_hero'; item: BlockHero }
+  | { collection: 'block_text'; item: BlockText }
+  | { collection: 'block_scripture'; item: BlockScripture };
+
+export interface Page {
+  id: string;
+  slug: string;
+  title: string;
+  title_en?: string;
+  status: 'published' | 'draft';
+  seo_title?: string;
+  seo_description?: string;
+  blocks: PageBlock[];
+}
