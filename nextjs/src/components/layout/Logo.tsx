@@ -23,8 +23,9 @@ export function Logo({ inverted = false, churchName }: LogoProps) {
         priority
       />
       {churchName && (
-        <span className="hidden sm:block font-display font-semibold text-sm leading-tight text-brand-900 dark:text-white max-w-[140px]">
-          {churchName}
+        <span className="hidden lg:flex flex-col font-display text-brand-900 dark:text-white leading-tight">
+          <span className="text-[10px] font-medium uppercase tracking-widest text-gold-500 whitespace-nowrap">Iglesia Cristiana</span>
+          <span className="text-sm font-semibold whitespace-nowrap">Lirio de los Valles</span>
         </span>
       )}
     </Link>
