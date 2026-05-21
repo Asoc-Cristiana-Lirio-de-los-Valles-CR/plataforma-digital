@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     // Create member_access for asociados
     if (newProfile?.id) {
-      await fetch(`${DIRECTUS_URL}/items/member_accesses`, {
+      const accessRes = await fetch(`${DIRECTUS_URL}/items/member_accesses`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${ADMIN_TOKEN}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -102,7 +102,9 @@ export async function POST(request: NextRequest) {
         }),
       });
 
-      sendNewRequestNotification(`${first_name} ${last_name}`.trim(), email);
+      if (accessRes.ok) {
+        sendNewRequestNotification(`${first_name} ${last_name}`.trim(), email);
+      }
     }
 
     await fetch(`${DIRECTUS_URL}/items/activity_logs`, {
