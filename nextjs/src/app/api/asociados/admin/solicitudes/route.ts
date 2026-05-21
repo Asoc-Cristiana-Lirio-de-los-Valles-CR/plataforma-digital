@@ -1,6 +1,7 @@
 import { auth } from '@/auth';
 import { type Session } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
+import { sendApprovalNotification, sendRejectionNotification } from '@/lib/email';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL ?? 'http://directus:8055';
 const ADMIN_TOKEN = process.env.DIRECTUS_ADMIN_TOKEN!;
@@ -66,6 +67,24 @@ export async function PATCH(request: NextRequest) {
   const newStatus = action === 'approve' ? 'active' : 'suspended';
 
   try {
+    // Obtener perfil del solicitante para notificación por email
+    const accessRes = await fetch(
+      `${DIRECTUS_URL}/items/member_accesses/${id}?fields=profile_id`,
+      { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } }
+    );
+    const { data: accessData } = await accessRes.json();
+    let profileNombre = '';
+    let profileEmail = '';
+    if (accessData?.profile_id) {
+      const profileRes = await fetch(
+        `${DIRECTUS_URL}/items/member_profiles/${accessData.profile_id}?fields=nombre,email`,
+        { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } }
+      );
+      const { data: profileData } = await profileRes.json();
+      profileNombre = profileData?.nombre ?? '';
+      profileEmail = profileData?.email ?? '';
+    }
+
     await fetch(`${DIRECTUS_URL}/items/member_accesses/${id}`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${ADMIN_TOKEN}`, 'Content-Type': 'application/json' },
@@ -86,6 +105,14 @@ export async function PATCH(request: NextRequest) {
         metadata: { access_id: id, notes },
       }),
     }).catch(() => {});
+
+    if (profileEmail) {
+      if (action === 'approve') {
+        sendApprovalNotification(profileNombre, profileEmail);
+      } else {
+        sendRejectionNotification(profileNombre, profileEmail, notes);
+      }
+    }
 
     return NextResponse.json({ ok: true });
   } catch {

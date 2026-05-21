@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { sendNewRequestNotification } from '@/lib/email';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL ?? 'http://directus:8055';
 const ADMIN_TOKEN = process.env.DIRECTUS_ADMIN_TOKEN!;
@@ -100,6 +101,8 @@ export async function POST(request: NextRequest) {
           requested_at: new Date().toISOString(),
         }),
       });
+
+      sendNewRequestNotification(`${first_name} ${last_name}`.trim(), email);
     }
 
     await fetch(`${DIRECTUS_URL}/items/activity_logs`, {
