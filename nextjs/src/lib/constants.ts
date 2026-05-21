@@ -12,14 +12,26 @@ export const SOCIAL = {
   instagram: 'https://www.instagram.com/liriodelosvalles',
 } as const;
 
-export const NAV_LINKS = [
+export type NavLink = {
+  href?: string;
+  key: string;
+  children?: { href: string; key: string }[];
+};
+
+export const NAV_LINKS: NavLink[] = [
   { href: '/', key: 'home' },
   { href: '/historia', key: 'history' },
-  { href: '/biblioteca', key: 'library' },
   { href: '/ministerios', key: 'ministerios' },
+  {
+    key: 'live',
+    children: [
+      { href: '/en-vivo', key: 'liveStream' },
+      { href: '/biblioteca', key: 'library' },
+    ],
+  },
   { href: '/donaciones', key: 'donate' },
   { href: '/contacto', key: 'contact' },
-] as const;
+];
 
 export const LOCALES = ['es', 'en'] as const;
 export type Locale = typeof LOCALES[number];
