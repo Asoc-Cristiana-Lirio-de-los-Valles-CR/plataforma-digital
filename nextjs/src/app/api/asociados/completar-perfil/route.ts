@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { sendNewRequestNotification } from '@/lib/email';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL ?? 'http://directus:8055';
 const ADMIN_TOKEN = process.env.DIRECTUS_ADMIN_TOKEN!;
@@ -54,11 +55,14 @@ export async function POST(request: NextRequest) {
     );
     const { data: accessData } = await accessRes.json();
     if (accessData?.length) {
-      await fetch(`${DIRECTUS_URL}/items/member_accesses/${accessData[0].id}`, {
+      const patchRes = await fetch(`${DIRECTUS_URL}/items/member_accesses/${accessData[0].id}`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${ADMIN_TOKEN}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'pending' }),
       });
+      if (patchRes.ok) {
+        sendNewRequestNotification(nombre.trim(), email?.trim() || session.user.email || '');
+      }
     }
 
     // Handle ministerio text → member_ministerios
