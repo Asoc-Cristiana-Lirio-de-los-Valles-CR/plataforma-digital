@@ -7,6 +7,9 @@ export function HeroBlock({ data, locale }: Props) {
   const title = locale === 'en' && data.title_en ? data.title_en : data.title;
   const subtitle = locale === 'en' && data.subtitle_en ? data.subtitle_en : data.subtitle;
   const ctaText = locale === 'en' && data.cta_text_en ? data.cta_text_en : data.cta_text;
+  const ctaHref = data.cta_link?.startsWith('/')
+    ? `/${locale}${data.cta_link}`
+    : data.cta_link;
   const bgUrl = data.background_image
     ? `${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${data.background_image}`
     : null;
@@ -30,8 +33,8 @@ export function HeroBlock({ data, locale }: Props) {
         {subtitle && (
           <p className="text-xl md:text-2xl text-white/80 mb-8">{subtitle}</p>
         )}
-        {ctaText && data.cta_link && (
-          <a href={data.cta_link} className="btn-gold inline-block">
+        {ctaText && ctaHref && (
+          <a href={ctaHref} className="btn-gold inline-block">
             {ctaText}
           </a>
         )}
