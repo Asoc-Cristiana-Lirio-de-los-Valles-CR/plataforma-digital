@@ -30,9 +30,5 @@ export default async function PageBuilderPage({ params }: Props) {
   const page = await getPageBySlug(slug);
   if (!page) notFound();
 
-  return (
-    <main>
-      <BlockRenderer blocks={page.blocks ?? []} locale={locale} />
-    </main>
-  );
+  return <BlockRenderer blocks={page.blocks ?? []} locale={locale} />;
 }

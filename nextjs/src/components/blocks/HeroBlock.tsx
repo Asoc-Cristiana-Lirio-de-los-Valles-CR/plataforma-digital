@@ -25,8 +25,8 @@ export function HeroBlock({ data, locale }: Props) {
         <div className="absolute inset-0 bg-brand-900 dark:bg-brand-950" />
       )}
       <div className="absolute inset-0 bg-black/50" />
-      <div className="relative z-10 text-center section-padding max-w-4xl mx-auto">
-        <h1 className="text-4xl md:text-6xl font-display font-bold text-white mb-4">{title}</h1>
+      <div className="relative z-10 text-center section-padding w-full max-w-4xl mx-auto px-4 sm:px-6">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-bold text-white mb-4 break-words">{title}</h1>
         {subtitle && (
           <p className="text-xl md:text-2xl text-white/80 mb-8">{subtitle}</p>
         )}
