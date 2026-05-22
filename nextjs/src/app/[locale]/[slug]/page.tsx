@@ -3,8 +3,7 @@ import { getPageBySlug, getPageSlugs } from '@/lib/directus';
 import { BlockRenderer } from '@/components/blocks/BlockRenderer';
 import type { Metadata } from 'next';
 
-export const revalidate = 60;
-export const dynamicParams = true;
+export const dynamic = 'force-dynamic';
 
 interface Props {
   params: Promise<{ locale: string; slug: string }>;
