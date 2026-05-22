@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 
 const inputClass = 'w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-[#b48af7]/60 text-sm transition-colors';
@@ -12,6 +13,7 @@ const TIPOS_ID = [
 ];
 
 export default function CompletarPerfilPage() {
+  const { update: updateSession } = useSession();
   const [sessionUser, setSessionUser] = useState<{ name?: string | null; email?: string | null } | null>(null);
   const [form, setForm] = useState({
     nombre: '',
@@ -57,6 +59,7 @@ export default function CompletarPerfilPage() {
         const d = await res.json();
         setError(d.error ?? 'Error al guardar. Intenta de nuevo.');
       } else {
+        await updateSession();
         setDone(true);
       }
     } catch {

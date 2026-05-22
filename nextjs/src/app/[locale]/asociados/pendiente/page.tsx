@@ -1,8 +1,21 @@
 'use client';
 import Image from 'next/image';
-import { signOut } from 'next-auth/react';
+import { signOut, useSession } from 'next-auth/react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function PendientePage() {
+  const { update: updateSession } = useSession();
+  const router = useRouter();
+  const [checking, setChecking] = useState(false);
+
+  async function handleVerificar() {
+    setChecking(true);
+    await updateSession();
+    router.refresh();
+    setChecking(false);
+  }
+
   return (
     <div className="min-h-screen bg-[#0d0a19] flex items-center justify-center p-4">
       <div className="w-full max-w-sm text-center">
@@ -39,12 +52,20 @@ export default function PendientePage() {
         </div>
 
         <div className="flex flex-col gap-2 items-center">
-          <a href="/" className="text-sm text-[#b48af7] hover:underline">
+          <button
+            onClick={handleVerificar}
+            disabled={checking}
+            className="w-full py-2.5 rounded-xl bg-[#461a7a]/60 hover:bg-[#461a7a] border border-[#b48af7]/30
+                       text-sm text-[#b48af7] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {checking ? 'Verificando...' : 'Verificar estado de aprobación'}
+          </button>
+          <a href="/" className="text-sm text-white/40 hover:text-white/70 transition-colors mt-1">
             Volver al sitio principal
           </a>
           <button
             onClick={() => signOut({ callbackUrl: '/es/asociados/login' })}
-            className="text-xs text-white/30 hover:text-white/60 transition-colors mt-1"
+            className="text-xs text-white/30 hover:text-white/60 transition-colors"
           >
             Cerrar sesión
           </button>

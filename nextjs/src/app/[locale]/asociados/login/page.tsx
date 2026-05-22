@@ -61,9 +61,17 @@ function LoginForm({ onError, onSwitchToRegistro }: { onError: (msg: string) => 
 }
 
 
+const SPINNER = (
+  <svg className="w-5 h-5 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+  </svg>
+);
+
 function PortalContent() {
   const params = useSearchParams();
   const urlError = params.get('error');
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState(() => {
     if (!urlError || urlError === 'suspended' || urlError === 'no_profile') return '';
     return 'Error al iniciar sesión con Google. Intenta de nuevo o usa email y contraseña.';
@@ -100,13 +108,15 @@ function PortalContent() {
 
       {/* Google login */}
       <button
-        onClick={() => signIn('google', { callbackUrl: '/es/asociados' })}
+        onClick={async () => { setGoogleLoading(true); await signIn('google', { callbackUrl: '/es/asociados' }); }}
+        disabled={googleLoading}
         className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl
                    bg-white text-gray-800 font-semibold text-sm
-                   hover:bg-gray-100 transition-colors duration-150 mb-4"
+                   hover:bg-gray-100 transition-colors duration-150 mb-4
+                   disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        {GOOGLE_ICON}
-        Continuar con Google
+        {googleLoading ? SPINNER : GOOGLE_ICON}
+        {googleLoading ? 'Redirigiendo...' : 'Continuar con Google'}
       </button>
 
       <div className="flex items-center gap-3 mb-4">
