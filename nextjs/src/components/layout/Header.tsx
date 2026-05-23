@@ -263,10 +263,11 @@ export function Header({ churchName }: { churchName?: string }) {
 
           {/* Nav links */}
           <nav className="flex-1 overflow-y-auto py-4 px-4">
-            {NAV_LINKS.filter(({ key }) => key !== 'live').map(({ href, key, children }) => {
+            {NAV_LINKS.map(({ href, key, children }) => {
               if (children) {
                 const isOpen = openDropdown === key;
                 const active = isDropdownActive(children);
+                const isLive = key === 'live';
                 return (
                   <div key={key}>
                     <button
@@ -278,7 +279,12 @@ export function Header({ churchName }: { churchName?: string }) {
                           : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
                       )}
                     >
-                      {t(key as NavKey)}
+                      <span className="flex items-center gap-2">
+                        {isLive && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                        )}
+                        {t(key as NavKey)}
+                      </span>
                       <svg className={clsx('w-4 h-4 transition-transform duration-200', isOpen && 'rotate-180')} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
