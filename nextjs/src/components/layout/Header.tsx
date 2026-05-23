@@ -221,7 +221,7 @@ export function Header({ churchName }: { churchName?: string }) {
       {/* Mobile menu overlay */}
       <div
         className={clsx(
-          'fixed inset-0 z-40 xl:hidden transition-all duration-300',
+          'fixed inset-0 z-[60] xl:hidden transition-all duration-300',
           mobileOpen ? 'visible' : 'invisible'
         )}
       >
@@ -238,7 +238,7 @@ export function Header({ churchName }: { churchName?: string }) {
         {/* Drawer */}
         <div
           className={clsx(
-            'absolute right-0 top-0 bottom-0 w-72 max-w-[85vw]',
+            'absolute right-0 top-0 bottom-0 w-[85vw] max-w-sm',
             'bg-white dark:bg-gray-950 shadow-xl',
             'flex flex-col',
             'transition-transform duration-300 ease-out',
