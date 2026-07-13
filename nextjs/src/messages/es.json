@@ -2,13 +2,29 @@
   "nav": {
     "home": "Inicio",
     "history": "Historia",
+    "library": "Biblioteca",
     "live": "En Vivo",
     "donate": "Donar",
-    "contact": "Contacto"
+    "contact": "Contacto",
+    "ministerios": "Ministerios",
+    "recursos": "Recursos",
+    "register": "Registrarse",
+    "live": "En Vivo",
+    "liveStream": "Transmisión en Vivo",
+    "members": "Asociados"
+  },
+  "ministerios": {
+    "title": "Ministerios",
+    "subtitle": "Conoce los ministerios de nuestra iglesia",
+    "leader": "Líder",
+    "schedule": "Horario",
+    "phone": "Teléfono",
+    "noMinistries": "No hay ministerios publicados",
+    "back": "← Volver a Ministerios"
   },
   "home": {
-    "title": "Iglesia Cristiana Lirio de los Valles",
-    "subtitle": "Una comunidad de fe en Costa Rica",
+    "title": "Bienvenido a Casa",
+    "subtitle": "Ven y siéntete en familia.",
     "newHere": "¿Nuevo aquí?",
     "newHereDesc": "Conoce más sobre nuestra comunidad",
     "schedule": "Horarios de Servicios",
@@ -69,11 +85,38 @@
     "en": "English",
     "toggle": "Cambiar idioma"
   },
+  "days": {
+    "sunday": "Domingo",
+    "monday": "Lunes",
+    "tuesday": "Martes",
+    "wednesday": "Miércoles",
+    "thursday": "Jueves",
+    "friday": "Viernes",
+    "saturday": "Sábado"
+  },
   "common": {
     "loading": "Cargando...",
     "error": "Ocurrió un error",
     "readMore": "Leer más",
     "viewAll": "Ver todos",
     "back": "Volver"
+  },
+  "biblioteca": {
+    "title": "Biblioteca de Predicaciones",
+    "subtitle": "Predicaciones, series y mensajes de la Iglesia Lirio de los Valles",
+    "featured": "Predicación destacada",
+    "recentSermons": "Predicaciones recientes",
+    "allSeries": "Todas las series",
+    "searchPlaceholder": "Buscar predicaciones...",
+    "noResults": "No se encontraron predicaciones con ese criterio.",
+    "viewAll": "Ver todas",
+    "preacher": "Predicador",
+    "series": "Serie",
+    "duration": "Duración",
+    "publishedOn": "Publicado el",
+    "relatedSermons": "Predicaciones relacionadas",
+    "backToLibrary": "← Volver a la biblioteca",
+    "watchOnYouTube": "Ver en YouTube",
+    "metaDescription": "Biblioteca de predicaciones y mensajes de la Iglesia Cristiana Lirio de los Valles."
   }
 }

@@ -13,7 +13,7 @@ Dominio: liriodelosvallescr.org
 - Proxy: Nginx
 - Radio: AzuraCast (Fase 3)
 - Analytics: Umami (self-hosted, Docker profile opcional)
-- Infraestructura: Docker Compose en Azure VM Ubuntu 22.04 B2ms
+- Infraestructura: Docker Compose en Azure VM Ubuntu 24.04 D2s_v3 (centralus)
 - DNS/CDN/SSL: Cloudflare (SSL Full strict, proxy activado)
 - CI/CD: GitHub Actions
 
@@ -43,13 +43,18 @@ Antes de cualquier tarea, verificar que los siguientes plugins estén activos:
 
 ## Roles del sistema (Directus)
 
-| Rol | Quién | Permisos |
-|-----|-------|---------|
-| `root` | Técnico del servidor | Acceso total sistema + Directus superadmin |
-| `admin` | Liderazgo iglesia | Todo el contenido + gestión usuarios + aprobación accesos |
-| `editor` | Líderes ministerios | Crear/editar noticias, eventos, predicaciones, galería |
-| `asociado` | Miembro aprobado asociación | Ver/descargar documentos transparencia financiera |
-| `publico` | Visitante anónimo | Sitio público únicamente |
+| Rol | Directus Role | admin_access | Quién | Permisos |
+|-----|--------------|:------------:|-------|---------|
+| `root` | Administrator | ✅ true | Técnico servidor | Control total: usuarios, roles, settings, colecciones, contenido |
+| `admin` | Administrador CMS | ❌ false | Liderazgo iglesia | Contenido CMS + gestión usuarios no-root. Sin acceso a roles/settings/system |
+| `editor` | Editor | ❌ false | Líderes ministerios | Crear/editar noticias, eventos, predicaciones, galería — Fase 2 |
+| `asociado` | Asociado | ❌ false | Miembro aprobado | Ver/descargar documentos transparencia financiera — Fase 2 |
+| `publico` | (Public policy) | ❌ false | Visitante anónimo | Sitio público únicamente |
+
+Restricciones de seguridad implementadas en Administrador CMS:
+- Permisos con filtro `role._neq=66a4441e...` — root@ invisible e inmodificable
+- Campo `role` bloqueado en updates — evita escalación de privilegios
+- Sin acceso a: directus_roles, directus_policies, directus_permissions, directus_collections, directus_settings
 
 ## Variables de entorno
 
@@ -105,10 +110,10 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 
 | Fase | Contenido | Estado |
 |------|-----------|--------|
-| **Fase 1 — MVP** | Infra + Docker + CMS + 5 secciones (Inicio, Historia, En Vivo, Donaciones, Contacto) | ✅ Completo (dev local) |
-| **Fase 2** | Transparencia/Asociados + Biblioteca Digital + Ministerios + Page Builder | ⏳ Pendiente |
-| **Fase 3** | Radio AzuraCast + Facebook sync + PWA + Notificaciones push | ⏳ Pendiente |
-| **Fase 4** | SEO avanzado + Analytics + Performance + Traefik SSL interno | ⏳ Pendiente |
+| **Fase 1 — MVP** | Infra + Docker + CMS + 5 secciones (Inicio, Historia, En Vivo, Donaciones, Contacto) | ✅ Completo |
+| **Fase 2** | Biblioteca Digital, Portal Asociados (login/registro/perfil/comunicados/documentos), Ministerios, Page Builder (Dynamic Zones M2A), Zona Equipo (HMAC) | ✅ Completo |
+| **Fase 3** | PWA (next-pwa + offline) ✅ · Sentry error tracking ✅ · Radio AzuraCast ⏳ · Facebook sync ⏳ · Notificaciones push ⏳ | 🔶 Parcial |
+| **Fase 4** | SEO avanzado + Analytics (Umami) + Performance + Traefik SSL interno | ⏳ Pendiente |
 
 ## Mejoras futuras documentadas
 
@@ -120,9 +125,9 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 ## Presupuesto Azure
 
 - Crédito ONG disponible: $2,000 USD/año ($166/mes)
-- VM: Standard_B2ms (2 vCPU / 8 GB RAM) — resize a B4ms si crece
-- Estimado mensual: ~$85/mes (B2ms ~$60 + IP estática ~$4 + Premium SSD ~$15 + backups ~$6)
-- Margen: ~$81/mes
+- VM: Standard_D2s_v3 (2 vCPU / 8 GB RAM) en centralus — resize a D4s_v3 si crece
+- Estimado mensual: ~$100/mes (D2s_v3 ~$80 + IP estática ~$4 + Premium SSD ~$10 + backups ~$6)
+- Margen: ~$66/mes
 - Presupuesto mensual configurado: $150/mes (budget en Cost Management)
 - Alertas: $120/mes → aviso (80%) | $150/mes → límite (100%) | $180/mes → crítico (120%)
 - Nunca superar $166/mes para mantenerse dentro del crédito ONG anual
@@ -130,23 +135,31 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 
 ## Gestión de usuarios
 
-**Regla obligatoria**: Cada vez que se crea, modifica o elimina un usuario en cualquier sistema (Directus, PostgreSQL, Umami, Azure, Cloudflare), actualizar `usuarios.txt` en la raíz del proyecto.
+**Regla obligatoria**: Cada vez que se crea, modifica o elimina un usuario en cualquier sistema (Directus, PostgreSQL, Umami, Azure, Cloudflare), actualizar `credenciales.txt` en la raíz del proyecto.
 
-- `usuarios.txt` está en `.gitignore` — **NO** se sube al repo (contiene referencias a credenciales dev)
+- `credenciales.txt` está en `.gitignore` — **NO** se sube al repo
 - Mantener actualizado localmente como referencia del equipo técnico
-- Nunca escribir contraseñas reales directamente — solo números de SINPE, cuentas bancarias ficticias de dev, etc.
+- Operaciones administrativas (crear roles, cambiar políticas): usar `root@liriodelosvallescr.org`
+- Gestión de contenido y usuarios normales: usar `admin@liriodelosvallescr.org`
 
-## Estado del stack (2026-05-11)
+## Estado del stack (2026-05-15)
 
 - Next.js 15.3.3 — CVE-2025-66478 corregido
 - Healthchecks: usan `node` (no `wget` — no disponible en imágenes Alpine)
 - `version:` eliminado de docker-compose (obsoleto en Compose v2)
-- Colecciones Directus creadas via API: `service_schedule`, `weekly_verse`, `church_info`, `contact_messages`
+- Colecciones Directus: `service_schedule`, `weekly_verse`, `church_info`, `contact_messages`, `church_leaders`, `ministerios`, `team_documents`
 - Permisos públicos de lectura activos en service_schedule, weekly_verse, church_info
 - GitHub repo activo: `Asoc-Cristiana-Lirio-de-los-Valles-CR/plataforma-digital`
 - CI/CD: workflows en `.github/workflows/` (ci.yml, deploy-dev.yml, deploy-prod.yml)
 - Branch protection activo en `main` y `dev`
 - `DIRECTUS_URL=http://directus:8055` requerido en contenedor Next.js (server-side fetch)
+- Roles RBAC implementados: Administrator (root@) + Administrador CMS (admin@) con filtros de seguridad
+- Favicon, apple-icon, OG image generados con Next.js ImageResponse
+- Footer y ContactPage convertidos a Server Components
+- robots.txt y rutas estáticas excluidas del middleware i18n
+- Biblioteca: búsqueda server-side por título/fecha (año, mes, día), carrusel de años, filtro por predicador/serie
+- YouTube sync: detecta videos borrados y los marca `youtube_status=unavailable` (ocultos en web)
+- Zona Equipo (`/equipo/manuales`): protegida por HMAC-SHA256 cookie (TEAM_SECRET). Middleware Edge Runtime usa Web Crypto API. Documentos con `visibility=private` requieren cookie; `visibility=link` accesibles por enlace directo sin cookie. Sin descarga — solo `Content-Disposition: inline`. SSH VPS: `lirio@20.12.207.240` con `~/.ssh/lirio_azure_key`. Proyecto en `/opt/lirio/app`
 
 ## Documentación técnica
 

@@ -28,6 +28,7 @@ jobs:
             git fetch origin
             git checkout dev
             git pull origin dev
+            docker builder prune --filter "until=24h" -f
             docker compose build nextjs
             docker compose up -d --no-deps nextjs
             until docker exec lirio_nextjs node -e \
@@ -35,5 +36,7 @@ jobs:
               2>/dev/null; do sleep 3; done
             echo "Staging deploy OK"
             docker compose ps
+            docker image prune -f
+            docker builder prune --keep-storage 1GB -f
         env:
           STAGING_ENV_CONTENT: ${{ secrets.STAGING_ENV_FILE }}

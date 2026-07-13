@@ -1,0 +1,23 @@
+name: Sync sermons from YouTube
+
+on:
+  schedule:
+    - cron: '0 9 * * *'  # 3am Costa Rica (UTC-6) = 9am UTC
+  workflow_dispatch:       # permite disparar manualmente desde GitHub UI
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Trigger YouTube sync
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST https://liriodelosvallescr.org/api/sync/youtube \
+            -H "Authorization: Bearer ${{ secrets.SYNC_SECRET }}")
+          echo "HTTP status: $response"
+          if [ "$response" != "200" ]; then
+            echo "Sync failed with status $response"
+            exit 1
+          fi
