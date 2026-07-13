@@ -110,10 +110,10 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 
 | Fase | Contenido | Estado |
 |------|-----------|--------|
-| **Fase 1 — MVP** | Infra + Docker + CMS + 5 secciones (Inicio, Historia, En Vivo, Donaciones, Contacto) | ✅ Completo (dev local) |
-| **Fase 2** | Transparencia/Asociados + Biblioteca Digital + Ministerios + Page Builder | ⏳ Pendiente |
-| **Fase 3** | Radio AzuraCast + Facebook sync + PWA + Notificaciones push | ⏳ Pendiente |
-| **Fase 4** | SEO avanzado + Analytics + Performance + Traefik SSL interno | ⏳ Pendiente |
+| **Fase 1 — MVP** | Infra + Docker + CMS + 5 secciones (Inicio, Historia, En Vivo, Donaciones, Contacto) | ✅ Completo |
+| **Fase 2** | Biblioteca Digital, Portal Asociados (login/registro/perfil/comunicados/documentos), Ministerios, Page Builder (Dynamic Zones M2A), Zona Equipo (HMAC) | ✅ Completo |
+| **Fase 3** | PWA (next-pwa + offline) ✅ · Sentry error tracking ✅ · Radio AzuraCast ⏳ · Facebook sync ⏳ · Notificaciones push ⏳ | 🔶 Parcial |
+| **Fase 4** | SEO avanzado + Analytics (Umami) + Performance + Traefik SSL interno | ⏳ Pendiente |
 
 ## Mejoras futuras documentadas
 
