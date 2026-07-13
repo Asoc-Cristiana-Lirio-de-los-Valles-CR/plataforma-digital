@@ -17,6 +17,11 @@ nextjs/node_modules/
 .next/
 nextjs/.next/
 nextjs/out/
+nextjs/tsconfig.tsbuildinfo
+
+# next-pwa build artifacts
+nextjs/public/sw.js
+nextjs/public/workbox-*.js
 
 # Logs
 *.log
