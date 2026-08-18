@@ -161,6 +161,181 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 - YouTube sync: detecta videos borrados y los marca `youtube_status=unavailable` (ocultos en web)
 - Zona Equipo (`/equipo/manuales`): protegida por HMAC-SHA256 cookie (TEAM_SECRET). Middleware Edge Runtime usa Web Crypto API. Documentos con `visibility=private` requieren cookie; `visibility=link` accesibles por enlace directo sin cookie. Sin descarga — solo `Content-Disposition: inline`. SSH VPS: `lirio@20.12.207.240` con `~/.ssh/lirio_azure_key`. Proyecto en `/opt/lirio/app`
 
+## Infraestructura VM — registro de cambios y tenants
+
+**Este proyecto es el DUEÑO de la VM Azure y de Directus.** Todo cambio a nivel
+de host (kernel, swap, nginx compartido, firewall, Docker daemon) o a Directus
+(flows, roles, webhooks) debe registrarse aquí, aunque lo origine otro proyecto.
+Otros proyectos alojados en la VM son *tenants*: gestionan su propio compose y
+su carpeta, pero NO modifican recursos compartidos sin registrarlo en este repo.
+
+### Cambios a nivel de host
+
+| Fecha | Cambio | Motivo | Detalle |
+|-------|--------|--------|---------|
+| 2026-07-15 | Swap 2 GB creado (`/swapfile`, persistente en `/etc/fstab`) + `vm.swappiness=10` (`/etc/sysctl.d/99-swappiness.conf`) | Colchón anti-OOM antes de alojar tenants adicionales | Ejecutado vía SSH desde sesión del proyecto Sistema-Eventos. Disco usado: +2 GB |
+
+### Tenants en la VM (además de esta plataforma)
+
+| Tenant | Carpeta | Estado | Recursos compartidos que usa |
+|--------|---------|--------|------------------------------|
+| Sistema de Eventos (`Sistema-Eventos-LiriodelosValles`) | — | ❌ **Deploy en esta VM CANCELADO (2026-08-17)** | **Ninguno de tráfico.** Solo, a futuro, Azure como destino de backup off-site |
+
+> ## ⚠️ CAMBIO DE ARQUITECTURA DEL TENANT — 2026-08-17 (Regla #0)
+>
+> **El Sistema de Eventos ya NO se desplegará en esta VM.** Decisión de Rafael.
+> Su arquitectura oficial es:
+>
+> | Máquina | Rol |
+> |---|---|
+> | MEGALAPTOP | Desarrollo |
+> | PC de la iglesia · VM `eventos-prod` | **Producción principal · único escritor de su BD** |
+> | PC de la iglesia · VM `eventos-staging` | Staging |
+> | **Azure (esta VM)** | **Backup off-site del tenant. Nada más** |
+>
+> Cadena de ejecución del tenant: `Windows 11 Pro → Hyper-V → VM Linux → Docker`,
+> en hardware propio de la iglesia (i7-14700F, 32 GB RAM).
+>
+> **Queda RETIRADO como anticipado** (ya no hará falta):
+> - ~~Bloque nginx `eventos.liriodelosvallescr.org` → proxy al contenedor del tenant~~
+> - ~~Subdominio `eventos` en Cloudflare~~
+> - ~~Flows Directus "Encender/Apagar eventos" → webhook interno (`172.17.0.1:9000`)~~ —
+>   no habrá aplicación que encender o apagar en esta VM.
+>
+> **Lo único que este proyecto podría recibir del tenant en el futuro** es un canal de
+> recepción de **backups** (dumps verificados). Eso será un mecanismo **separado** del
+> deployment de aplicación, aún **sin diseñar y sin aprobar**. No implica correr Docker
+> Compose del tenant, ni Node, ni exponer nada suyo.
+>
+> **Impacto neto para esta plataforma: positivo.** Se libera la reserva de ≈502 MiB
+> proyectada para el tenant, y desaparecen el bloque nginx, el subdominio y el flow
+> Directus del alcance. No se ejecutó ningún cambio de infraestructura con esta decisión:
+> es únicamente documental.
+>
+> Punto de verdad del tenant:
+> `C:\Proyectos\Sistema-Eventos-LiriodelosValles\docs\ARQUITECTURA-OFICIAL.md`.
+
+#### REGLA #0 — visibilidad bidireccional con los tenants
+
+Todo cambio en un tenant se registra aquí, **y todo cambio de esta plataforma
+que toque host, Nginx compartido, Cloudflare, Directus (roles/flows/webhooks),
+capacidad de la VM, presupuesto Azure, ventanas de mantenimiento o secretos
+compartidos debe registrarse también en el repo del tenant afectado.** La
+jerarquía define quién decide; la Regla #0 define quién se entera: los dos,
+siempre. Ante la duda, se registra en ambos lados.
+
+#### Identidad oficial del tenant — cambio 2026-08-05
+
+El nombre oficial del producto pasa a ser **`Sistema Eventos — Iglesia Lirio de
+los Valles`**. El nombre histórico `Sistema Ventas / Sistema de Ventas` solo se
+usa ya para referirse a fases, commits o rutas anteriores. Al referirse al
+tenant desde esta plataforma (nginx, Directus, documentación, subdominio
+`eventos.liriodelosvallescr.org`), usar el nombre nuevo.
+
+La nomenclatura Docker del tenant (`sistema-ventas-liriodelosvalles*`,
+`lirios_ventas`, `lirios_user`) sigue **deliberadamente sin cambiar** para
+conservar su volumen de datos: se renombrará en una operación controlada
+**antes** del deploy en esta VM, nunca durante.
+
+#### Renombrado del tenant COMPLETADO en local — 2026-08-06
+
+La nomenclatura definitiva **ya está aplicada y validada en local**. El deploy en esta VM
+usará estos nombres directamente; no habrá que renombrar nada durante la migración.
+
+| Elemento | Nombre definitivo (vigente en local) |
+|---|---|
+| Proyecto Compose | `sistema-eventos-liriodelosvalles` |
+| Volumen MySQL | `sistema-eventos-liriodelosvalles_mysql_data` |
+| Imagen | `sistema-eventos-liriodelosvalles-app` |
+| Red | `sistema-eventos-liriodelosvalles_eventos-network` |
+| Contenedores | `eventos-app` · `eventos-db` · `eventos-phpmyadmin` |
+
+El prefijo `eventos-*` no colisiona con los `lirio_*` de esta plataforma, y su red es propia:
+ambos stacks quedan aislados en la VM.
+
+> ⚠️ **CORREGIDO 2026-08-17 (Regla #0) — este párrafo estaba desactualizado.**
+> Decía que la base `lirios_ventas` y el usuario `lirios_user` seguían **"NO renombrado
+> deliberadamente"**. Quedó **superado por la Fase 3C del tenant** (2026-08-06, commit
+> `5176072`): hoy son **`eventos_liriodelosvalles`** y **`eventos_user`**, verificados en
+> ejecución. Los nombres antiguos se conservan solo como **rollback**.
+>
+> Tampoco estaban registradas aquí, y se registran ahora:
+> - **Fase 3A** (2026-08-06) — endurecimiento de red del tenant: sus servicios de base de
+>   datos pasaron a escuchar solo en loopback.
+> - **Fase 3B** (2026-08-06) — rotación de credenciales de base de datos del tenant.
+> - **Fase 1** (2026-08-14) — repositorio privado del tenant creado con historial purgado.
+>
+> *(Detalle técnico de 3A y 3B: en el repositorio privado del tenant, no aquí.)*
+>
+> **Impacto para esta plataforma en los tres casos: ninguno.** No se tocó Nginx, Directus,
+> PostgreSQL, Redis, puertos, dominios ni SSL.
+
+**Nombres antiguos, hoy solo rollback:** base `lirios_ventas`, usuario `lirios_user`. El
+esquema, las migraciones y los nombres de servicio internos del compose del tenant sí siguen
+sin renombrar, deliberadamente. No afecta a esta plataforma.
+
+Validación: dump verificado por restauración en un MySQL efímero, copia del datadir con el
+volumen antiguo en solo lectura, snapshots PRE/POST **idénticos** en 15 métricas, QA 65
+pruebas en verde. El volumen antiguo se conserva como rollback hasta varios días de
+operación estable.
+
+**Impacto para esta plataforma: ninguno.** No se tocó Nginx, Directus, PostgreSQL, Redis,
+puertos, dominios ni SSL. El tenant sigue sin desplegarse en la VM.
+
+Pendiente antes de su deploy: rotación de credenciales del tenant (Fase 3), gate de
+seguridad y gate de capacidad.
+
+#### Registro del tenant Sistema de Eventos — 2026-08-05
+
+Ruta local del repo: `C:\Proyectos\Sistema-Eventos-LiriodelosValles`
+(migrada desde `C:\sistema-ventas-LiriodelosValles`). Estado: **documentación
+de cierre completada**; sigue sin desplegarse en la VM.
+
+- **Naming definitivo acordado** (se aplicará antes del deploy, no ahora):
+  proyecto Compose `sistema-eventos-liriodelosvalles`, volumen
+  `sistema-eventos-liriodelosvalles_mysql_data`, imagen
+  `sistema-eventos-liriodelosvalles-app`, contenedores `eventos-app` /
+  `eventos-db` / `eventos-phpmyadmin`, BD `eventos_liriodelosvalles`, usuario
+  `eventos_user`. El prefijo `eventos-*` evita colisión con los `lirio_*` de
+  esta plataforma.
+- **Baseline de consumo medido:** ≈502 MiB en reposo (MySQL 411 + Node 71 +
+  phpMyAdmin 20). Apagarlo libera **498 MB medidos**.
+- **Baseline de esta VM medido el mismo día** (SSH solo lectura): 2 vCPU,
+  7.8 GiB con 5.5 GiB disponibles, swap 2 GiB **sin usar en 85 días**, load
+  0.09, 18 G de disco libres; los 5 contenedores de esta plataforma suman
+  **≈444 MiB** (`lirio_directus` 251.6 · `lirio_nextjs` 132.5 ·
+  `lirio_postgres` 45.7 · `lirio_redis` 9.6 · `lirio_nginx` 5.0).
+- **Conclusión:** la convivencia PostgreSQL + MySQL cabe en la VM actual
+  (≈36 % de RAM usada proyectada). **No se migra MySQL a PostgreSQL** y no se
+  mezclan bases de datos de ambos proyectos.
+- Documentos del tenant:
+  `docs/superpowers/specs/2026-08-05-cierre-migracion-local-inventario-vps.md`
+  y `docs/ANALISIS-RECURSOS-AZURE-MYSQL-POSTGRESQL.md`.
+
+#### Política de capacidad de la VM (aplica a TODOS los tenants)
+
+🚨 **Aumentar recursos de Azure (CPU, RAM, tamaño de VM, SKU, escalamiento
+vertical) NO está disponible en esta etapa.** La infraestructura es
+presupuesto fijo. Ante consumo elevado, el orden obligatorio es: medir →
+identificar el responsable → optimizar configuración → reducir servicios
+innecesarios → aprovechar Docker y políticas de reinicio → usar el
+interruptor ON/OFF del tenant → recién entonces evaluar si hay un problema
+real de capacidad.
+
+Escalera de degradación acordada: **N0** límites `deploy.resources` en todos
+los composes (hoy **ningún** compose los declara — riesgo abierto) · **N1**
+no desplegar servicios prescindibles (phpMyAdmin, perfil `analytics`) ·
+**N2** apagar el tenant vía interruptor · **N3** afinar motores
+(`performance_schema`, buffer pool, `max_connections`, workers) · ~~resize
+vertical~~ 🚫 no disponible · **N4** separar el tenant a otra máquina ·
+**N5** reversión total de su deploy. Esta plataforma tiene **prioridad
+absoluta**: se degrada al tenant antes que al sitio institucional, y una
+operación defectuosa del interruptor jamás puede dejarla fuera de servicio.
+
+**Gate para tenants futuros:** baseline medido + límites declarados en su
+compose (sin límites, no entra) + capacidad restante recalculada con margen
+≥ 25 % + alta en esta tabla. Sin resize como red de seguridad.
+
 ## Documentación técnica
 
 - Spec de diseño: `docs/superpowers/specs/2026-05-11-plataforma-iglesia-lirio-design.md`
