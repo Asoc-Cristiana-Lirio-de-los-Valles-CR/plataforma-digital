@@ -81,8 +81,11 @@ jobs:
           npm ci
           npm run build
           npm start &
-          until curl -s http://localhost:3000/api/health | grep -q '"status":"ok"'; do sleep 2; done
-          echo "Next.js ready"
+          for i in $(seq 1 90); do
+            curl -s http://localhost:3000/api/health | grep -q '"status":"ok"' && { echo "Next.js ready"; exit 0; }
+            sleep 2
+          done
+          echo "Next.js no respondió en 3 min"; exit 1
         env:
           NEXT_PUBLIC_DIRECTUS_URL: http://localhost:8055
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
