@@ -30,6 +30,18 @@ for (const locale of LOCALES) {
       await expect(page.getByText('Internal Server Error')).toHaveCount(0);
     });
 
+    test('el detalle del primer ministerio listado responde 200 con su nombre', async ({ page }) => {
+      await page.goto(`/${locale}/ministerios`);
+      const card = page.locator(`a[href^="/${locale}/ministerios/"]`).first();
+      test.skip((await card.count()) === 0, 'No hay ministerios publicados en este entorno (Directus vacío en CI)');
+      const href = await card.getAttribute('href');
+      const expectedName = (await card.getByRole('heading', { level: 2 }).innerText()).trim();
+
+      const response = await page.goto(href!);
+      expect(response?.status()).toBe(200);
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(expectedName);
+    });
+
     test('un ministerio inexistente responde 404, no 500', async ({ page }) => {
       const response = await page.goto(`/${locale}/ministerios/999999`);
       expect(response?.status()).toBe(404);
