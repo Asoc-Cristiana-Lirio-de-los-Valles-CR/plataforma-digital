@@ -5,9 +5,10 @@ test('navigation links visible on homepage', async ({ page }) => {
   const nav = page.getByRole('navigation', { name: /navegación principal/i });
   await expect(nav.getByRole('link', { name: /inicio/i })).toBeVisible();
   await expect(nav.getByRole('link', { name: /historia/i })).toBeVisible();
-  await expect(nav.getByRole('link', { name: /en vivo/i })).toBeVisible();
   await expect(nav.getByRole('link', { name: /donar/i })).toBeVisible();
   await expect(nav.getByRole('link', { name: /contacto/i })).toBeVisible();
+  // "En Vivo" salió del nav principal (61b554a): vive en el botón LIVE del header.
+  await expect(page.getByRole('button', { name: /ver en vivo/i })).toBeVisible();
 });
 
 test('dark mode toggle switches theme', async ({ page }) => {
