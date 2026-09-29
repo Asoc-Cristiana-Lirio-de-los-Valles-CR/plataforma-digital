@@ -4,12 +4,9 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 
-export const revalidate = 60;
-
-export async function generateStaticParams() {
-  const ministerios = await getMinisterios();
-  return ministerios.map((m) => ({ id: String(m.id) }));
-}
+// El layout lee headers(): esta página no puede prerenderizarse (ISR) sin
+// provocar DYNAMIC_SERVER_USAGE → 500. Mismo caso que [slug] (commit 86b3ed1).
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({
   params,
