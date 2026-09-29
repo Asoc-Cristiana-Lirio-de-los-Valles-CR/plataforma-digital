@@ -65,10 +65,15 @@ jobs:
       - name: Start Directus stack
         run: |
           docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis directus
-          until docker exec lirio_directus node -e \
-            "require('http').get('http://localhost:8055/server/health',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(JSON.parse(d).status==='ok'?0:1))}).on('error',()=>process.exit(1))" \
-            2>/dev/null; do sleep 3; done
-          echo "Directus healthy"
+          # /server/ping y no /server/health: en CI el chequeo SMTP de health falla
+          # (credenciales de ejemplo) y el bucle esperaba 6 h hasta la cancelación.
+          for i in $(seq 1 60); do
+            docker exec lirio_directus node -e \
+              "require('http').get('http://localhost:8055/server/ping',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(d==='pong'?0:1))}).on('error',()=>process.exit(1))" \
+              2>/dev/null && { echo "Directus ready"; exit 0; }
+            sleep 5
+          done
+          echo "Directus no respondió en 5 min"; docker logs --tail 80 lirio_directus; exit 1
 
       - name: Build & start Next.js
         working-directory: nextjs
