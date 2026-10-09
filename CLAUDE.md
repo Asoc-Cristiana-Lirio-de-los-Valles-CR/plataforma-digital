@@ -179,7 +179,7 @@ su carpeta, pero NO modifican recursos compartidos sin registrarlo en este repo.
 
 | Tenant | Carpeta | Estado | Recursos compartidos que usa |
 |--------|---------|--------|------------------------------|
-| Sistema de Eventos (`Sistema-Eventos-LiriodelosValles`) | — | ❌ **Deploy en esta VM CANCELADO (2026-08-17)** | **Ninguno de tráfico.** Solo, a futuro, Azure como destino de backup off-site |
+| Sistema de Eventos (`Sistema-Eventos-LiriodelosValles`) | — | ❌ **Deploy en esta VM CANCELADO (2026-08-17)** | **Ninguno de esta VM.** Sí usa un recurso institucional **fuera** de ella: el **Google Workspace de la Iglesia** (ver más abajo, 2026-10-09). A futuro, Azure como destino de backup off-site |
 
 > ## ⚠️ CAMBIO DE ARQUITECTURA DEL TENANT — 2026-08-17 (Regla #0)
 >
@@ -312,6 +312,131 @@ de cierre completada**; sigue sin desplegarse en la VM.
   `docs/superpowers/specs/2026-08-05-cierre-migracion-local-inventario-vps.md`
   y `docs/ANALISIS-RECURSOS-AZURE-MYSQL-POSTGRESQL.md`.
 
+#### Dependencia de Google Workspace del tenant Sistema de Eventos — 2026-10-09 (Regla #0)
+
+El tenant pasó a depender de un **recurso institucional compartido que no vive en
+esta VM**: el **Google Workspace de la Iglesia**. Se registra aquí porque la
+Regla #0 obliga, y porque una decisión administrativa sobre el Workspace (borrar
+un usuario, revocar una delegación, cambiar MX) **rompería el tenant sin que
+nadie lo relacionara con esta plataforma**.
+
+**Propósito.** El Sistema de Eventos envía correo transaccional: el enlace de
+recuperación de contraseña de sus voluntarios. Sin él, quien olvida su contraseña
+depende de que un administrador se la cambie a mano. Es el único uso. **No envía
+boletines, ni listas, ni correo masivo.**
+
+| Elemento | Valor |
+|---|---|
+| Proyecto de Google Cloud | `sistema-eventos-lirio` (el mismo que ya usaba para OAuth) |
+| API habilitada | **Gmail API, y ninguna otra** |
+| Mecanismo de autenticación | Cuenta de servicio + **delegación de dominio** (JWT con `subject`). No usa contraseña ni 2FA de ninguna persona |
+| Cuenta de servicio | `correo-sistema-eventos@sistema-eventos-lirio.iam.gserviceaccount.com` · Client ID `108542837249666911908` · **cero roles IAM** |
+| Scope delegado | **uno solo**: `https://www.googleapis.com/auth/gmail.send` — permite enviar, **no** leer, listar ni borrar correo |
+| Identidad suplantada (`subject`) | `soporte@liriodelosvallescr.org` — usuario **real** con buzón |
+| Remitente visible (`From`) | `notificaciones@liriodelosvallescr.org` — **alias** del anterior |
+| `Reply-To` | `soporte@liriodelosvallescr.org` |
+| Claves | **una sola**, en el secret `GOOGLE_SA_KEY_B64` del repositorio privado del tenant. No caduca. No se comparte con ningún otro proyecto |
+
+> ⚠️ **La Gmail API no puede suplantar un alias.** `subject` tiene que ser un
+> usuario con buzón. Por eso se suplanta `soporte@` y se envía con
+> `From: notificaciones@`. Si alguien dejara de tener `notificaciones@` como
+> alias de `soporte@`, el envío falla con `400 Invalid From header` y el motivo
+> **no es evidente** desde el lado del tenant.
+
+**Dependencias operativas — qué rompe el envío.** Cualquiera de estas acciones,
+tomadas desde esta consola de administración, deja al tenant sin correo:
+
+1. Suspender o eliminar el usuario `soporte@liriodelosvallescr.org`.
+2. Quitar `notificaciones@` de sus alias / de «Enviar mensaje como».
+3. Revocar la delegación de dominio del Client ID de arriba.
+4. Quitar el scope `gmail.send` de esa delegación.
+5. Eliminar la clave de la cuenta de servicio desde Google Cloud.
+
+**Procedimiento de recuperación.** El síntoma es que el usuario pide el enlace,
+recibe la respuesta genérica de siempre y el correo nunca llega; en la auditoría
+del tenant aparece `password_reset_requested` **sin** su
+`password_reset_email_sent`. El tenant **no queda inoperable**: el login normal y
+el login con Google siguen funcionando, y un administrador puede cambiar
+contraseñas a mano. Restaurar el envío consiste en reponer el punto roto de la
+lista anterior; el detalle vive en el repositorio del tenant.
+
+**Riesgos registrados.**
+
+- **Disponibilidad:** el envío depende de que una cuenta humana (`soporte@`) siga
+  existiendo. La delegación no usa su contraseña ni su 2FA, así que los cambios
+  rutinarios de esa cuenta no afectan — pero su baja sí.
+- **Renovación:** la clave **no caduca**
+  (`iam.serviceAccountKeyExpiryHours` = «Todos»). No hay fecha de vencimiento que
+  vigilar, y tampoco rotación automática: si algún día se decide rotarla, es una
+  operación manual.
+- **Revocación:** `iam.disableServiceAccountKeyCreation` está **activa y
+  heredada** en el proyecto. Crear una clave nueva exige una excepción temporal a
+  nivel de proyecto otorgada por un administrador de la organización. Usarla, no.
+- **Responsable institucional y calendario de mantenimiento:** *no documentados.*
+  No se inventan aquí. Queda como pendiente de definir.
+
+**Lo que esta plataforma NO comparte hoy:** nada. La cuenta de servicio, la clave
+y la delegación sirven **exclusivamente** al Sistema de Eventos. Si el sitio
+institucional o cualquier otro proyecto necesitara enviar correo, es una decisión
+de arquitectura propia, documentada y **sin implementar** en
+[`docs/ARQUITECTURA-CORREO-INSTITUCIONAL.md`](docs/ARQUITECTURA-CORREO-INSTITUCIONAL.md).
+
+#### Hallazgos sobre los dominios institucionales — 2026-10-09 (Regla #0)
+
+Dos comprobaciones hechas al documentar lo anterior afectan a **esta plataforma**,
+no solo al tenant.
+
+**1. `liriodelosvalles.org` es un DOMINIO SECUNDARIO, no un alias.** Verificado en
+Consola de administración → Cuenta → Dominios → Administrar dominios:
+
+| Dominio | Tipo | Estado del correo |
+|---|---|---|
+| `liriodelosvallescr.org` | Dominio principal | Todo está bien |
+| `liriodelosvalles.org` | **Dominio secundario** | ⚠️ **Acción necesaria** |
+| `liriodelosvallescr.org.test-google-a.com` | Alias del dominio de prueba | Activo |
+
+La distinción importa y es fácil de confundir: **un dominio secundario es un
+espacio de nombres independiente**. `soporte@liriodelosvalles.org` **no existe**
+por el hecho de que exista `soporte@liriodelosvallescr.org`; habría que crear
+usuarios explícitamente. Un *alias de dominio* sí habría duplicado los buzones.
+
+Su DNS lo confirma y añade un matiz: **su correo NO pasa por Google**.
+
+| | `liriodelosvallescr.org` | `liriodelosvalles.org` |
+|---|---|---|
+| MX | Google Workspace (`aspmx.l.google.com`) | **Cloudflare Email Routing** |
+| SPF | incluye `_spf.google.com` | **solo** `_spf.mx.cloudflare.net` |
+| DMARC | `p=none` con `rua` | **ausente** |
+
+⇒ Enviar hoy desde `@liriodelosvalles.org` con la infraestructura del tenant
+**fallaría la comprobación SPF** y, sin DMARC, acabaría muy probablemente en
+spam. No se cambió ningún registro: es solo el diagnóstico.
+
+**Contexto que encaja:** el diseño aprobado de ese dominio
+(`docs/superpowers/specs/2026-09-16-dominio-liriodelosvalles-org-design.md`) lo
+define como **mirror web** del sitio público y **no menciona el correo en
+ninguna parte**. Su alta como dominio secundario en el Workspace **no está
+registrada en ningún diseño** — puede ser deliberada (reservar el nombre) o un
+residuo del alta inicial. Queda anotada aquí por primera vez; no se modifica.
+
+**2. HSTS está anulado a nivel de zona de Cloudflare.** Medido el 2026-10-09 en
+los tres orígenes de la zona:
+
+```
+https://liriodelosvallescr.org/        -> Strict-Transport-Security: max-age=0; includeSubDomains; preload
+https://eventos.liriodelosvallescr.org/        -> idéntico
+https://eventos-staging.liriodelosvallescr.org/ -> idéntico
+```
+
+`max-age=0` no es «HSTS ausente»: **le ordena al navegador OLVIDAR** cualquier
+política previa. Como el sitio institucional corre en otro origen (VM Azure,
+Nginx) y devuelve exactamente la misma cabecera, el valor **lo pone Cloudflare**,
+no las aplicaciones. En el caso del tenant está además **sobrescribiendo** el
+`max-age=31536000` que su propio código emite.
+
+**No se cambió nada.** Se registra porque es una decisión de zona que afecta a
+los dos proyectos y **la decisión es de esta plataforma**, dueña de Cloudflare.
+
 #### Política de capacidad de la VM (aplica a TODOS los tenants)
 
 🚨 **Aumentar recursos de Azure (CPU, RAM, tamaño de VM, SKU, escalamiento
@@ -342,3 +467,4 @@ compose (sin límites, no entra) + capacidad restante recalculada con margen
 - Plan Fase 1: `docs/superpowers/plans/2026-05-11-subplan-1-infra-cms-mvp.md`
 - Plan Fase 2: `docs/superpowers/plans/2026-05-11-subplan-2-transparencia-biblioteca.md` (pendiente)
 - Plan Fase 3: `docs/superpowers/plans/2026-05-11-subplan-3-automatizaciones-radio.md` (pendiente)
+- Correo institucional (diseño, **sin implementar**): [`docs/ARQUITECTURA-CORREO-INSTITUCIONAL.md`](docs/ARQUITECTURA-CORREO-INSTITUCIONAL.md)
