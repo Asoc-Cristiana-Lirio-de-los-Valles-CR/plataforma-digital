@@ -8,8 +8,6 @@ import { getSermon, getRelatedSermons } from '@/lib/sermons';
 import { YoutubeEmbed } from '@/components/sermons/YoutubeEmbed';
 import { SermonCard } from '@/components/sermons/SermonCard';
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://liriodelosvallescr.org';
-
 export async function generateMetadata({
   params,
 }: {
@@ -28,7 +26,7 @@ export async function generateMetadata({
       title: sermon.title,
       description: sermon.description ?? `Predicación: ${sermon.title}`,
       images: thumbSrc ? [{ url: thumbSrc, width: 1280, height: 720 }] : [],
-      url: `${siteUrl}/${locale}/biblioteca/${slug}`,
+      url: `/${locale}/biblioteca/${slug}`,
       type: 'video.other',
     },
     twitter: {

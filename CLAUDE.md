@@ -98,13 +98,50 @@ cd nextjs && npm run test:e2e
 
 ## Arquitectura de Dominios
 
+La iglesia posee **dos dominios** y ambos sirven el mismo sitio público, sin
+redirección entre ellos (espejos, no alias canónico de uno sobre el otro).
+
 ```
 liriodelosvallescr.org        → Next.js (sitio público)
+www.liriodelosvallescr.org    → Next.js (sitio público)
+liriodelosvalles.org          → Next.js (sitio público — espejo)
+www.liriodelosvalles.org      → Next.js (sitio público — espejo)
+
 admin.liriodelosvallescr.org  → Directus (panel administración)
-radio.liriodelosvallescr.org  → AzuraCast (radio online — Fase 3)
 api.liriodelosvallescr.org    → Directus API
+admin.liriodelosvalles.org    → Directus (panel administración)
+api.liriodelosvalles.org      → Directus API
+
+radio.liriodelosvallescr.org  → AzuraCast (radio online — Fase 3)
 stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 ```
+
+**Separación público vs. Directus:** los cuatro hosts públicos (apex y `www` de
+cada dominio) resuelven al vhost `nginx/conf.d/nextjs.conf` → `nextjs:3000`. Los
+cuatro `admin.*`/`api.*` resuelven a `nginx/conf.d/directus.conf` →
+`directus:8055`. Un host que no coincida con ningún `server_name` cae al primer
+`server{}` que nginx evalúa (hoy el de Directus): por eso **agregar un dominio
+nuevo exige agregarlo al `server_name` correspondiente**, no basta con el DNS.
+
+**Canonical self-referencing:** `src/lib/siteUrl.ts` deriva la URL base del host
+de la petición (`x-forwarded-host`, que reenvían Cloudflare y nginx) y valida el
+header porque es entrada del cliente. `[locale]/layout.tsx` lo usa en
+`generateMetadata` con `alternates: { canonical: './' }`, de modo que cada host
+se autorreferencia en `canonical` y `og:url`. **No hardcodear el dominio en
+metadata**: rompería el espejo apuntando ambos dominios al `.cr`.
+
+**Certificado SSL de origen:** un único Origin CA de Cloudflare con SAN para los
+4 hosts públicos, en `/etc/nginx/ssl/liriodelosvallescr.org.pem|.key` del VPS
+(fuera del repo, montado read-only). Cloudflare opera en Full (strict): el
+visitante ve el certificado edge de Cloudflare, mientras que el SAN se valida en
+el origen. Para verificarlo hay que consultar el origen directamente:
+`openssl s_client -connect 20.12.207.240:443 -servername <host>`.
+
+**Validación tras tocar dominios o nginx:** `docker compose exec nginx nginx -t`
+antes de cualquier reload; después, comprobar por HTTPS que los 4 hosts públicos
+responden desde Next.js (sin `X-Powered-By: Directus` ni `Location: ./admin`),
+que los 4 `admin.*`/`api.*` siguen en Directus, y que el canonical de cada host
+apunta a sí mismo.
 
 ## Fases del proyecto
 
@@ -159,6 +196,9 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 - robots.txt y rutas estáticas excluidas del middleware i18n
 - Biblioteca: búsqueda server-side por título/fecha (año, mes, día), carrusel de años, filtro por predicador/serie
 - YouTube sync: detecta videos borrados y los marca `youtube_status=unavailable` (ocultos en web)
+- Dominio espejo `liriodelosvalles.org` activo (apex, `www`, `admin`, `api`) — ver "Arquitectura de Dominios"
+- Metadata con canonical self-referencing por host (`src/lib/siteUrl.ts` + `generateMetadata` en `[locale]/layout.tsx`) — las URLs absolutas en metadata deben ser relativas para resolver contra `metadataBase`
+- `public/robots.txt` referencia `sitemap.xml`, que no existe en el proyecto (pendiente, preexistente)
 - Zona Equipo (`/equipo/manuales`): protegida por HMAC-SHA256 cookie (TEAM_SECRET). Middleware Edge Runtime usa Web Crypto API. Documentos con `visibility=private` requieren cookie; `visibility=link` accesibles por enlace directo sin cookie. Sin descarga — solo `Content-Disposition: inline`. SSH VPS: `lirio@20.12.207.240` con `~/.ssh/lirio_azure_key`. Proyecto en `/opt/lirio/app`
 
 ## Infraestructura VM — registro de cambios y tenants
@@ -174,6 +214,7 @@ su carpeta, pero NO modifican recursos compartidos sin registrarlo en este repo.
 | Fecha | Cambio | Motivo | Detalle |
 |-------|--------|--------|---------|
 | 2026-07-15 | Swap 2 GB creado (`/swapfile`, persistente en `/etc/fstab`) + `vm.swappiness=10` (`/etc/sysctl.d/99-swappiness.conf`) | Colchón anti-OOM antes de alojar tenants adicionales | Ejecutado vía SSH desde sesión del proyecto Sistema-Eventos. Disco usado: +2 GB |
+| 2026-09-16 | Certificado de origen reemplazado por un Origin CA con SAN para `liriodelosvallescr.org`, `www.liriodelosvallescr.org`, `liriodelosvalles.org` y `www.liriodelosvalles.org` (vence 2041-09-13) + `server_name` ampliado en `nginx/conf.d/nextjs.conf` y `directus.conf` (commit `ab4d5e1`) | Habilitar `liriodelosvalles.org` (segundo dominio de la iglesia) como espejo del sitio público. El DNS ya era correcto; nginx no reconocía el host y lo servía con el vhost de Directus | Cert anterior (wildcard `*.liriodelosvallescr.org`) conservado en `/etc/nginx/ssl/backup-2026-09-16/` como rollback, verificado por SHA-256. `nginx -t` validado antes del reload; reload sin downtime. No se tocó PostgreSQL, Directus, DNS ni datos |
 
 ### Tenants en la VM (además de esta plataforma)
 
