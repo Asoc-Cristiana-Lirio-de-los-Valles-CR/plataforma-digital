@@ -5,7 +5,7 @@ import { acquireSyncLock } from '../../../src/lib/sync-lock';
 import { createFakeYouTube } from '../../support/fake-youtube';
 import {
   isolatedConfig, prepareIsolatedDirectus, createSermon, findSermons, updateSermon,
-  deleteAllSermons, dx, E2E_ADMIN_TOKEN, E2E_SYNC_SECRET,
+  deleteAllSermons, dx, sermonsMigration, E2E_ADMIN_TOKEN, E2E_SYNC_SECRET,
 } from './directus-admin';
 
 test.skip(process.env.E2E_ISOLATED !== '1', 'Requiere el stack aislado (E2E_ISOLATED=1, docker-compose.e2e.yml)');
@@ -136,6 +136,65 @@ test('si C vuelve a YouTube se recupera y su detalle vuelve a responder', async 
   const result = await syncNow();
   expect(result).toMatchObject({ restored: 1, unavailable: 0, errors: [] });
   expect((await page.goto(`/es/biblioteca/${slugs.c}`))?.status()).toBe(200);
+});
+
+// Réplica del caso D0hL4Ax6juU: servicio del día 5; YouTube termina de publicar la transmisión el 6 (UTC).
+test.describe('campos protegidos (sync_locked_fields) con la migración real', () => {
+  const e = { id: `E${run}0000`.slice(0, 11), slug: `e2e-${run}-e`, old: `E2E ${run} Servicio E - viejo`, new: `E2E ${run} Servicio E - corregido` };
+
+  test.beforeAll(async () => {
+    yt.videos.set(e.id, { id: e.id, title: e.new, publishedAt: '2099-01-06T06:28:31Z' });
+    sermonIds.e = await createSermon({ youtube_id: e.id, title: e.old, raw_youtube_title: e.old, slug: e.slug, sermon_date: '2099-01-05', youtube_published_at: '2099-01-05T15:00:00Z' });
+  });
+
+  test('la migración dejó sync_locked_fields en Directus y es idempotente', async () => {
+    expect(await sermonsMigration().check()).toEqual({ exists: true, type: 'json' });
+    expect(await sermonsMigration().apply()).toEqual({ created: false });
+    const [row] = await findSermons(e.id);
+    expect(row.sync_locked_fields).toBeNull();
+  });
+
+  test('proteger la fecha queda registrado en las revisiones de Directus', async () => {
+    expect(await sermonsMigration().lock(e.id, 'sermon_date')).toMatchObject({ before: null, after: ['sermon_date'], changed: true });
+    const res = await dx(`/revisions?filter[collection][_eq]=sermons&filter[item][_eq]=${sermonIds.e}&fields=delta&sort=-id&limit=1`);
+    const [revision] = ((await res.json()) as { data: { delta: Record<string, unknown> }[] }).data;
+    expect(revision.delta).toMatchObject({ sync_locked_fields: ['sermon_date'] });
+  });
+
+  test('la sync actualiza título y publicación pero conserva la fecha protegida y lo informa', async ({ page }) => {
+    const result = await syncNow();
+    expect(result.errors).toEqual([]);
+    expect(result.protectedFields).toEqual([
+      { youtube_id: e.id, field: 'sermon_date', kept: '2099-01-05', youtube: '2099-01-06', reason: 'sync_locked_fields' },
+    ]);
+    expect(result.changes.find(c => c.youtube_id === e.id)?.fields).toEqual(['raw_youtube_title', 'title', 'youtube_published_at']);
+    const [row] = await findSermons(e.id);
+    expect(row).toMatchObject({ sermon_date: '2099-01-05', title: e.new, sync_locked_fields: ['sermon_date'] });
+    await page.goto(`/es/biblioteca/${e.slug}`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(e.new);
+    await expect(page.getByText('5 de enero de 2099').first()).toBeVisible();
+  });
+
+  test('las sincronizaciones posteriores no cambian la fecha protegida', async () => {
+    const result = await syncNow();
+    expect(result).toMatchObject({ updated: 0, inserted: 0, protectedFields: [], errors: [] });
+    expect((await findSermons(e.id))[0].sermon_date).toBe('2099-01-05');
+  });
+
+  test('sin el campo de protecciones la sync falla cerrado y no escribe (Directus real)', async () => {
+    expect(await sermonsMigration().revert()).toEqual({ removed: true });
+    try {
+      yt.videos.set(e.id, { id: e.id, title: `${e.new} 2`, publishedAt: '2099-01-07T10:00:00Z' });
+      const before = await (await dx('/items/sermons?fields=id,title,sermon_date,last_synced_at&sort=id&limit=-1')).json();
+      await expect(syncNow()).rejects.toThrow(/Directus sermons read error/);
+      const after = await (await dx('/items/sermons?fields=id,title,sermon_date,last_synced_at&sort=id&limit=-1')).json();
+      expect(after).toEqual(before);
+    } finally {
+      yt.videos.set(e.id, { id: e.id, title: e.new, publishedAt: '2099-01-06T06:28:31Z' });
+      await sermonsMigration().apply();
+      await sermonsMigration().lock(e.id, 'sermon_date');
+    }
+  });
 });
 
 test.describe('lock atómico en el Redis aislado', () => {
