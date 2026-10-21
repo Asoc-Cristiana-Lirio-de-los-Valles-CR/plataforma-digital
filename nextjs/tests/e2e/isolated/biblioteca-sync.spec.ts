@@ -31,14 +31,14 @@ const yt = createFakeYouTube([
   { id: ids.d, title: titles.d, publishedAt: '2099-01-01T15:00:00Z' },
 ]);
 
-async function syncNow(): Promise<SyncResult> {
+async function syncNow(token = E2E_ADMIN_TOKEN): Promise<SyncResult> {
   const { directusUrl, redisUrl } = isolatedConfig();
   const directusOrigin = new URL(directusUrl).origin;
   Object.assign(process.env, {
     YOUTUBE_API_KEY: 'e2e-clave-ficticia',
     YOUTUBE_CHANNEL_ID: 'UCe2e',
     DIRECTUS_URL: directusUrl,
-    DIRECTUS_ADMIN_TOKEN: E2E_ADMIN_TOKEN,
+    DIRECTUS_ADMIN_TOKEN: token,
   });
   const redis = new URL(redisUrl);
   const lock = await acquireSyncLock({ host: redis.hostname, port: Number(redis.port) });
@@ -179,6 +179,27 @@ test.describe('campos protegidos (sync_locked_fields) con la migración real', (
     const result = await syncNow();
     expect(result).toMatchObject({ updated: 0, inserted: 0, protectedFields: [], errors: [] });
     expect((await findSermons(e.id))[0].sermon_date).toBe('2099-01-05');
+  });
+
+  test('un token sin admin_access hace abortar la sync sin escribir (Directus real)', async () => {
+    const token = `e2e-sin-admin-${run}`;
+    const created = await dx('/users', {
+      method: 'POST',
+      // Directus rechaza el TLD .test en emails; example.com también es un dominio reservado (RFC 2606).
+      body: JSON.stringify({ email: `e2e-sin-admin-${run}@example.com`, password: `e2e-${run}-clave-larga`, token }),
+    });
+    expect(created.ok, await created.clone().text()).toBe(true);
+    const userId = ((await created.json()) as { data: { id: string } }).data.id;
+    try {
+      yt.videos.set(e.id, { id: e.id, title: `${e.new} 3`, publishedAt: '2099-01-08T10:00:00Z' });
+      const before = await (await dx('/items/sermons?fields=id,title,sermon_date,last_synced_at&sort=id&limit=-1')).json();
+      await expect(syncNow(token)).rejects.toThrow(/Directus access check error/);
+      const after = await (await dx('/items/sermons?fields=id,title,sermon_date,last_synced_at&sort=id&limit=-1')).json();
+      expect(after).toEqual(before);
+    } finally {
+      yt.videos.set(e.id, { id: e.id, title: e.new, publishedAt: '2099-01-06T06:28:31Z' });
+      await dx(`/users/${userId}`, { method: 'DELETE' });
+    }
   });
 
   test('sin el campo de protecciones la sync falla cerrado y no escribe (Directus real)', async () => {

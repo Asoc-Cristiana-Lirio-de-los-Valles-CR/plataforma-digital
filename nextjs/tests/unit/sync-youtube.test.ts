@@ -290,6 +290,14 @@ describe('planSermonUpdate con campos protegidos (sync_locked_fields)', () => {
     const video = { ...youtubeD0hl, publishedAt: '2026-10-11T20:00:00Z' };
     expect(planSermonUpdate(d0hl, video, SYNCED_AT)?.protectedFields).toEqual([]);
   });
+
+  it('un título protegido no se informa si YouTube propone el mismo título', () => {
+    const editorial = 'Servicio General 17 de Octubre de 2026 - La libertad que nace del perdón.';
+    const plan = planSermonUpdate({ ...staleKcyl, title: editorial, sync_locked_fields: ['title'] }, youtubeKcyl, SYNCED_AT);
+    expect(plan?.patch).toMatchObject({ raw_youtube_title: editorial });
+    expect(plan?.patch).not.toHaveProperty('title');
+    expect(plan?.protectedFields).toEqual([]);
+  });
 });
 
 describe('suggestFromTitle', () => {

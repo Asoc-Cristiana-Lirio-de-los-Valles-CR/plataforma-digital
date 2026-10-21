@@ -16,8 +16,9 @@ export function createFakeDirectus(rows: Row[] = [], token = 'admin-token') {
    * maxLimit emula QUERY_LIMIT_MAX de Directus: recorta el limit pedido.
    * unknownFields: campos que no existen en el esquema (Directus responde 403 si se piden).
    * dropFields: campos que la respuesta omite (simula una proyección defectuosa).
+   * adminAccess: lo que responde /policies/me/globals para el token.
    */
-  const state = { failReads: 0, seq: 0, maxLimit: 0, unknownFields: [] as string[], dropFields: [] as string[] };
+  const state = { failReads: 0, seq: 0, maxLimit: 0, unknownFields: [] as string[], dropFields: [] as string[], adminAccess: true };
 
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -27,6 +28,9 @@ export function createFakeDirectus(rows: Row[] = [], token = 'admin-token') {
     if (auth !== `Bearer ${token}`) return json({ errors: [{ message: 'forbidden' }] }, 403);
     const method = (init?.method ?? 'GET').toUpperCase();
     const parts = url.pathname.split('/').filter(Boolean);
+    if (method === 'GET' && parts.join('/') === 'policies/me/globals') {
+      return json({ data: { admin_access: state.adminAccess, app_access: true, enforce_tfa: false } });
+    }
     if (parts[0] !== 'items' || parts[1] !== 'sermons') return json({ errors: [{ message: 'not found' }] }, 404);
 
     if (method === 'GET') {
@@ -41,6 +45,10 @@ export function createFakeDirectus(rows: Row[] = [], token = 'admin-token') {
       }
       const project = (row: Row) => fields.length === 0 ? row
         : Object.fromEntries(fields.filter(f => !state.dropFields.includes(f)).map(f => [f, row[f] ?? null]));
+      if (parts[2]) {
+        const row = items.get(parts[2]);
+        return row ? json({ data: project(row) }) : json({ errors: [{ message: 'not found' }] }, 403);
+      }
       const requested = Number(url.searchParams.get('limit') ?? '100');
       const limit = state.maxLimit > 0 && (requested === -1 || requested > state.maxLimit) ? state.maxLimit : requested;
       const offset = Number(url.searchParams.get('offset') ?? '0');

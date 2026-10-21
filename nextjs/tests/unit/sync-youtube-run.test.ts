@@ -386,4 +386,61 @@ describe('runYoutubeSync con campos protegidos (sync_locked_fields)', () => {
     await expect(runYoutubeSync({}, deps())).rejects.toThrow(/invalid sync_locked_fields for D0hL4Ax6juU/);
     expect(dx.writes).toHaveLength(0);
   });
+
+  it('una lista vacía equivale a sin protección (el panel puede guardar [] al desmarcar)', async () => {
+    dx.items.set('s6', { ...dx.items.get('s6')!, sync_locked_fields: [] });
+    const result = await runYoutubeSync({}, deps());
+    expect(result.errors).toEqual([]);
+    expect(dx.items.get('s6')?.sermon_date).toBe('2026-10-04');
+  });
+
+  // Simula a un editor que marca la fecha de EZe2 en el panel después de que la sync cargó los sermones.
+  function depsConEdicionDurante(edicion: Record<string, unknown>) {
+    const base = deps();
+    let editado = false;
+    const fetchConEdicion = (async (input: string | URL | Request, init?: RequestInit) => {
+      const res = await base.fetch(input, init);
+      const url = new URL(String(input));
+      if (!editado && url.pathname === '/items/sermons' && (init?.method ?? 'GET') === 'GET') {
+        editado = true;
+        dx.items.set('s6', { ...dx.items.get('s6')!, ...edicion });
+      }
+      return res;
+    }) as typeof fetch;
+    return { ...base, fetch: fetchConEdicion };
+  }
+
+  it('relee la protección justo antes de escribir: una marca hecha durante la sync se respeta', async () => {
+    const result = await runYoutubeSync({}, depsConEdicionDurante({ sync_locked_fields: ['sermon_date'] }));
+    expect(dx.items.get('s6')).toMatchObject({ sermon_date: '2026-09-27', title: EZE2_NEW });
+    expect(dx.writes.find(w => w.youtube_id === 'EZe2JywDzDc')?.body).not.toHaveProperty('sermon_date');
+    expect(result.changes.find(c => c.youtube_id === 'EZe2JywDzDc')?.fields).not.toContain('sermon_date');
+    expect(result.protectedFields).toContainEqual(
+      { youtube_id: 'EZe2JywDzDc', field: 'sermon_date', kept: '2026-09-27', youtube: '2026-10-04', reason: 'sync_locked_fields' },
+    );
+    expect(result.errors).toEqual([]);
+  });
+
+  it('si la relectura previa a la escritura falla, no escribe ese sermón y sigue con los demás', async () => {
+    const result = await runYoutubeSync({}, depsConEdicionDurante({ sync_locked_fields: 'sermon_date' }));
+    expect(dx.writes.find(w => w.youtube_id === 'EZe2JywDzDc')).toBeUndefined();
+    expect(dx.items.get('s6')?.sermon_date).toBe('2026-09-27');
+    expect(result.errors).toEqual([expect.stringMatching(/^EZe2JywDzDc: update lock_recheck_failed/)]);
+    expect(result.changes.map(c => c.youtube_id)).not.toContain('EZe2JywDzDc');
+    expect(dx.items.get('s5')?.title).toBe(D0HL_NEW);
+  });
+
+  it('falla cerrado si el token no es administrador: un null podría ser un campo oculto por permisos', async () => {
+    dx.state.adminAccess = false;
+    await expect(runYoutubeSync({}, deps())).rejects.toThrow(/admin_access/);
+    await expect(runYoutubeSync({ dryRun: true }, deps())).rejects.toThrow(/admin_access/);
+    expect(yt.calls).toEqual({ channels: 0, playlistItems: 0, videos: 0 });
+    expect(dx.writes).toHaveLength(0);
+  });
+
+  it('falla cerrado si no puede comprobar el acceso del token', async () => {
+    process.env.DIRECTUS_ADMIN_TOKEN = 'token-ajeno';
+    await expect(runYoutubeSync({}, deps())).rejects.toThrow(/Directus access check error: 403/);
+    expect(dx.writes).toHaveLength(0);
+  });
 });
