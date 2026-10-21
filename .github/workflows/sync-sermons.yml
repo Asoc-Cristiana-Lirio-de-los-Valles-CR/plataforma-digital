@@ -12,6 +12,8 @@ on:
 
 jobs:
   sync:
+    # Escribe datos de producción: solo con la versión de main, nunca desde otra rama.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
