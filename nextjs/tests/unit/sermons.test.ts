@@ -9,6 +9,7 @@ vi.mock('@directus/sdk', () => ({
   readItems: vi.fn(),
 }));
 
+import { readItems } from '@directus/sdk';
 import { getSermons, getSermon, getSeriesList, getPreachers } from '../../src/lib/sermons';
 
 describe('getSermons', () => {
@@ -22,6 +23,13 @@ describe('getSermon', () => {
   it('returns null when not found', async () => {
     const result = await getSermon('slug-inexistente');
     expect(result).toBeNull();
+  });
+
+  it('excluye sermones cuyo video no está disponible en YouTube (el detalle responde 404)', async () => {
+    await getSermon('servicio-general-6-de-junio-de-2026-cUjc');
+    expect(readItems).toHaveBeenLastCalledWith('sermons', expect.objectContaining({
+      filter: { slug: { _eq: 'servicio-general-6-de-junio-de-2026-cUjc' }, youtube_status: { _eq: 'available' } },
+    }));
   });
 });
 

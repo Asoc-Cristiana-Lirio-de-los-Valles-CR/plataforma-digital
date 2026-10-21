@@ -15,8 +15,7 @@ Biblioteca pública de predicaciones de la Iglesia Cristiana Lirio de los Valles
 | Layout | Híbrido (hero + filas por serie + recientes + página individual) | Combina descubrimiento visual con organización editorial |
 | Fuente pública | Directus únicamente | YouTube API nunca expuesta en frontend |
 | Sync | API route `/api/sync/youtube` + GitHub Actions cron | Reutiliza youtube.ts, sin contenedor extra |
-| Import inicial | `POST /api/sync/youtube?full=true` | Importa historial completo una sola vez |
-| Sync incremental | `publishedAfter = last_successful_sync` | Reduce quota de YouTube API |
+| Alcance de cada sync (rev. 2026-10-21) | Reconciliación completa de la playlist de subidas en cada ejecución (`?full=true` aceptado, sin efecto) | ~45 unidades de cuota para ~1 000 videos; el modo incremental (`publishedAfter`) nunca revisitaba videos ya importados y dejaba títulos viejos |
 | Series/predicadores | Admin asigna; sync sugiere (`suggested_*`) | Control editorial sin trabajo manual excesivo |
 | Búsqueda | Client-side sobre dataset cargado | Suficiente para 100–1000 predicaciones; sin complejidad extra |
 | SW offline | Definida explícitamente antes de cualquier código nuevo | Evita caché accidental de contenido privado |
@@ -68,14 +67,14 @@ runtimeCaching: [
 | Campo | Tipo | Notas |
 |-------|------|-------|
 | `id` | uuid | PK |
-| `title` | string | Editable por admin; sync nunca sobreescribe |
+| `title` | string | Sigue a YouTube mientras `title == raw_youtube_title`; si un editor lo cambió, sync lo conserva (rev. 2026-10-21) |
 | `slug` | string | Único; auto-generado del título al crear |
 | `youtube_id` | string | Único; `dQw4w9WgXcQ` |
 | `youtube_status` | enum: `available \| unavailable` | Sync actualiza |
 | `visibility` | enum: `public \| unlisted \| private` | Default: `public` |
 | `featured` | boolean | Default: `false` |
 | `description` | text | Editable; sync nunca sobreescribe |
-| `sermon_date` | date | Fecha real del culto |
+| `sermon_date` | date | Fecha UTC de `youtube_published_at`; sync la sigue solo si no fue editada a mano |
 | `duration_seconds` | integer | Importado de YouTube |
 | `thumbnail_url` | string | `i.ytimg.com/vi/{id}/maxresdefault.jpg` |
 | `manual_thumbnail` | M2O directus_files | Override del admin; nullable |
@@ -84,17 +83,19 @@ runtimeCaching: [
 | `tags` | M2M → `sermon_tags` | nullable; para temas futuros |
 | `suggested_preacher` | string | Sugerencia del sync; admin aprueba o ignora |
 | `suggested_series` | string | Sugerencia del sync; admin aprueba o ignora |
-| `raw_youtube_title` | string | Título original YouTube; inmutable post-import |
+| `raw_youtube_title` | string | Último título conocido en YouTube; sync lo actualiza siempre (rev. 2026-10-21) |
 | `imported_at` | datetime | Timestamp de primera importación |
-| `last_synced_at` | datetime | Timestamp del último sync exitoso |
-| `youtube_published_at` | datetime | Fecha original de publicación en YouTube |
-| `view_count` | integer | Sincronizado desde YouTube en cada sync |
+| `last_synced_at` | datetime | Timestamp de la última escritura del sync en el registro |
+| `youtube_published_at` | datetime | `publishedAt` actual de YouTube (cambia cuando una transmisión pasa a ser pública) |
+| `view_count` | integer | Se refresca solo cuando el registro se escribe por otro cambio (no se muestra en la web) |
 
 **Índices:** `youtube_id` UNIQUE, `slug` UNIQUE, índices en `youtube_published_at`, `sermon_date`, `visibility`, `featured`.
 
-**Campos que sync NUNCA sobreescribe:** `title`, `description`, `slug`, `preacher`, `series`, `visibility`, `featured`, `manual_thumbnail`, `tags`.
+**Revisión 2026-10-21 — YouTube es la fuente de verdad de los metadatos que administra.** El sync original nunca actualizaba el título de los registros existentes y su modo incremental no volvía a visitarlos: las transmisiones importadas con el título del servicio anterior quedaban así para siempre en la Biblioteca.
 
-**Soft-delete para videos eliminados de YouTube:** sync marca `youtube_status = 'unavailable'` y `visibility = 'private'`. Nunca borra el registro — preserva URLs existentes y referencias internas.
+**Campos que sync NUNCA sobreescribe:** `description`, `slug`, `preacher`, `series`, `visibility`, `featured`, `manual_thumbnail`, `tags`, `thumbnail_url`, `suggested_*`, `imported_at`. `title` solo se protege cuando un editor lo personalizó (`title != raw_youtube_title`).
+
+**Videos no disponibles públicamente** (eliminados, privados o inaccesibles; la API no los distingue): sync marca `youtube_status = 'unavailable'` solo tras confirmarlo con `videos.list`, con freno ante marcados masivos (máx. 10 por ejecución y 2 % de los disponibles). No toca `visibility` ni borra el registro. Desaparecen de listas y búsqueda, el detalle responde 404, y se recuperan solos si el video vuelve.
 
 ### Colección `preachers`
 
@@ -146,35 +147,34 @@ Sin auth requerida. `unlisted` y `private` no accesibles por policy pública.
 
 `POST /api/sync/youtube`
 - Autenticación: `Authorization: Bearer SYNC_SECRET`
-- Rate limit: 1 llamada cada 10 minutos (in-memory)
-- Sync lock: clave Redis `youtube_sync_lock` con TTL 15 min — evita ejecuciones concurrentes
-- Logs en `activity_logs` con `action: 'youtube_sync'`, metadata con `{ inserted, updated, errors }`
+- Rate limit: 1 ejecución real cada 10 minutos (in-memory); `dry_run` no la consume
+- Sync lock atómico en Redis (ver abajo): 409 si otra ejecución lo tiene, 503 si Redis no responde (falla cerrado)
+- Logs en `activity_logs`: `action: 'youtube_sync'` con `{ inserted, updated, unchanged, unavailable, restored, titleChanges, changes, unavailableIds, unavailableSkipped, errors }`; `action: 'youtube_sync_error'` si la ejecución aborta
+- Respuesta: 200 sin errores, 207 si terminó con errores parciales (el cron lo marca como fallido), 500 si abortó sin escribir
 
-**Parámetros:**
-- Sin parámetros → sync incremental: solo videos nuevos desde `last_successful_sync` (timestamp del último registro en `activity_logs` con `action: 'youtube_sync'` y sin error)
-- `?full=true` → importación masiva completa con paginación por `nextPageToken`
+**Parámetros (rev. 2026-10-21):**
+- Sin parámetros → **reconciliación completa**: recorre toda la playlist de subidas (~45 unidades de cuota para ~1 000 videos). El modo incremental se eliminó porque nunca volvía a visitar los videos existentes.
+- `?dry_run=true` → calcula y devuelve el plan sin escribir nada (ni sermones, ni lock, ni logs)
+- `?full=true` → aceptado por compatibilidad; equivale a la ejecución normal
 
-### Flujo de sync
+### Flujo de sync (rev. 2026-10-21)
 
 ```
-Por cada video de YouTube:
-  si youtube_id existe en Directus:
-    → actualiza: view_count, youtube_status, last_synced_at, duration_seconds
-    → NO toca: title, description, preacher, series, visibility, featured, etc.
-  si youtube_id no existe:
-    → crea registro con:
-        visibility = 'public'
-        featured = false
-        raw_youtube_title = título YouTube
-        title = título YouTube (editable por admin después)
-        suggested_preacher = resultado de pattern matching
-        suggested_series = resultado de pattern matching
-        importado_at = now()
-        last_synced_at = now()
-
-Para videos que existían en Directus y ya no están en YouTube:
-  → youtube_status = 'unavailable'
-  → visibility = 'private'
+1. Lecturas (si alguna falla, se aborta sin escribir):
+   channels → playlistItems (todas las páginas) → videos.list (snippet, contentDetails, statistics; lotes de 50)
+   + todos los sermones existentes de Directus (paginado)
+2. Plan, por cada video de la playlist:
+   si youtube_id existe → planSermonUpdate (solo campos que cambiaron; nada si no cambió nada):
+       raw_youtube_title = título YouTube
+       title = título YouTube, solo si title == raw_youtube_title (no personalizado)
+       youtube_published_at = publishedAt; sermon_date = su fecha UTC, solo si no fue editada a mano
+       duration_seconds si YouTube la informa (> 0) y cambió
+       youtube_status = 'available' si estaba 'unavailable' (recuperación)
+   si no existe → crea registro (visibility public, featured false, title = raw = título YouTube,
+       suggested_preacher / suggested_series por pattern matching, imported_at = last_synced_at = now)
+3. No disponibles: sermones 'available' que videos.list no devolvió → segunda verificación con videos.list
+   → freno ante marcados masivos → youtube_status = 'unavailable' (visibility intacta)
+4. Escrituras: antes de cada una se confirma y renueva el lock; si se perdió, se detiene
 ```
 
 ### Pattern matching para sugerencias
@@ -186,37 +186,36 @@ Ejemplos:
 - `"AVIVAMIENTO 2023 DIA 2"` → `suggested_series: "Avivamiento 2023"`
 - `"Culto Domingo AM"` → sin sugerencia
 
-### Sync lock (Redis)
+### Sync lock (Redis) — implementado 2026-10-21 en `nextjs/src/lib/sync-lock.ts`
 
-```typescript
-const lockKey = 'youtube_sync_lock';
-const locked = await redis.set(lockKey, '1', 'EX', 900, 'NX'); // 15 min TTL
-if (!locked) return Response.json({ error: 'Sync already running' }, { status: 409 });
-// ... sync logic ...
-await redis.del(lockKey);
-```
+- Adquisición: `SET lirio:sync:youtube:lock <token-aleatorio> NX PX 900000` (atómico en Redis).
+- Antes de cada escritura: script Lua compara-y-renueva (`GET == token` → `PEXPIRE`). Si devuelve 0 o Redis no responde, la ejecución deja de escribir (`lock_lost`).
+- Liberación: script Lua compara-y-borra; solo el dueño puede liberar. Si el proceso cae, el TTL libera el lock.
+- Sin dependencias: cliente RESP mínimo sobre `node:net`. Usa `REDIS_HOST`/`REDIS_PORT` o, si no existen, `redis:6379` (red interna de Docker).
+- Verificado en el stack aislado: la purga automática de caché de Directus no borra la clave.
 
-### GitHub Actions cron
+### GitHub Actions cron (rev. 2026-10-21)
 
 Archivo: `.github/workflows/sync-sermons.yml`
+- `schedule` diario (`0 9 * * *`; GitHub suele retrasarlo varias horas) y `workflow_dispatch` con el input booleano `dry_run`, que llama a `?dry_run=true` y solo devuelve el plan.
+- `curl --max-time 120`. nginx corta a los 60 s con un 504, aunque la sync siga en el servidor; en ese caso hay que revisar `activity_logs`. Si curl falla, el job sale en rojo con su código de salida.
+- El cuerpo JSON se imprime en el log. Ese log es público porque el repositorio lo es. Contiene contadores, IDs, títulos de YouTube (el actual y el anterior), los campos cambiados y los mensajes de error, pero nunca claves ni tokens.
+- Códigos:
+  - 200 → éxito.
+  - **207 (errores parciales o freno de no disponibles) → job en rojo** con la anotación `::error`, para que no pase inadvertido.
+  - Cualquier otro código → job en rojo.
+- Con `dry_run`, el job también sale en rojo en dos casos:
+  - si la respuesta no confirma `dryRun: true`, porque una versión antigua ignora el parámetro y sincroniza de verdad;
+  - si el plan contiene errores.
 
-```yaml
-name: Sync sermons from YouTube
-on:
-  schedule:
-    - cron: '0 9 * * *'  # 3am Costa Rica = 9am UTC
-  workflow_dispatch:       # disparo manual desde GitHub UI
+### Decisiones previas al release (2026-10-21)
 
-jobs:
-  sync:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger sync
-        run: |
-          curl -X POST https://liriodelosvallescr.org/api/sync/youtube \
-            -H "Authorization: Bearer ${{ secrets.SYNC_SECRET }}" \
-            --fail
-```
+| Punto | Decisión para este release | Pendiente (requiere aprobación porque cambia datos o comportamiento) |
+|---|---|---|
+| HTTP 207 | El cron lo marca en rojo e imprime `errors` | — |
+| Transmisiones programadas o en curso | **Sin cambios**: se importan al aparecer en la playlist y cada ejecución corrige título, fecha y duración cuando terminan | No importar mientras `liveBroadcastContent` sea `upcoming` o `live`. Evitaría ver en la Biblioteca servicios que aún no ocurrieron y slugs con el título del servicio anterior |
+| `sermon_date` de servicios nocturnos | **Sin cambios**: fecha UTC. 388 de 1027 registros (publicados de 18:00 a 23:59 en Costa Rica) muestran el día siguiente, igual que En Vivo | Calcular la fecha en `America/Costa_Rica`, corregir una vez esos 388 registros (con `dry_run`, respaldo y la regla de "no editada a mano") y formatear En Vivo con `timeZone: 'America/Costa_Rica'` |
+| E2E aislado en CI | Paso dentro del job "Playwright E2E" (check obligatorio en `main`) | — |
 
 ### Variable de entorno nueva
 

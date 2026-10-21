@@ -61,7 +61,7 @@ export async function getSermon(slug: string): Promise<Sermon | null> {
   try {
     const results = await directus.request(
       readItems('sermons', {
-        filter: { slug: { _eq: slug } },
+        filter: { slug: { _eq: slug }, youtube_status: { _eq: 'available' } },
         limit: 1,
         fields: SERMON_FIELDS as unknown as string[],
       })
