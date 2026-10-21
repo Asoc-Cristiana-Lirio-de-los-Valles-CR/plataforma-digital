@@ -74,7 +74,8 @@ runtimeCaching: [
 | `visibility` | enum: `public \| unlisted \| private` | Default: `public` |
 | `featured` | boolean | Default: `false` |
 | `description` | text | Editable; sync nunca sobreescribe |
-| `sermon_date` | date | Fecha UTC de `youtube_published_at`; sync la sigue solo si no fue editada a mano |
+| `sermon_date` | date | Fecha UTC de `youtube_published_at`; sync la sigue solo si no fue editada a mano ni está en `sync_locked_fields` |
+| `sync_locked_fields` | json (lista) | Campos editoriales que la sync nunca sobrescribe en ese sermón: `sermon_date`, `title`. `null` = sin protección. Migración aditiva del 2026-10-21 (ver abajo) |
 | `duration_seconds` | integer | Importado de YouTube |
 | `thumbnail_url` | string | `i.ytimg.com/vi/{id}/maxresdefault.jpg` |
 | `manual_thumbnail` | M2O directus_files | Override del admin; nullable |
@@ -93,7 +94,55 @@ runtimeCaching: [
 
 **Revisión 2026-10-21 — YouTube es la fuente de verdad de los metadatos que administra.** El sync original nunca actualizaba el título de los registros existentes y su modo incremental no volvía a visitarlos: las transmisiones importadas con el título del servicio anterior quedaban así para siempre en la Biblioteca.
 
-**Campos que sync NUNCA sobreescribe:** `description`, `slug`, `preacher`, `series`, `visibility`, `featured`, `manual_thumbnail`, `tags`, `thumbnail_url`, `suggested_*`, `imported_at`. `title` solo se protege cuando un editor lo personalizó (`title != raw_youtube_title`).
+**Campos que sync NUNCA sobreescribe:** `description`, `slug`, `preacher`, `series`, `visibility`, `featured`, `manual_thumbnail`, `tags`, `thumbnail_url`, `suggested_*`, `imported_at`, `sync_locked_fields`. `title` y `sermon_date` se protegen cuando un editor los personalizó o cuando figuran en `sync_locked_fields`.
+
+**Campos protegidos (`sync_locked_fields`, 2026-10-21).** La detección implícita de ediciones manuales no alcanza: si `sermon_date` coincide con la fecha UTC de `youtube_published_at`, no se distingue una fecha editorial válida de una automática. Caso real: el servicio de `D0hL4Ax6juU` fue el 11 de octubre y YouTube terminó de publicar la transmisión a las 00:28 del 12 (hora de Costa Rica); la sync la habría movido al 12. Reglas:
+- Se marcan en el panel de Directus los campos a proteger (`sermon_date`, `title`) y Directus registra quién y cuándo en sus revisiones (`sermons` tiene la auditoría por defecto, `accountability = all`: 1646 revisiones al 2026-10-21). **Hoy solo root@ puede editar `sermons`**: la política "Administrador CMS" no tiene permisos sobre la colección. Darle acceso a esa política es una decisión aparte. El token de servicio de la sync y del script pertenece a root@, así que un `lock` por script queda auditado a nombre de root@.
+- `unlock` (o desmarcar la casilla) **no devuelve el campo a YouTube**: tras una sync protegida, el valor ya difiere del automático y la regla implícita lo trata como edición manual. Para que la sync vuelva a seguir a YouTube hay que igualar `sermon_date` a la fecha UTC de `youtube_published_at` (o `title` a `raw_youtube_title`).
+- `protectedFields` solo informa las escrituras aplicadas (o planificadas en `dry_run`), igual que `changes`. Puede incluir títulos editoriales en el log del cron, que es público. Hoy no expone nada nuevo: la política pública lee `sermons` con `fields: ["*"]` y sin filtro, y los 1027 sermones son `public` (verificado el 2026-10-21 en `directus_permissions` y en `sermons`). Riesgo previo e independiente de esta función: un sermón marcado `private` en el futuro también sería legible por la API pública, porque el sitio filtra `visibility` pero la política no.
+- **Token administrador**: con un token sin `admin_access`, Directus 11 puede devolver `null` en un campo que ese token no puede leer en una fila (varias políticas con campos distintos) en vez de responder 403, y ese `null` ocultaría una protección. Por eso la sync comprueba `GET /policies/me/globals` antes de cualquier lectura y aborta si `admin_access` no es `true`. Un `dry_run` sin token (solo lectura pública) no pasa por esta comprobación.
+- **Relectura antes de escribir**: justo antes de cada PATCH que escriba `sermon_date` o `title`, la sync vuelve a leer ese sermón y replanifica con sus protecciones actuales. Si la relectura falla, ese sermón no se escribe y queda el error `lock_recheck_failed`; los demás siguen.
+- **Carrera residual y trigger atómico.** La relectura **reduce** la ventana, de toda la ejecución a los milisegundos entre la relectura y el PATCH de cada fila, pero **no la elimina**, porque Directus no tiene escrituras condicionales. La garantía estricta la da un trigger `BEFORE UPDATE` en PostgreSQL (`scripts/sql/sermons-sync-locks-trigger.up.sql`):
+  - **Regla:** rechaza (`check_violation`) todo UPDATE que cambie `sermon_date` o `title` cuando el campo está en `sync_locked_fields` **antes y después** del UPDATE. Vale para la sync, el panel, el script o cualquier otra vía. Desmarcar y editar en un mismo guardado está permitido. En el panel no se puede editar un campo protegido sin desmarcarlo en ese guardado o antes.
+  - **Atomicidad:** el UPDATE toma el bloqueo de la fila. Un UPDATE concurrente espera y se evalúa contra la última versión confirmada, así que una protección confirmada mientras la sync escribe hace fallar su PATCH. La sync lo informa en `errors` (la ruta responde 207 y el cron queda en rojo), no lo cuenta en `changes`, y la ejecución siguiente replanifica respetando la protección.
+  - **Directus:** el PATCH rechazado responde `500 INTERNAL_SERVER_ERROR` con el mensaje "sermons.<campo> está protegido por sync_locked_fields", y no deja revisión, porque la transacción se revierte entera. La sync lo registra como `<youtube_id>: update 500`. Las escrituras de campos no protegidos se auditan como siempre.
+  - **Sin la columna**, el trigger no tiene efecto, porque lee las filas con `to_jsonb()`. Instalarlo antes de `apply` o mantenerlo tras `revert` no rompe los UPDATE.
+  - **Reversión:** `scripts/sql/sermons-sync-locks-trigger.down.sql` elimina solo el trigger y su función, sin `CASCADE`. `up` es idempotente.
+  - **Pruebas:** E2E aislado con Directus 11 y PostgreSQL 16 reales, que cubre:
+    - rechazo sin revisión;
+    - campos no protegidos;
+    - desmarcar y editar;
+    - carrera con la sync;
+    - transacción concurrente sin confirmar;
+    - `down` que solo quita sus objetos y `up` idempotente;
+    - UPDATE tras `revert`.
+  - **Producción:** pendiente. Se aplica desde Git Bash dentro del contenedor de PostgreSQL:
+    `ssh … 'docker exec -i lirio_postgres sh -c "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -v ON_ERROR_STOP=1"' < scripts/sql/sermons-sync-locks-trigger.up.sql`.
+    Se verifica con `SELECT tgname FROM pg_trigger WHERE tgrelid = 'public.sermons'::regclass AND NOT tgisinternal`.
+- La sync omite esos campos, sigue actualizando `raw_youtube_title`, `youtube_published_at`, la duración y el estado, e informa cada omisión en `protectedFields` (respuesta, `dry_run` y `activity_logs`) con `kept`, `youtube` y `reason`. `reason` vale `sync_locked_fields` o `manual_edit`.
+- **Falla cerrado**: si Directus no devuelve el campo (no existe, falta permiso u otro error de lectura) o trae un valor que no es `null` ni una lista de campos protegibles, la sync aborta antes de escribir nada. Una protección nunca se pierde en silencio.
+- No se protege nada automáticamente: el campo nace en `null` para todos los sermones.
+
+**Migración** (`scripts/add-sermons-sync-locked-fields.mjs`; probada contra Directus 11 en el E2E aislado):
+- Comandos:
+  - `check`: solo lectura. Lee la lista de campos; un 403 se trata como error ("sin permisos o destino equivocado"), nunca como "no existe".
+  - `apply`: crea el campo JSON opcional. Es idempotente.
+  - `lock <youtube_id> <campo>` y `unlock <youtube_id> <campo>`: idempotentes y verificados con una relectura. Validan el campo antes de conectarse y se niegan a pisar un valor mal formado o ausente en la respuesta.
+  - `revert --yes`: elimina el campo y todas las protecciones, y comprueba después que el campo ya no existe. Antes del DELETE imprime las protecciones que se pierden, porque borrar el campo no deja revisiones por sermón. Pagina la lista (por si Directus recorta el `limit`) y no cuenta las listas vacías.
+  - Salida: una línea JSON por paso. Primero el destino (origen y `project_name`), antes de ejecutar nada, de modo que queda impreso aunque el comando falle. Luego, en `revert`, `lostLocks`. Al final, `result`.
+- En producción se ejecuta **desde Git Bash** (PowerShell 5.1 no admite `<` y altera la codificación), dentro del contenedor para que el token no salga del servidor: `ssh … 'docker exec -i lirio_nextjs node --input-type=module - <comando>' < scripts/add-sermons-sync-locked-fields.mjs`.
+- No modifica ningún valor existente. La política pública lee `sermons` con `fields: ["*"]`, así que la lista es visible en la API pública. Solo contiene nombres de campos y no requiere cambiar permisos.
+- **Orden de despliegue** (el código anterior, de `9a7b366`, ignora el campo):
+  1. Respaldo verificado.
+  2. Release del código.
+  3. `apply`.
+  4. Trigger `up` y su verificación en `pg_trigger`.
+  5. `lock` de los casos aprobados.
+  6. `dry_run`.
+  7. Sync real autorizada.
+  8. Reactivar el cron.
+
+  `sync-sermons.yml` debe seguir **desactivado** hasta el `dry_run` con el código nuevo, porque con la migración aplicada bajo el código anterior, una sync movería la fecha protegida. El código nuevo falla cerrado (no escribe) mientras no exista el campo. La única ventana restante son los segundos entre `apply` y `lock`, que controla el operador con el cron desactivado. Después de la primera sync protegida, la regla implícita también conserva la fecha, así que un rollback del código ya no la altera.
 
 **Videos no disponibles públicamente** (eliminados, privados o inaccesibles; la API no los distingue): sync marca `youtube_status = 'unavailable'` solo tras confirmarlo con `videos.list`, con freno ante marcados masivos (máx. 10 por ejecución y 2 % de los disponibles). No toca `visibility` ni borra el registro. Desaparecen de listas y búsqueda, el detalle responde 404, y se recuperan solos si el video vuelve.
 
