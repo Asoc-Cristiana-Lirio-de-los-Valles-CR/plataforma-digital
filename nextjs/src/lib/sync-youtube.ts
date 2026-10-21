@@ -377,7 +377,10 @@ function unavailableLimit(availableCount: number): number {
 
 type WriteOp =
   | { kind: 'insert'; youtubeId: string; body: Record<string, unknown> }
-  | { kind: 'update' | 'restore' | 'unavailable'; youtubeId: string; id: string; body: Record<string, unknown>; titleChange?: TitleChange };
+  | {
+      kind: 'update' | 'restore' | 'unavailable'; youtubeId: string; id: string; body: Record<string, unknown>;
+      titleChange?: TitleChange; protectedFields?: ProtectedField[];
+    };
 
 export async function runYoutubeSync(options: SyncOptions = {}, deps: SyncDeps = {}): Promise<SyncResult> {
   const ctx: Context = {
@@ -420,10 +423,9 @@ export async function runYoutubeSync(options: SyncOptions = {}, deps: SyncDeps =
       result.unchanged++;
       continue;
     }
-    result.protectedFields.push(...plan.protectedFields);
     ops.push({
       kind: plan.patch.youtube_status === 'available' ? 'restore' : 'update',
-      youtubeId, id: current.id, body: plan.patch, titleChange: plan.titleChange,
+      youtubeId, id: current.id, body: plan.patch, titleChange: plan.titleChange, protectedFields: plan.protectedFields,
     });
   }
 
@@ -484,6 +486,7 @@ function countOp(result: SyncResult, op: WriteOp): void {
     : Object.keys(op.body).filter(k => k !== 'last_synced_at' && k !== 'view_count').sort();
   result.changes.push({ youtube_id: op.youtubeId, action: op.kind, fields });
   if (op.kind !== 'insert' && op.titleChange) result.titleChanges.push(op.titleChange);
+  if (op.kind !== 'insert' && op.protectedFields) result.protectedFields.push(...op.protectedFields);
   if (op.kind === 'insert') result.inserted++;
   else if (op.kind === 'update') result.updated++;
   else if (op.kind === 'restore') result.restored++;

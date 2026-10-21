@@ -267,6 +267,25 @@ describe('planSermonUpdate con campos protegidos (sync_locked_fields)', () => {
     ]);
   });
 
+  it('quitar la protección no devuelve la fecha a YouTube: queda como edición manual', () => {
+    const unlockedAfterSync: ExistingSermon = {
+      ...d0hl, title: youtubeD0hl.title, raw_youtube_title: youtubeD0hl.title,
+      youtube_published_at: '2026-10-12T06:28:31.000Z', sync_locked_fields: null,
+    };
+    const plan = planSermonUpdate(unlockedAfterSync, { ...youtubeD0hl, publishedAt: '2026-10-13T10:00:00Z' }, SYNCED_AT);
+    expect(plan?.patch).not.toHaveProperty('sermon_date');
+    expect(plan?.protectedFields).toEqual([
+      { youtube_id: 'D0hL4Ax6juU', field: 'sermon_date', kept: '2026-10-11', youtube: '2026-10-13', reason: 'manual_edit' },
+    ]);
+  });
+
+  it('un sermón protegido que vuelve a estar disponible se recupera sin tocar su fecha', () => {
+    const plan = planSermonUpdate({ ...d0hl, youtube_status: 'unavailable' }, youtubeD0hl, SYNCED_AT);
+    expect(plan?.patch).toMatchObject({ youtube_status: 'available', youtube_published_at: '2026-10-12T06:28:31Z' });
+    expect(plan?.patch).not.toHaveProperty('sermon_date');
+    expect(plan?.protectedFields.map(p => p.field)).toEqual(['sermon_date']);
+  });
+
   it('una protección no informa nada si YouTube propone el mismo valor', () => {
     const video = { ...youtubeD0hl, publishedAt: '2026-10-11T20:00:00Z' };
     expect(planSermonUpdate(d0hl, video, SYNCED_AT)?.protectedFields).toEqual([]);

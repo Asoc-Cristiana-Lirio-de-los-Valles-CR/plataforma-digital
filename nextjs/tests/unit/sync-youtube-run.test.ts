@@ -349,6 +349,21 @@ describe('runYoutubeSync con campos protegidos (sync_locked_fields)', () => {
     ]);
   });
 
+  it('solo informa las protecciones de escrituras aplicadas', async () => {
+    dx.failWritesFor.add('D0hL4Ax6juU');
+    const failed = await runYoutubeSync({}, deps());
+    expect(failed.errors).toEqual([expect.stringContaining('D0hL4Ax6juU')]);
+    expect(failed.protectedFields).toEqual([]);
+    expect(dx.items.get('s5')?.sermon_date).toBe('2026-10-11');
+
+    const noLock = await runYoutubeSync({ ensureLock: async () => false }, deps());
+    expect(noLock.protectedFields).toEqual([]);
+
+    dx.failWritesFor.clear();
+    const retried = await runYoutubeSync({}, deps());
+    expect(retried.protectedFields.map(p => p.youtube_id)).toEqual(['D0hL4Ax6juU']);
+  });
+
   it('falla cerrado si el campo de protecciones no existe en Directus (403): no escribe nada', async () => {
     dx.state.unknownFields = ['sync_locked_fields'];
     await expect(runYoutubeSync({}, deps())).rejects.toThrow(/Directus sermons read error: 403/);
