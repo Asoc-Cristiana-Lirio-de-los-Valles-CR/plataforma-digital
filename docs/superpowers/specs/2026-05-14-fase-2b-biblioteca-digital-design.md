@@ -74,7 +74,8 @@ runtimeCaching: [
 | `visibility` | enum: `public \| unlisted \| private` | Default: `public` |
 | `featured` | boolean | Default: `false` |
 | `description` | text | Editable; sync nunca sobreescribe |
-| `sermon_date` | date | Fecha UTC de `youtube_published_at`; sync la sigue solo si no fue editada a mano |
+| `sermon_date` | date | Fecha UTC de `youtube_published_at`; sync la sigue solo si no fue editada a mano ni está en `sync_locked_fields` |
+| `sync_locked_fields` | json (lista) | Campos editoriales que la sync nunca sobrescribe en ese sermón: `sermon_date`, `title`. `null` = sin protección. Migración aditiva del 2026-10-21 (ver abajo) |
 | `duration_seconds` | integer | Importado de YouTube |
 | `thumbnail_url` | string | `i.ytimg.com/vi/{id}/maxresdefault.jpg` |
 | `manual_thumbnail` | M2O directus_files | Override del admin; nullable |
@@ -93,7 +94,19 @@ runtimeCaching: [
 
 **Revisión 2026-10-21 — YouTube es la fuente de verdad de los metadatos que administra.** El sync original nunca actualizaba el título de los registros existentes y su modo incremental no volvía a visitarlos: las transmisiones importadas con el título del servicio anterior quedaban así para siempre en la Biblioteca.
 
-**Campos que sync NUNCA sobreescribe:** `description`, `slug`, `preacher`, `series`, `visibility`, `featured`, `manual_thumbnail`, `tags`, `thumbnail_url`, `suggested_*`, `imported_at`. `title` solo se protege cuando un editor lo personalizó (`title != raw_youtube_title`).
+**Campos que sync NUNCA sobreescribe:** `description`, `slug`, `preacher`, `series`, `visibility`, `featured`, `manual_thumbnail`, `tags`, `thumbnail_url`, `suggested_*`, `imported_at`, `sync_locked_fields`. `title` y `sermon_date` se protegen cuando un editor los personalizó o cuando figuran en `sync_locked_fields`.
+
+**Campos protegidos (`sync_locked_fields`, 2026-10-21).** La detección implícita de ediciones manuales no alcanza: si `sermon_date` coincide con la fecha UTC de `youtube_published_at`, no se distingue una fecha editorial válida de una automática. Caso real: el servicio de `D0hL4Ax6juU` fue el 11 de octubre y YouTube terminó de publicar la transmisión a las 00:28 del 12 (hora de Costa Rica); la sync la habría movido al 12. Reglas:
+- Un editor marca en el panel de Directus los campos a proteger (`sermon_date`, `title`). Directus registra quién y cuándo en sus revisiones.
+- La sync omite esos campos, sigue actualizando `raw_youtube_title`, `youtube_published_at`, la duración y el estado, e informa cada omisión en `protectedFields` (respuesta, `dry_run` y `activity_logs`) con `kept`, `youtube` y `reason`. `reason` vale `sync_locked_fields` o `manual_edit`.
+- **Falla cerrado**: si Directus no devuelve el campo (no existe, falta permiso u otro error de lectura) o trae un valor que no es `null` ni una lista de campos protegibles, la sync aborta antes de escribir nada. Una protección nunca se pierde en silencio.
+- No se protege nada automáticamente: el campo nace en `null` para todos los sermones.
+
+**Migración** (`scripts/add-sermons-sync-locked-fields.mjs`; probada contra Directus 11 en el E2E aislado):
+- Comandos: `check` (solo lectura) · `apply` (crea el campo JSON opcional, idempotente) · `lock <youtube_id> <campo>` y `unlock <youtube_id> <campo>` (idempotentes, verificados con una relectura) · `revert --yes` (elimina el campo y todas las protecciones).
+- En producción se ejecuta dentro del contenedor para que el token no salga del servidor: `ssh … 'docker exec -i lirio_nextjs node --input-type=module - <comando>' < scripts/add-sermons-sync-locked-fields.mjs`.
+- No modifica ningún valor existente. La política pública lee `sermons` con `fields: ["*"]`, así que la lista es visible en la API pública: solo contiene nombres de campos y no requiere cambiar permisos.
+- Orden de despliegue: respaldo verificado → `apply` → `lock` de los casos aprobados → release del código → `dry_run`. Si el código se despliega antes que la migración, la sync falla cerrado (no escribe) hasta aplicarla.
 
 **Videos no disponibles públicamente** (eliminados, privados o inaccesibles; la API no los distingue): sync marca `youtube_status = 'unavailable'` solo tras confirmarlo con `videos.list`, con freno ante marcados masivos (máx. 10 por ejecución y 2 % de los disponibles). No toca `visibility` ni borra el registro. Desaparecen de listas y búsqueda, el detalle responde 404, y se recuperan solos si el video vuelve.
 
