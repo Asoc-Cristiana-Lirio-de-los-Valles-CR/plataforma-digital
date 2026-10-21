@@ -23,13 +23,23 @@ jobs:
         run: |
           url="https://liriodelosvallescr.org/api/sync/youtube"
           if [ "$DRY_RUN" = "true" ]; then url="$url?dry_run=true"; fi
-          status=$(curl -s --max-time 120 -o response.json -w "%{http_code}" \
-            -X POST "$url" -H "Authorization: Bearer $SYNC_SECRET")
+          # nginx corta a los 60 s (504) aunque la sync siga en el servidor: revisar activity_logs.
+          status=$(curl -sS --max-time 120 -o response.json -w "%{http_code}" \
+            -X POST "$url" -H "Authorization: Bearer $SYNC_SECRET") || {
+            rc=$?; echo "::error title=Sync YouTube sin respuesta::curl salió con $rc (28 = timeout)"; exit 1; }
           echo "HTTP status: $status (dry_run=$DRY_RUN)"
-          # Solo contadores, IDs y títulos públicos de YouTube; la ruta nunca devuelve secretos.
+          # Log público: contadores, IDs, títulos de YouTube (actual y anterior), campos cambiados
+          # y mensajes de error. La ruta nunca devuelve claves ni tokens.
           cat response.json 2>/dev/null; echo
           case "$status" in
             200) ;;
             207) echo "::error title=Sync YouTube con errores parciales::Revisa errors y unavailableSkipped en la respuesta"; exit 1 ;;
             *)   echo "::error title=Sync YouTube falló::HTTP $status"; exit 1 ;;
           esac
+          if [ "$DRY_RUN" = "true" ]; then
+            # Una versión sin soporte de dry_run ignora el parámetro y sincroniza de verdad.
+            jq -e '.dryRun == true' response.json >/dev/null || {
+              echo "::error title=El servidor no confirmó dry_run::¿Versión antigua desplegada? Revisa activity_logs"; exit 1; }
+            jq -e '.errors | length == 0' response.json >/dev/null || {
+              echo "::error title=El plan contiene errores::No ejecutar la sync real sin revisar errors"; exit 1; }
+          fi

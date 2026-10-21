@@ -198,8 +198,15 @@ Ejemplos:
 
 Archivo: `.github/workflows/sync-sermons.yml`
 - `schedule` diario (`0 9 * * *`; GitHub suele retrasarlo varias horas) y `workflow_dispatch` con el input booleano `dry_run`, que llama a `?dry_run=true` y solo devuelve el plan.
-- `curl --max-time 120`. El cuerpo JSON se imprime en el log, que es público porque el repositorio lo es; solo contiene contadores, IDs y títulos públicos de YouTube.
-- 200 → éxito. **207 (errores parciales, freno de no disponibles) → job en rojo** con la anotación `::error`, para que no pase inadvertido. Cualquier otro código → job en rojo.
+- `curl --max-time 120`. nginx corta a los 60 s con un 504, aunque la sync siga en el servidor; en ese caso hay que revisar `activity_logs`. Si curl falla, el job sale en rojo con su código de salida.
+- El cuerpo JSON se imprime en el log. Ese log es público porque el repositorio lo es. Contiene contadores, IDs, títulos de YouTube (el actual y el anterior), los campos cambiados y los mensajes de error, pero nunca claves ni tokens.
+- Códigos:
+  - 200 → éxito.
+  - **207 (errores parciales o freno de no disponibles) → job en rojo** con la anotación `::error`, para que no pase inadvertido.
+  - Cualquier otro código → job en rojo.
+- Con `dry_run`, el job también sale en rojo en dos casos:
+  - si la respuesta no confirma `dryRun: true`, porque una versión antigua ignora el parámetro y sincroniza de verdad;
+  - si el plan contiene errores.
 
 ### Decisiones previas al release (2026-10-21)
 

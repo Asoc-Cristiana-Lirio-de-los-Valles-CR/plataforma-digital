@@ -27,5 +27,6 @@ if (run('docker', [...compose, 'up', '-d', '--build', '--wait']) !== 0) {
   process.exit(1);
 }
 const status = run('npx', ['playwright', 'test', ...process.argv.slice(2)], { cwd: nextjsDir, env });
+if (status !== 0) run('docker', [...compose, 'logs', '--tail', '200', 'nextjs', 'directus']);
 if (!process.env.E2E_KEEP_STACK) run('docker', [...compose, 'down', '-v']);
 process.exit(status);
