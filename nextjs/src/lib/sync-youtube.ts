@@ -1,26 +1,82 @@
+// Sin imports a propósito: Playwright y los scripts de ensayo importan este módulo directamente.
 const YT_API_BASE = 'https://www.googleapis.com/youtube/v3';
+const YT_PAGE_SIZE = 50;
+const DIRECTUS_PAGE_SIZE = 500;
+const WRITE_TIMEOUT_MS = 15_000;
+const RETRY_ATTEMPTS = 3;
+const MAX_UNAVAILABLE_PER_RUN = 10;
+const MAX_UNAVAILABLE_RATIO = 0.02;
+
+const EXISTING_FIELDS = [
+  'id', 'youtube_id', 'title', 'raw_youtube_title', 'youtube_status',
+  'youtube_published_at', 'sermon_date', 'duration_seconds', 'view_count',
+].join(',');
 
 export interface SyncResult {
   inserted: number;
   updated: number;
+  unchanged: number;
   unavailable: number;
+  restored: number;
+  titleChanges: TitleChange[];
+  /** Escrituras aplicadas (o planificadas en dryRun), con los nombres de los campos que cambian. */
+  changes: SyncChange[];
+  unavailableIds: string[];
+  unavailableSkipped?: 'verification_failed' | 'circuit_breaker';
   errors: string[];
+  dryRun: boolean;
+  lockLost?: boolean;
 }
 
-export interface YouTubeVideoItem {
-  id: { videoId: string };
-  snippet: {
-    title: string;
-    description: string;
-    publishedAt: string;
-    thumbnails: {
-      maxres?: { url: string };
-      high?: { url: string };
-      medium?: { url: string };
-    };
-  };
-  contentDetails?: { duration: string };
-  statistics?: { viewCount: string };
+export interface SyncChange {
+  youtube_id: string;
+  action: 'insert' | 'update' | 'restore' | 'unavailable';
+  fields: string[];
+}
+
+export interface SyncOptions {
+  dryRun?: boolean;
+  /** Se llama antes de cada escritura; debe confirmar (y renovar) la propiedad del lock. */
+  ensureLock?: () => Promise<boolean>;
+}
+
+export interface SyncDeps {
+  fetch?: typeof fetch;
+  now?: () => Date;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+export interface ExistingSermon {
+  id: string;
+  youtube_id: string;
+  title: string | null;
+  raw_youtube_title: string | null;
+  youtube_status: 'available' | 'unavailable';
+  youtube_published_at: string | null;
+  sermon_date: string | null;
+  duration_seconds: number | null;
+  view_count: number | null;
+}
+
+export interface YouTubeVideo {
+  id: string;
+  title: string;
+  description: string;
+  publishedAt: string;
+  durationSeconds: number | null;
+  viewCount: number | null;
+}
+
+export interface TitleChange {
+  youtube_id: string;
+  from: string;
+  to: string;
+  editorial: boolean;
+}
+
+export interface SermonUpdatePlan {
+  patch: Record<string, unknown>;
+  titleChange?: TitleChange;
 }
 
 const SERIES_PATTERNS = [
@@ -57,6 +113,59 @@ export function suggestFromTitle(title: string): { suggestedSeries: string; sugg
   return { suggestedSeries, suggestedPreacher };
 }
 
+function toInstant(value: string | null): number | null {
+  if (!value) return null;
+  const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(value);
+  const ms = Date.parse(hasZone ? value : `${value}Z`);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+function utcDate(value: string | null): string | null {
+  const ms = toInstant(value);
+  return ms === null ? null : new Date(ms).toISOString().slice(0, 10);
+}
+
+// Sigue a YouTube en los campos que YouTube administra; los campos editoriales nunca se tocan.
+export function planSermonUpdate(
+  existing: ExistingSermon,
+  video: YouTubeVideo,
+  syncedAt: string
+): SermonUpdatePlan | null {
+  const patch: Record<string, unknown> = {};
+  let titleChange: TitleChange | undefined;
+
+  const ytTitle = video.title.trim();
+  const storedRaw = (existing.raw_youtube_title ?? '').trim();
+  const storedTitle = (existing.title ?? '').trim();
+  if (ytTitle && ytTitle !== storedRaw) {
+    const editorial = storedTitle !== storedRaw;
+    patch.raw_youtube_title = ytTitle;
+    if (!editorial) patch.title = ytTitle;
+    titleChange = { youtube_id: existing.youtube_id, from: storedRaw, to: ytTitle, editorial };
+  }
+
+  const ytPublished = toInstant(video.publishedAt);
+  if (ytPublished !== null && ytPublished !== toInstant(existing.youtube_published_at)) {
+    patch.youtube_published_at = video.publishedAt;
+    if (existing.sermon_date === utcDate(existing.youtube_published_at)) {
+      const newDate = utcDate(video.publishedAt);
+      if (newDate !== existing.sermon_date) patch.sermon_date = newDate;
+    }
+  }
+
+  if (video.durationSeconds && video.durationSeconds > 0 && video.durationSeconds !== existing.duration_seconds) {
+    patch.duration_seconds = video.durationSeconds;
+  }
+
+  if (existing.youtube_status !== 'available') patch.youtube_status = 'available';
+
+  if (Object.keys(patch).length === 0) return null;
+
+  if (video.viewCount !== null) patch.view_count = video.viewCount;
+  patch.last_synced_at = syncedAt;
+  return { patch, titleChange };
+}
+
 export function buildThumbnailUrl(youtubeId: string): string {
   return `https://i.ytimg.com/vi/${youtubeId}/maxresdefault.jpg`;
 }
@@ -79,219 +188,243 @@ function generateSlug(title: string, youtubeId: string): string {
   return `${base}-${youtubeId.slice(-4)}`;
 }
 
-async function getUploadsPlaylistId(apiKey: string, channelId: string): Promise<string> {
-  const url = `${YT_API_BASE}/channels?part=contentDetails&id=${channelId}&key=${apiKey}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`YouTube channels API error: ${res.status}`);
-  const data = await res.json();
-  const playlistId = data.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
-  if (!playlistId) throw new Error('Could not find uploads playlist');
-  return playlistId;
+export function buildNewSermon(video: YouTubeVideo, syncedAt: string): Record<string, unknown> {
+  const title = video.title.trim();
+  const { suggestedSeries, suggestedPreacher } = suggestFromTitle(title);
+  return {
+    title,
+    raw_youtube_title: title,
+    slug: generateSlug(title, video.id),
+    youtube_id: video.id,
+    youtube_status: 'available',
+    visibility: 'public',
+    featured: false,
+    description: video.description.slice(0, 2000) || null,
+    thumbnail_url: buildThumbnailUrl(video.id),
+    duration_seconds: video.durationSeconds,
+    view_count: video.viewCount ?? 0,
+    youtube_published_at: video.publishedAt,
+    sermon_date: utcDate(video.publishedAt),
+    suggested_series: suggestedSeries || null,
+    suggested_preacher: suggestedPreacher || null,
+    imported_at: syncedAt,
+    last_synced_at: syncedAt,
+  };
 }
 
-async function fetchYouTubePage(
-  apiKey: string,
-  channelId: string,
-  pageToken?: string,
-  publishedAfter?: string
-): Promise<{ items: YouTubeVideoItem[]; nextPageToken?: string }> {
-  // Use uploads playlist — returns ALL videos including livestream replays (search.list misses them)
-  const playlistId = await getUploadsPlaylistId(apiKey, channelId);
-  let url = `${YT_API_BASE}/playlistItems?part=snippet,contentDetails&playlistId=${playlistId}&maxResults=50&key=${apiKey}`;
-  if (pageToken) url += `&pageToken=${pageToken}`;
+interface Context {
+  fetch: typeof fetch;
+  sleep: (ms: number) => Promise<void>;
+  apiKey: string;
+  channelId: string;
+  directusUrl: string;
+  adminToken: string;
+}
 
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`YouTube API error: ${res.status}`);
-  const data = await res.json();
-
-  // Normalize playlistItems shape to match VideoItem shape expected downstream
-  const rawItems = (data.items ?? [])
-    .filter((i: Record<string, unknown>) => (i.contentDetails as Record<string, unknown>)?.videoId)
-    .map((i: Record<string, unknown>) => {
-      const snippet = i.snippet as Record<string, unknown>;
-      const videoId = (i.contentDetails as Record<string, unknown>).videoId as string;
-      const pub = (snippet.videoPublishedAt ?? snippet.publishedAt) as string;
-      if (publishedAfter && pub < publishedAfter) return null;
-      return {
-        id: { videoId },
-        snippet: {
-          title: String(snippet.title ?? ''),
-          description: String(snippet.description ?? ''),
-          publishedAt: pub,
-          thumbnails: (snippet.thumbnails ?? {}) as YouTubeVideoItem['snippet']['thumbnails'],
-        },
-      };
-    })
-    .filter(Boolean) as YouTubeVideoItem[];
-
-  const videoIds = rawItems.map((i: YouTubeVideoItem) => i.id.videoId).join(',');
-  let enriched: YouTubeVideoItem[] = rawItems;
-  if (videoIds) {
-    const detailsUrl = `${YT_API_BASE}/videos?part=contentDetails,statistics&id=${videoIds}&key=${apiKey}`;
-    const detailsRes = await fetch(detailsUrl);
-    if (detailsRes.ok) {
-      const details = await detailsRes.json();
-      const detailMap = new Map((details.items ?? []).map((d: Record<string, unknown>) => [d.id, d]));
-      enriched = rawItems.map((item: YouTubeVideoItem) => {
-        const detail = detailMap.get(item.id.videoId) as Record<string, unknown> | undefined;
-        return {
-          ...item,
-          contentDetails: detail?.contentDetails as YouTubeVideoItem['contentDetails'],
-          statistics: detail?.statistics as YouTubeVideoItem['statistics'],
-        };
-      });
+async function ytGet(ctx: Context, endpoint: string, params: Record<string, string>): Promise<Record<string, unknown>> {
+  const query = new URLSearchParams({ ...params, key: ctx.apiKey });
+  const url = `${YT_API_BASE}/${endpoint}?${query}`;
+  let lastStatus: number | string = 'network';
+  for (let attempt = 0; attempt < RETRY_ATTEMPTS; attempt++) {
+    if (attempt > 0) await ctx.sleep(1000 * 2 ** (attempt - 1));
+    let res: Response;
+    try {
+      res = await ctx.fetch(url);
+    } catch {
+      lastStatus = 'network';
+      continue;
     }
+    if (res.ok) return (await res.json()) as Record<string, unknown>;
+    lastStatus = res.status;
+    // 403 (cuota/clave) y otros 4xx no se reintentan: repetirlos solo consume cuota.
+    if (res.status !== 429 && res.status < 500) break;
   }
-
-  return { items: enriched, nextPageToken: data.nextPageToken };
+  throw new Error(`YouTube ${endpoint} error: ${lastStatus}`);
 }
 
-async function upsertSermon(
-  directusUrl: string,
-  adminToken: string,
-  video: YouTubeVideoItem,
-  existingId: string | null,
-  lastSyncedAt: string
-): Promise<'inserted' | 'updated' | 'error'> {
-  const { id: { videoId }, snippet, contentDetails, statistics } = video;
-  const thumbnailUrl = buildThumbnailUrl(videoId);
-  const durationSeconds = contentDetails?.duration ? parseDuration(contentDetails.duration) : null;
-  const viewCount = statistics?.viewCount ? parseInt(statistics.viewCount) : 0;
-
-  if (existingId) {
-    const res = await fetch(`${directusUrl}/items/sermons/${existingId}`, {
-      method: 'PATCH',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        youtube_status: 'available',
-        view_count: viewCount,
-        duration_seconds: durationSeconds,
-        last_synced_at: lastSyncedAt,
-      }),
-    });
-    return res.ok ? 'updated' : 'error';
-  }
-
-  const { suggestedSeries, suggestedPreacher } = suggestFromTitle(snippet.title);
-  const slug = generateSlug(snippet.title, videoId);
-
-  const res = await fetch(`${directusUrl}/items/sermons`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      title: snippet.title,
-      raw_youtube_title: snippet.title,
-      slug,
-      youtube_id: videoId,
-      youtube_status: 'available',
-      visibility: 'public',
-      featured: false,
-      description: snippet.description?.slice(0, 2000) || null,
-      thumbnail_url: thumbnailUrl,
-      duration_seconds: durationSeconds,
-      view_count: viewCount,
-      youtube_published_at: snippet.publishedAt,
-      sermon_date: snippet.publishedAt?.split('T')[0] ?? null,
-      suggested_series: suggestedSeries || null,
-      suggested_preacher: suggestedPreacher || null,
-      imported_at: lastSyncedAt,
-      last_synced_at: lastSyncedAt,
-    }),
-  });
-  return res.ok ? 'inserted' : 'error';
+function toYouTubeVideo(item: Record<string, unknown>): YouTubeVideo {
+  const snippet = (item.snippet ?? {}) as Record<string, unknown>;
+  const details = (item.contentDetails ?? {}) as Record<string, unknown>;
+  const stats = (item.statistics ?? {}) as Record<string, unknown>;
+  return {
+    id: String(item.id),
+    title: String(snippet.title ?? ''),
+    description: String(snippet.description ?? ''),
+    publishedAt: String(snippet.publishedAt ?? ''),
+    durationSeconds: typeof details.duration === 'string' ? parseDuration(details.duration) : null,
+    viewCount: stats.viewCount !== undefined ? parseInt(String(stats.viewCount)) : null,
+  };
 }
 
-export async function runYoutubeSync(options: {
-  full?: boolean;
-  publishedAfter?: string;
-}): Promise<SyncResult> {
-  const apiKey = process.env.YOUTUBE_API_KEY!;
-  const channelId = process.env.YOUTUBE_CHANNEL_ID!;
-  const directusUrl = process.env.DIRECTUS_URL ?? 'http://directus:8055';
-  const adminToken = process.env.DIRECTUS_ADMIN_TOKEN!;
+async function fetchChannelVideos(ctx: Context): Promise<{ playlistIds: string[]; videos: Map<string, YouTubeVideo> }> {
+  const channel = await ytGet(ctx, 'channels', { part: 'contentDetails', id: ctx.channelId });
+  const items = channel.items as { contentDetails?: { relatedPlaylists?: { uploads?: string } } }[] | undefined;
+  const uploads = items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+  if (!uploads) throw new Error('YouTube channels error: uploads playlist not found');
 
-  const result: SyncResult = { inserted: 0, updated: 0, unavailable: 0, errors: [] };
-  const syncedAt = new Date().toISOString();
-
-  // Track all YouTube video IDs seen during full sync to detect deletions
-  const seenYouTubeIds = new Set<string>();
-
+  const seen = new Set<string>();
   let pageToken: string | undefined;
-
   do {
-    const { items, nextPageToken } = await fetchYouTubePage(
-      apiKey, channelId, pageToken, options.full ? undefined : options.publishedAfter
-    );
-
-    for (const video of items) {
-      try {
-        const videoId = video.id.videoId;
-        if (options.full) seenYouTubeIds.add(videoId);
-
-        const checkRes = await fetch(
-          `${directusUrl}/items/sermons?filter[youtube_id][_eq]=${videoId}&fields=id&limit=1`,
-          { headers: { Authorization: `Bearer ${adminToken}` } }
-        );
-        const checkData = await checkRes.json();
-        const existingId = checkData?.data?.[0]?.id ?? null;
-
-        const outcome = await upsertSermon(directusUrl, adminToken, video, existingId, syncedAt);
-        if (outcome === 'inserted') result.inserted++;
-        else if (outcome === 'updated') result.updated++;
-        else result.errors.push(videoId);
-      } catch (err) {
-        result.errors.push(`${video.id.videoId}: ${String(err)}`);
-      }
+    const params: Record<string, string> = { part: 'contentDetails', playlistId: uploads, maxResults: String(YT_PAGE_SIZE) };
+    if (pageToken) params.pageToken = pageToken;
+    const page = await ytGet(ctx, 'playlistItems', params);
+    for (const item of (page.items ?? []) as { contentDetails?: { videoId?: unknown } }[]) {
+      const id = item.contentDetails?.videoId;
+      if (typeof id === 'string') seen.add(id);
     }
-
-    // For incremental: stop when page returned 0 items (all filtered by publishedAfter)
-    if (!options.full && items.length === 0) break;
-    pageToken = nextPageToken;
+    pageToken = typeof page.nextPageToken === 'string' ? page.nextPageToken : undefined;
   } while (pageToken);
 
-  // Full sync: mark DB sermons not seen on YouTube as unavailable
-  if (options.full && seenYouTubeIds.size > 0) {
-    result.unavailable = await markUnavailableSermons(directusUrl, adminToken, seenYouTubeIds, syncedAt);
+  const playlistIds = [...seen];
+  const videos = new Map<string, YouTubeVideo>();
+  for (let i = 0; i < playlistIds.length; i += YT_PAGE_SIZE) {
+    const ids = playlistIds.slice(i, i + YT_PAGE_SIZE).join(',');
+    const data = await ytGet(ctx, 'videos', { part: 'snippet,contentDetails,statistics', id: ids, maxResults: String(YT_PAGE_SIZE) });
+    for (const item of (data.items ?? []) as Record<string, unknown>[]) {
+      const video = toYouTubeVideo(item);
+      videos.set(video.id, video);
+    }
+  }
+  return { playlistIds, videos };
+}
+
+async function findMissingOnYouTube(ctx: Context, ids: string[]): Promise<string[]> {
+  const returned = new Set<string>();
+  for (let i = 0; i < ids.length; i += YT_PAGE_SIZE) {
+    const data = await ytGet(ctx, 'videos', { part: 'id', id: ids.slice(i, i + YT_PAGE_SIZE).join(','), maxResults: String(YT_PAGE_SIZE) });
+    for (const item of (data.items ?? []) as Record<string, unknown>[]) returned.add(String(item.id));
+  }
+  return ids.filter(id => !returned.has(id));
+}
+
+function directusHeaders(ctx: Context, json = false): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (ctx.adminToken) headers.Authorization = `Bearer ${ctx.adminToken}`;
+  if (json) headers['Content-Type'] = 'application/json';
+  return headers;
+}
+
+async function loadExistingSermons(ctx: Context): Promise<Map<string, ExistingSermon>> {
+  const existing = new Map<string, ExistingSermon>();
+  for (let offset = 0; ; offset += DIRECTUS_PAGE_SIZE) {
+    const query = new URLSearchParams({ fields: EXISTING_FIELDS, sort: 'id', limit: String(DIRECTUS_PAGE_SIZE), offset: String(offset) });
+    const res = await ctx.fetch(`${ctx.directusUrl}/items/sermons?${query}`, { headers: directusHeaders(ctx) });
+    if (!res.ok) throw new Error(`Directus sermons read error: ${res.status}`);
+    const rows = ((await res.json()) as { data?: ExistingSermon[] }).data ?? [];
+    for (const row of rows) if (row.youtube_id) existing.set(row.youtube_id, row);
+    if (rows.length < DIRECTUS_PAGE_SIZE) return existing;
+  }
+}
+
+function unavailableLimit(availableCount: number): number {
+  return Math.max(1, Math.min(MAX_UNAVAILABLE_PER_RUN, Math.floor(availableCount * MAX_UNAVAILABLE_RATIO)));
+}
+
+type WriteOp =
+  | { kind: 'insert'; youtubeId: string; body: Record<string, unknown> }
+  | { kind: 'update' | 'restore' | 'unavailable'; youtubeId: string; id: string; body: Record<string, unknown> };
+
+export async function runYoutubeSync(options: SyncOptions = {}, deps: SyncDeps = {}): Promise<SyncResult> {
+  const ctx: Context = {
+    fetch: deps.fetch ?? fetch,
+    sleep: deps.sleep ?? (ms => new Promise(resolve => setTimeout(resolve, ms))),
+    apiKey: process.env.YOUTUBE_API_KEY ?? '',
+    channelId: process.env.YOUTUBE_CHANNEL_ID ?? '',
+    directusUrl: process.env.DIRECTUS_URL ?? 'http://directus:8055',
+    adminToken: process.env.DIRECTUS_ADMIN_TOKEN ?? '',
+  };
+  if (!ctx.apiKey || !ctx.channelId) {
+    throw new Error('YouTube sync misconfigured: YOUTUBE_API_KEY and YOUTUBE_CHANNEL_ID are required');
+  }
+  const syncedAt = (deps.now ?? (() => new Date()))().toISOString();
+  const result: SyncResult = {
+    inserted: 0, updated: 0, unchanged: 0, unavailable: 0, restored: 0,
+    titleChanges: [], changes: [], unavailableIds: [], errors: [], dryRun: Boolean(options.dryRun),
+  };
+
+  // 1. Todas las lecturas antes de cualquier escritura: un fallo aquí aborta sin tocar datos.
+  const { playlistIds, videos } = await fetchChannelVideos(ctx);
+  const existing = await loadExistingSermons(ctx);
+
+  // 2. Plan de escrituras.
+  const ops: WriteOp[] = [];
+  for (const youtubeId of playlistIds) {
+    const video = videos.get(youtubeId);
+    if (!video) continue;
+    const current = existing.get(youtubeId);
+    if (!current) {
+      ops.push({ kind: 'insert', youtubeId, body: buildNewSermon(video, syncedAt) });
+      continue;
+    }
+    const plan = planSermonUpdate(current, video, syncedAt);
+    if (!plan) {
+      result.unchanged++;
+      continue;
+    }
+    if (plan.titleChange) result.titleChanges.push(plan.titleChange);
+    ops.push({ kind: plan.patch.youtube_status === 'available' ? 'restore' : 'update', youtubeId, id: current.id, body: plan.patch });
+  }
+
+  const available = [...existing.values()].filter(s => s.youtube_status === 'available');
+  const candidates = available.filter(s => !videos.has(s.youtube_id)).map(s => s.youtube_id);
+  if (candidates.length > 0) {
+    let missing: string[] | null = null;
+    try {
+      missing = await findMissingOnYouTube(ctx, candidates);
+    } catch (err) {
+      result.unavailableSkipped = 'verification_failed';
+      result.errors.push(`unavailable_verification_failed: ${String(err)}`);
+    }
+    if (missing && missing.length > unavailableLimit(available.length)) {
+      result.unavailableSkipped = 'circuit_breaker';
+      result.errors.push('unavailable_circuit_breaker');
+    } else if (missing) {
+      for (const youtubeId of missing) {
+        ops.push({ kind: 'unavailable', youtubeId, id: existing.get(youtubeId)!.id, body: { youtube_status: 'unavailable', last_synced_at: syncedAt } });
+      }
+    }
+  }
+
+  if (options.dryRun) {
+    for (const op of ops) countOp(result, op);
+    return result;
+  }
+
+  // 3. Escrituras, confirmando la propiedad del lock antes de cada una.
+  for (const op of ops) {
+    if (options.ensureLock && !(await options.ensureLock())) {
+      result.lockLost = true;
+      result.errors.push('lock_lost');
+      break;
+    }
+    const isInsert = op.kind === 'insert';
+    try {
+      const res = await ctx.fetch(`${ctx.directusUrl}/items/sermons${isInsert ? '' : `/${op.id}`}`, {
+        method: isInsert ? 'POST' : 'PATCH',
+        headers: directusHeaders(ctx, true),
+        body: JSON.stringify(op.body),
+        signal: AbortSignal.timeout(WRITE_TIMEOUT_MS),
+      });
+      if (res.ok) countOp(result, op);
+      else result.errors.push(`${op.youtubeId}: ${op.kind} ${res.status}`);
+    } catch (err) {
+      result.errors.push(`${op.youtubeId}: ${op.kind} ${String(err)}`);
+    }
   }
 
   return result;
 }
 
-async function markUnavailableSermons(
-  directusUrl: string,
-  adminToken: string,
-  seenIds: Set<string>,
-  syncedAt: string
-): Promise<number> {
-  // Fetch all DB sermons that are currently marked available
-  let offset = 0;
-  const pageSize = 500;
-  let marked = 0;
-
-  while (true) {
-    const res = await fetch(
-      `${directusUrl}/items/sermons?filter[youtube_status][_eq]=available&fields=id,youtube_id&limit=${pageSize}&offset=${offset}`,
-      { headers: { Authorization: `Bearer ${adminToken}` } }
-    );
-    if (!res.ok) break;
-    const data = await res.json();
-    const items: { id: string; youtube_id: string }[] = data?.data ?? [];
-    if (items.length === 0) break;
-
-    for (const item of items) {
-      if (item.youtube_id && !seenIds.has(item.youtube_id)) {
-        await fetch(`${directusUrl}/items/sermons/${item.id}`, {
-          method: 'PATCH',
-          headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ youtube_status: 'unavailable', last_synced_at: syncedAt }),
-        });
-        marked++;
-      }
-    }
-
-    if (items.length < pageSize) break;
-    offset += pageSize;
+function countOp(result: SyncResult, op: WriteOp): void {
+  const fields = op.kind === 'insert'
+    ? []
+    : Object.keys(op.body).filter(k => k !== 'last_synced_at' && k !== 'view_count').sort();
+  result.changes.push({ youtube_id: op.youtubeId, action: op.kind, fields });
+  if (op.kind === 'insert') result.inserted++;
+  else if (op.kind === 'update') result.updated++;
+  else if (op.kind === 'restore') result.restored++;
+  else {
+    result.unavailable++;
+    result.unavailableIds.push(op.youtubeId);
   }
-
-  return marked;
 }
