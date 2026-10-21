@@ -62,7 +62,8 @@ function runMigration(...args: string[]): unknown {
     encoding: 'utf8',
   });
   if (res.status !== 0) throw new Error(`Migración ${args.join(' ')} falló: ${res.stderr}`);
-  return (JSON.parse(res.stdout.trim()) as { result: unknown }).result;
+  // Una línea JSON por paso (destino, protecciones perdidas en revert, resultado): el resultado es la última.
+  return (JSON.parse(res.stdout.trim().split('\n').at(-1)!) as { result: unknown }).result;
 }
 
 export function sermonsMigration() {
@@ -162,7 +163,8 @@ async function createLibrarySchema(): Promise<void> {
   const policy = await publicPolicyId();
   const read = (collection: string, permissions: Record<string, unknown> = {}) =>
     dxOk('/permissions', { method: 'POST', body: JSON.stringify({ policy, collection, action: 'read', permissions, fields: ['*'] }) });
-  await read('sermons', { visibility: { _eq: 'public' } });
+  // Como producción (verificado el 2026-10-21 en directus_permissions): lectura pública de sermons sin filtro.
+  await read('sermons');
   await read('preachers', { active: { _eq: true } });
   await read('sermon_series', { active: { _eq: true } });
   await read('sermon_tags');

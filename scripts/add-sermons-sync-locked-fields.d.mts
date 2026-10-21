@@ -23,7 +23,17 @@ export declare function createMigration(options: {
   target(): Promise<{ origin: string; project: string | null }>;
   check(): Promise<{ exists: boolean; type?: string }>;
   apply(): Promise<{ created: boolean }>;
-  revert(): Promise<{ removed: boolean; lostLocks: { youtube_id: string; sync_locked_fields: unknown }[] }>;
+  revert(options?: { beforeDelete?: (lostLocks: LostLock[]) => void }): Promise<{ removed: boolean; lostLocks: LostLock[] }>;
   lock(youtubeId: string, field: string): Promise<LockResult>;
   unlock(youtubeId: string, field: string): Promise<LockResult>;
 };
+
+export interface LostLock {
+  youtube_id: string;
+  sync_locked_fields: unknown;
+}
+
+export declare function runCli(
+  argv: string[],
+  options?: { env?: Record<string, string | undefined>; fetch?: typeof globalThis.fetch; out?: (line: string) => void },
+): Promise<unknown>;

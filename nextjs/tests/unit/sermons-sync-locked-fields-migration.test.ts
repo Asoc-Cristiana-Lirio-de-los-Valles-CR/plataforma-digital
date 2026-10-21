@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import {
-  createMigration, FIELD, FIELD_DEFINITION, LOCKABLE_FIELDS as SCRIPT_LOCKABLE,
+  createMigration, runCli, FIELD, FIELD_DEFINITION, LOCKABLE_FIELDS as SCRIPT_LOCKABLE,
 } from '../../../scripts/add-sermons-sync-locked-fields.mjs';
 import { LOCKABLE_FIELDS } from '../../src/lib/sync-youtube';
 
@@ -13,7 +13,8 @@ type Sermon = { id: string; youtube_id: string; sermon_date: string; sync_locked
 
 // Doble mínimo de Directus para /fields y /items/sermons (403 para un campo inexistente, como Directus 11).
 function fakeDirectus(sermons: Sermon[]) {
-  const state = { fieldExists: false, fieldType: 'json', calls: [] as string[] };
+  // maxLimit emula QUERY_LIMIT_MAX; deleteNoop, un DELETE que responde 204 sin borrar el campo.
+  const state = { fieldExists: false, fieldType: 'json', calls: [] as string[], maxLimit: 0, deleteNoop: false };
   const items = new Map(sermons.map(s => [s.id, { ...s }]));
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
   const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -29,6 +30,7 @@ function fakeDirectus(sermons: Sermon[]) {
     if (url.pathname === `/fields/sermons/${FIELD}`) {
       if (method === 'DELETE') {
         if (!state.fieldExists) return json({ errors: [] }, 403);
+        if (state.deleteNoop) return new Response(null, { status: 204 });
         state.fieldExists = false;
         for (const s of items.values()) delete s.sync_locked_fields;
         return new Response(null, { status: 204 });
@@ -45,7 +47,11 @@ function fakeDirectus(sermons: Sermon[]) {
     if (url.pathname === '/items/sermons' && method === 'GET') {
       if (!state.fieldExists && url.searchParams.get('fields')?.includes(FIELD)) return json({ errors: [] }, 403);
       if (url.searchParams.get(`filter[${FIELD}][_nnull]`) === 'true') {
-        return json({ data: [...items.values()].filter(s => s.sync_locked_fields != null) });
+        const requested = Number(url.searchParams.get('limit') ?? '100');
+        const limit = state.maxLimit > 0 && (requested === -1 || requested > state.maxLimit) ? state.maxLimit : requested;
+        const offset = Number(url.searchParams.get('offset') ?? '0');
+        const locked = [...items.values()].filter(s => s.sync_locked_fields != null).sort((a, b) => a.id.localeCompare(b.id));
+        return json({ data: locked.slice(offset, limit === -1 ? undefined : offset + limit) });
       }
       const youtubeId = url.searchParams.get('filter[youtube_id][_eq]');
       return json({ data: [...items.values()].filter(s => s.youtube_id === youtubeId) });
@@ -161,6 +167,75 @@ describe('migración sermons.sync_locked_fields', () => {
     });
     expect(await migration().revert()).toEqual({ removed: false, lostLocks: [] });
     expect(await migration().check()).toEqual({ exists: false });
+  });
+
+  it('lock no confunde una protección ausente en la respuesta con "sin protección"', async () => {
+    await migration().apply();
+    delete dx.items.get('s-d0hl')!.sync_locked_fields;
+    await expect(migration().lock('D0hL4Ax6juU', 'title')).rejects.toThrow(/no devolvió sync_locked_fields/);
+    expect(dx.state.calls.filter(c => c.startsWith('PATCH'))).toEqual([]);
+  });
+
+  it('revert lista todas las protecciones aunque Directus recorte el limit, sin contar listas vacías', async () => {
+    await migration().apply();
+    await migration().lock('D0hL4Ax6juU', 'sermon_date');
+    dx.items.get('s-dup1')!.sync_locked_fields = ['title'];
+    dx.items.get('s-dup2')!.sync_locked_fields = [];
+    dx.state.maxLimit = 1;
+    expect((await migration().revert()).lostLocks).toEqual([
+      { youtube_id: 'D0hL4Ax6juU', sync_locked_fields: ['sermon_date'] },
+      { youtube_id: 'DUPLICADO01', sync_locked_fields: ['title'] },
+    ]);
+  });
+
+  it('revert verifica que el campo quedó eliminado', async () => {
+    await migration().apply();
+    dx.state.deleteNoop = true;
+    await expect(migration().revert()).rejects.toThrow(/sigue existiendo/);
+  });
+});
+
+describe('runCli (lo que ejecuta la CLI)', () => {
+  const env = { DIRECTUS_URL: 'http://directus:8055', DIRECTUS_ADMIN_TOKEN: TOKEN };
+  // Cada línea impresa queda también en state.calls, para comprobar su orden respecto de las peticiones.
+  function capture() {
+    const lines: Record<string, unknown>[] = [];
+    const out = (line: string) => {
+      const parsed = JSON.parse(line) as Record<string, unknown>;
+      lines.push(parsed);
+      dx.state.calls.push(`OUT ${Object.keys(parsed).join(',')}`);
+    };
+    return { lines, out };
+  }
+
+  it('imprime el destino antes de ejecutar el comando, también si el comando falla', async () => {
+    await migration().apply();
+    const { lines, out } = capture();
+    await expect(runCli(['lock', 'NOEXISTE000', 'sermon_date'], { env, fetch: dx.fetch, out })).rejects.toThrow(/0 sermones/);
+    expect(lines).toEqual([
+      { command: 'lock', args: ['NOEXISTE000', 'sermon_date'], target: { origin: 'http://directus:8055', project: 'LIRIO-PRUEBA' } },
+    ]);
+  });
+
+  it('revert lista las protecciones que se pierden antes de borrar el campo', async () => {
+    await migration().apply();
+    await migration().lock('D0hL4Ax6juU', 'sermon_date');
+    dx.state.calls = [];
+    const { lines, out } = capture();
+    const lostLocks = [{ youtube_id: 'D0hL4Ax6juU', sync_locked_fields: ['sermon_date'] }];
+    expect(await runCli(['revert', '--yes'], { env, fetch: dx.fetch, out })).toEqual({ removed: true, lostLocks });
+    const listed = dx.state.calls.indexOf('OUT command,target,lostLocks');
+    expect(listed).toBeGreaterThan(-1);
+    expect(listed).toBeLessThan(dx.state.calls.indexOf(`DELETE /fields/sermons/${FIELD}`));
+    expect(lines.at(-1)).toMatchObject({ command: 'revert', result: { removed: true, lostLocks } });
+  });
+
+  it('lock y unlock validan sus argumentos antes de conectarse', async () => {
+    const { out } = capture();
+    await expect(runCli(['lock', 'D0hL4Ax6juU', 'description'], { env, fetch: dx.fetch, out })).rejects.toThrow(/no se puede proteger/);
+    await expect(runCli(['unlock', 'D0hL4Ax6juU'], { env, fetch: dx.fetch, out })).rejects.toThrow(/no se puede proteger/);
+    await expect(runCli(['lock'], { env, fetch: dx.fetch, out })).rejects.toThrow(/Uso: lock <youtube_id> <campo>/);
+    expect(dx.state.calls).toEqual([]);
   });
 });
 

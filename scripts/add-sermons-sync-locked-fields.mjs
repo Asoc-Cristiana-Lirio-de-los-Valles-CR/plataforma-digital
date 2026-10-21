@@ -45,6 +45,22 @@ export const FIELD_DEFINITION = {
   schema: { is_nullable: true, default_value: null },
 };
 
+const PAGE_SIZE = 500;
+
+function assertLockable(field) {
+  if (!LOCKABLE_FIELDS.includes(field)) {
+    throw new Error(`El campo ${field} no se puede proteger; opciones: ${LOCKABLE_FIELDS.join(', ')}`);
+  }
+}
+
+// Igual que la sync: una clave ausente no se interpreta como "sin protección".
+function locksOf(sermon, youtubeId) {
+  if (!Object.prototype.hasOwnProperty.call(sermon, FIELD)) {
+    throw new Error(`Directus no devolvió ${FIELD} de ${youtubeId}; revise el token y el esquema`);
+  }
+  return sermon[FIELD];
+}
+
 export function createMigration({ directusUrl, token, fetch = globalThis.fetch }) {
   if (!directusUrl || !token) throw new Error('Se requieren DIRECTUS_URL y DIRECTUS_ADMIN_TOKEN');
 
@@ -90,15 +106,34 @@ export function createMigration({ directusUrl, token, fetch = globalThis.fetch }
     return { created: true };
   }
 
-  // Borrar el campo no deja revisiones por sermón: la salida registra las protecciones que se pierden.
-  async function revert() {
+  // Avanza por filas recibidas hasta una página vacía: Directus puede recortar el limit (QUERY_LIMIT_MAX).
+  async function listLocks() {
+    const locks = [];
+    for (let offset = 0; ; ) {
+      const query = new URLSearchParams({
+        [`filter[${FIELD}][_nnull]`]: 'true', fields: `youtube_id,${FIELD}`, sort: 'id', limit: String(PAGE_SIZE), offset: String(offset),
+      });
+      const page = await api('GET', `/items/sermons?${query}`);
+      if (!page.ok) throw new Error(`No se pudieron listar las protecciones antes de revertir: HTTP ${page.status}`);
+      const rows = page.data?.data ?? [];
+      if (rows.length === 0) return locks;
+      for (const s of rows) {
+        const value = locksOf(s, s.youtube_id);
+        if (!Array.isArray(value) || value.length > 0) locks.push({ youtube_id: s.youtube_id, [FIELD]: value });
+      }
+      offset += rows.length;
+    }
+  }
+
+  // Borrar el campo no deja revisiones por sermón: beforeDelete recibe las protecciones que se pierden
+  // para que la CLI las imprima antes de borrar.
+  async function revert({ beforeDelete } = {}) {
     if (!(await check()).exists) return { removed: false, lostLocks: [] };
-    const query = new URLSearchParams({ [`filter[${FIELD}][_nnull]`]: 'true', fields: `youtube_id,${FIELD}`, limit: '-1' });
-    const locked = await api('GET', `/items/sermons?${query}`);
-    if (!locked.ok) throw new Error(`No se pudieron listar las protecciones antes de revertir: HTTP ${locked.status}`);
-    const lostLocks = (locked.data?.data ?? []).map(s => ({ youtube_id: s.youtube_id, [FIELD]: s[FIELD] }));
+    const lostLocks = await listLocks();
+    beforeDelete?.(lostLocks);
     const res = await api('DELETE', `/fields/sermons/${FIELD}`);
     if (!res.ok) throw new Error(`No se pudo eliminar sermons.${FIELD}: HTTP ${res.status}`);
+    if ((await check()).exists) throw new Error(`sermons.${FIELD} sigue existiendo después del DELETE`);
     return { removed: true, lostLocks };
   }
 
@@ -112,12 +147,10 @@ export function createMigration({ directusUrl, token, fetch = globalThis.fetch }
   }
 
   async function setLocks(youtubeId, field, add) {
-    if (!LOCKABLE_FIELDS.includes(field)) {
-      throw new Error(`El campo ${field} no se puede proteger; opciones: ${LOCKABLE_FIELDS.join(', ')}`);
-    }
+    assertLockable(field);
     if (!(await check()).exists) throw new Error(`sermons.${FIELD} no existe: ejecute apply primero`);
     const sermon = await findSermon(youtubeId);
-    const before = sermon[FIELD] ?? null;
+    const before = locksOf(sermon, youtubeId);
     // Igual que la sync: un valor mal formado no se interpreta como "sin protección" ni se pisa.
     if (before !== null && !(Array.isArray(before) && before.every(f => LOCKABLE_FIELDS.includes(f)))) {
       throw new Error(`${FIELD} de ${youtubeId} tiene un valor inválido (${JSON.stringify(before)}); corríjalo en Directus antes de continuar`);
@@ -129,7 +162,7 @@ export function createMigration({ directusUrl, token, fetch = globalThis.fetch }
     if (JSON.stringify(after) === JSON.stringify(before)) return { youtube_id: youtubeId, before, after, changed: false };
     const res = await api('PATCH', `/items/sermons/${sermon.id}`, { [FIELD]: after });
     if (!res.ok) throw new Error(`No se pudo actualizar ${youtubeId}: HTTP ${res.status}`);
-    const saved = (await findSermon(youtubeId))[FIELD] ?? null;
+    const saved = locksOf(await findSermon(youtubeId), youtubeId);
     if (JSON.stringify(saved) !== JSON.stringify(after)) throw new Error(`La protección de ${youtubeId} no quedó guardada`);
     return { youtube_id: youtubeId, before, after, changed: true };
   }
@@ -144,26 +177,38 @@ export function createMigration({ directusUrl, token, fetch = globalThis.fetch }
   };
 }
 
-async function main([command, ...args]) {
-  const migration = createMigration({ directusUrl: process.env.DIRECTUS_URL, token: process.env.DIRECTUS_ADMIN_TOKEN });
-  const commands = {
+/**
+ * Ejecuta un comando e imprime una línea JSON por paso: primero el destino, en revert las protecciones
+ * que se pierden (antes de borrar) y al final el resultado. Si el comando falla, el destino ya quedó impreso.
+ */
+export async function runCli([command, ...args], { env = process.env, fetch = globalThis.fetch, out = console.log } = {}) {
+  const commands = ['check', 'apply', 'revert', 'lock', 'unlock'];
+  // Validaciones antes de cualquier conexión.
+  if (!commands.includes(command)) throw new Error('Uso: check | apply | lock <youtube_id> <campo> | unlock <youtube_id> <campo> | revert --yes');
+  if (command === 'revert' && args[0] !== '--yes') throw new Error('revert elimina el campo y todas las protecciones: confirme con --yes');
+  if (command === 'lock' || command === 'unlock') {
+    if (!args[0]) throw new Error(`Uso: ${command} <youtube_id> <campo>`);
+    assertLockable(args[1]);
+  }
+  const migration = createMigration({ directusUrl: env.DIRECTUS_URL, token: env.DIRECTUS_ADMIN_TOKEN, fetch });
+  const target = await migration.target();
+  out(JSON.stringify({ command, args, target }));
+  const run = {
     check: () => migration.check(),
     apply: () => migration.apply(),
-    revert: () => migration.revert(),
+    revert: () => migration.revert({ beforeDelete: lostLocks => out(JSON.stringify({ command, target, lostLocks })) }),
     lock: () => migration.lock(args[0], args[1]),
     unlock: () => migration.unlock(args[0], args[1]),
   };
-  // Validaciones antes de cualquier conexión.
-  if (!commands[command]) throw new Error('Uso: check | apply | lock <youtube_id> <campo> | unlock <youtube_id> <campo> | revert --yes');
-  if (command === 'revert' && args[0] !== '--yes') throw new Error('revert elimina el campo y todas las protecciones: confirme con --yes');
-  const target = await migration.target();
-  console.log(JSON.stringify({ command, args, target, result: await commands[command]() }));
+  const result = await run[command]();
+  out(JSON.stringify({ command, target, result }));
+  return result;
 }
 
 // CLI por archivo o por stdin (`node --input-type=module -`); al importarlo (pruebas) no hace nada.
 const invokedPath = process.argv[1];
 if (invokedPath === '-' || (invokedPath && import.meta.url === pathToFileURL(resolve(invokedPath)).href)) {
-  main(process.argv.slice(2)).catch(err => {
+  runCli(process.argv.slice(2)).catch(err => {
     console.error(JSON.stringify({ error: err.message }));
     process.exit(1);
   });
