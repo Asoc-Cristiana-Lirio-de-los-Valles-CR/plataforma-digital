@@ -97,16 +97,32 @@ runtimeCaching: [
 **Campos que sync NUNCA sobreescribe:** `description`, `slug`, `preacher`, `series`, `visibility`, `featured`, `manual_thumbnail`, `tags`, `thumbnail_url`, `suggested_*`, `imported_at`, `sync_locked_fields`. `title` y `sermon_date` se protegen cuando un editor los personalizó o cuando figuran en `sync_locked_fields`.
 
 **Campos protegidos (`sync_locked_fields`, 2026-10-21).** La detección implícita de ediciones manuales no alcanza: si `sermon_date` coincide con la fecha UTC de `youtube_published_at`, no se distingue una fecha editorial válida de una automática. Caso real: el servicio de `D0hL4Ax6juU` fue el 11 de octubre y YouTube terminó de publicar la transmisión a las 00:28 del 12 (hora de Costa Rica); la sync la habría movido al 12. Reglas:
-- Un editor marca en el panel de Directus los campos a proteger (`sermon_date`, `title`). Directus registra quién y cuándo en sus revisiones.
+- Se marcan en el panel de Directus los campos a proteger (`sermon_date`, `title`) y Directus registra quién y cuándo en sus revisiones (`sermons` tiene la auditoría por defecto, `accountability = all`: 1646 revisiones al 2026-10-21). **Hoy solo root@ puede editar `sermons`**: la política "Administrador CMS" no tiene permisos sobre la colección. Darle acceso a esa política es una decisión aparte. El token de servicio de la sync y del script pertenece a root@, así que un `lock` por script queda auditado a nombre de root@.
+- `unlock` (o desmarcar la casilla) **no devuelve el campo a YouTube**: tras una sync protegida, el valor ya difiere del automático y la regla implícita lo trata como edición manual. Para que la sync vuelva a seguir a YouTube hay que igualar `sermon_date` a la fecha UTC de `youtube_published_at` (o `title` a `raw_youtube_title`).
+- `protectedFields` solo informa las escrituras aplicadas (o planificadas en `dry_run`), igual que `changes`. Puede incluir títulos editoriales en el log del cron, que es público. No expone nada nuevo: la política pública ya lee `sermons` con `fields: ["*"]` y sin filtro.
 - La sync omite esos campos, sigue actualizando `raw_youtube_title`, `youtube_published_at`, la duración y el estado, e informa cada omisión en `protectedFields` (respuesta, `dry_run` y `activity_logs`) con `kept`, `youtube` y `reason`. `reason` vale `sync_locked_fields` o `manual_edit`.
 - **Falla cerrado**: si Directus no devuelve el campo (no existe, falta permiso u otro error de lectura) o trae un valor que no es `null` ni una lista de campos protegibles, la sync aborta antes de escribir nada. Una protección nunca se pierde en silencio.
 - No se protege nada automáticamente: el campo nace en `null` para todos los sermones.
 
 **Migración** (`scripts/add-sermons-sync-locked-fields.mjs`; probada contra Directus 11 en el E2E aislado):
-- Comandos: `check` (solo lectura) · `apply` (crea el campo JSON opcional, idempotente) · `lock <youtube_id> <campo>` y `unlock <youtube_id> <campo>` (idempotentes, verificados con una relectura) · `revert --yes` (elimina el campo y todas las protecciones).
-- En producción se ejecuta dentro del contenedor para que el token no salga del servidor: `ssh … 'docker exec -i lirio_nextjs node --input-type=module - <comando>' < scripts/add-sermons-sync-locked-fields.mjs`.
-- No modifica ningún valor existente. La política pública lee `sermons` con `fields: ["*"]`, así que la lista es visible en la API pública: solo contiene nombres de campos y no requiere cambiar permisos.
-- Orden de despliegue: respaldo verificado → `apply` → `lock` de los casos aprobados → release del código → `dry_run`. Si el código se despliega antes que la migración, la sync falla cerrado (no escribe) hasta aplicarla.
+- Comandos:
+  - `check`: solo lectura. Lee la lista de campos; un 403 se trata como error ("sin permisos o destino equivocado"), nunca como "no existe".
+  - `apply`: crea el campo JSON opcional. Es idempotente.
+  - `lock <youtube_id> <campo>` y `unlock <youtube_id> <campo>`: idempotentes y verificados con una relectura. Se niegan a pisar un valor mal formado.
+  - `revert --yes`: elimina el campo y todas las protecciones. Antes lista en la salida las protecciones que se pierden, porque borrar el campo no deja revisiones por sermón.
+  - Cada ejecución imprime el destino: origen y `project_name`.
+- En producción se ejecuta **desde Git Bash** (PowerShell 5.1 no admite `<` y altera la codificación), dentro del contenedor para que el token no salga del servidor: `ssh … 'docker exec -i lirio_nextjs node --input-type=module - <comando>' < scripts/add-sermons-sync-locked-fields.mjs`.
+- No modifica ningún valor existente. La política pública lee `sermons` con `fields: ["*"]`, así que la lista es visible en la API pública. Solo contiene nombres de campos y no requiere cambiar permisos.
+- **Orden de despliegue** (el código anterior, de `9a7b366`, ignora el campo):
+  1. Respaldo verificado.
+  2. Release del código.
+  3. `apply`.
+  4. `lock` de los casos aprobados.
+  5. `dry_run`.
+  6. Sync real autorizada.
+  7. Reactivar el cron.
+
+  `sync-sermons.yml` debe seguir **desactivado** hasta el `dry_run` con el código nuevo, porque con la migración aplicada bajo el código anterior, una sync movería la fecha protegida. El código nuevo falla cerrado (no escribe) mientras no exista el campo. La única ventana restante son los segundos entre `apply` y `lock`, que controla el operador con el cron desactivado. Después de la primera sync protegida, la regla implícita también conserva la fecha, así que un rollback del código ya no la altera.
 
 **Videos no disponibles públicamente** (eliminados, privados o inaccesibles; la API no los distingue): sync marca `youtube_status = 'unavailable'` solo tras confirmarlo con `videos.list`, con freno ante marcados masivos (máx. 10 por ejecución y 2 % de los disponibles). No toca `visibility` ni borra el registro. Desaparecen de listas y búsqueda, el detalle responde 404, y se recuperan solos si el video vuelve.
 
