@@ -150,7 +150,7 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 - Colecciones Directus: `service_schedule`, `weekly_verse`, `church_info`, `contact_messages`, `church_leaders`, `ministerios`, `team_documents`
 - Permisos públicos de lectura activos en service_schedule, weekly_verse, church_info
 - GitHub repo activo: `Asoc-Cristiana-Lirio-de-los-Valles-CR/plataforma-digital`
-- CI/CD: workflows en `.github/workflows/` (ci.yml, deploy-dev.yml, deploy-prod.yml)
+- CI/CD: workflows en `.github/workflows/` (ci.yml, deploy-prod.yml, sync-sermons.yml). `dev` es la rama de integración: solo CI, sin despliegue. Producción se publica únicamente desde `main`, mediante un PR de release `dev → main` aprobado por `@soporteLirio`. `deploy-dev.yml` se eliminó el 2026-10-21 porque desplegaba `dev` sobre el directorio de producción (`/opt/lirio/app`); no existe un staging real
 - Branch protection activo en `main` y `dev`
 - `DIRECTUS_URL=http://directus:8055` requerido en contenedor Next.js (server-side fetch)
 - Roles RBAC implementados: Administrator (root@) + Administrador CMS (admin@) con filtros de seguridad
@@ -158,7 +158,8 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 - Footer y ContactPage convertidos a Server Components
 - robots.txt y rutas estáticas excluidas del middleware i18n
 - Biblioteca: búsqueda server-side por título/fecha (año, mes, día), carrusel de años, filtro por predicador/serie
-- YouTube sync: detecta videos borrados y los marca `youtube_status=unavailable` (ocultos en web)
+- YouTube sync (rev. 2026-10-21): reconciliación completa en cada ejecución (~45 unidades de cuota). YouTube es la fuente de verdad: `title` sigue a YouTube salvo que un editor lo haya personalizado (`title != raw_youtube_title`); `description` y demás campos editoriales nunca se sobrescriben. Videos no disponibles públicamente → `youtube_status=unavailable` tras verificación y con freno ante marcados masivos (ocultos en listas, detalle 404, se recuperan solos). Lock atómico en Redis (`lirio:sync:youtube:lock`). `?dry_run=true` devuelve el plan sin escribir
+- E2E aislado: `cd nextjs && npm run test:e2e:isolated` levanta `docker-compose.e2e.yml` (Directus/PostgreSQL/Redis exclusivos, puertos solo en loopback), corre toda la suite y lo destruye. La guarda de `tests/e2e/isolated/guard.ts` bloquea cualquier destino que no sea ese stack
 - Zona Equipo (`/equipo/manuales`): protegida por HMAC-SHA256 cookie (TEAM_SECRET). Middleware Edge Runtime usa Web Crypto API. Documentos con `visibility=private` requieren cookie; `visibility=link` accesibles por enlace directo sin cookie. Sin descarga — solo `Content-Disposition: inline`. SSH VPS: `lirio@20.12.207.240` con `~/.ssh/lirio_azure_key`. Proyecto en `/opt/lirio/app`
 
 ## Infraestructura VM — registro de cambios y tenants

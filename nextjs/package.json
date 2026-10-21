@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:isolated": "node tests/e2e/isolated/run-isolated.mjs"
   },
   "dependencies": {
     "@directus/sdk": "^17.0.0",
