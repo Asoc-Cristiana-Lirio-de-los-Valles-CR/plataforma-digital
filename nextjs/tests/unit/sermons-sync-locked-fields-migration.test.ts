@@ -86,6 +86,18 @@ describe('migración sermons.sync_locked_fields', () => {
     expect(choices).toEqual([...LOCKABLE_FIELDS]);
   });
 
+  it('el trigger de PostgreSQL protege los mismos campos y se puede revertir', () => {
+    const sql = (name: string) => readFileSync(path.resolve(__dirname, `../../../scripts/sql/${name}`), 'utf8');
+    const up = sql('sermons-sync-locks-trigger.up.sql');
+    const array = up.match(/FOREACH\s+\w+\s+IN\s+ARRAY\s+ARRAY\[([^\]]*)\]/i)?.[1] ?? '';
+    expect([...array.matchAll(/'([^']+)'/g)].map(m => m[1])).toEqual([...LOCKABLE_FIELDS]);
+    expect(up).toMatch(/BEFORE UPDATE ON public\.sermons/i);
+    const down = sql('sermons-sync-locks-trigger.down.sql');
+    expect(down).toMatch(/DROP TRIGGER IF EXISTS sermons_enforce_sync_locks ON public\.sermons/i);
+    expect(down).toMatch(/DROP FUNCTION IF EXISTS public\.sermons_enforce_sync_locks\(\)/i);
+    expect(down.replace(/--.*$/gm, '')).not.toMatch(/CASCADE/i);
+  });
+
   it('define un campo JSON opcional, sin valor por defecto, editable desde el panel', () => {
     expect(FIELD_DEFINITION).toMatchObject({
       field: 'sync_locked_fields',

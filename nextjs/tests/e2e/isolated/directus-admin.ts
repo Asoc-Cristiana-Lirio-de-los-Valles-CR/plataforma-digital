@@ -1,5 +1,5 @@
 // Administración del Directus AISLADO (stack lirio-e2e). Toda llamada pasa antes por la guarda.
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { assertIsolatedDirectusState, assertIsolatedE2E, isolatedConfigFromEnv, E2E_SENTINEL } from './guard';
@@ -66,6 +66,42 @@ function runMigration(...args: string[]): unknown {
   return (JSON.parse(res.stdout.trim().split('\n').at(-1)!) as { result: unknown }).result;
 }
 
+// PostgreSQL del stack aislado: sin puertos publicados, se usa psql dentro del contenedor.
+const E2E_PG_CONTAINER = 'lirio_e2e_postgres';
+const PSQL_ARGS = ['exec', '-i', E2E_PG_CONTAINER, 'psql', '-U', 'e2e_user', '-d', 'lirio_e2e', '-v', 'ON_ERROR_STOP=1', '-q', '-At'];
+const SQL_DIR = path.resolve(__dirname, '../../../../scripts/sql');
+
+function assertIsolatedPostgres(): void {
+  isolatedConfig();
+  const label = spawnSync('docker', ['inspect', '--format', '{{ index .Config.Labels "com.docker.compose.project" }}', E2E_PG_CONTAINER], { encoding: 'utf8' });
+  if (label.status !== 0 || label.stdout.trim() !== 'lirio-e2e') {
+    throw new Error(`E2E aislado bloqueado: ${E2E_PG_CONTAINER} no pertenece al proyecto lirio-e2e`);
+  }
+}
+
+/** Ejecuta SQL en el PostgreSQL aislado y devuelve la salida (-At). */
+export function runSql(sql: string): string {
+  assertIsolatedPostgres();
+  const res = spawnSync('docker', PSQL_ARGS, { input: sql, encoding: 'utf8' });
+  if (res.status !== 0) throw new Error(`psql aislado falló: ${res.stderr}`);
+  return res.stdout.trim();
+}
+
+/** Igual que runSql, pero sin esperar: para abrir una transacción concurrente. */
+export function runSqlInBackground(sql: string): Promise<{ status: number | null; stderr: string }> {
+  assertIsolatedPostgres();
+  return new Promise(resolve => {
+    const child = spawn('docker', PSQL_ARGS, { stdio: ['pipe', 'ignore', 'pipe'] });
+    let stderr = '';
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    child.on('close', status => resolve({ status, stderr }));
+    child.stdin.end(sql);
+  });
+}
+
+export const triggerSql = (direction: 'up' | 'down') =>
+  readFileSync(path.join(SQL_DIR, `sermons-sync-locks-trigger.${direction}.sql`), 'utf8');
+
 export function sermonsMigration() {
   return {
     check: async () => runMigration('check'),
@@ -84,6 +120,7 @@ export async function prepareIsolatedDirectus(): Promise<void> {
 
   if (!(await dx('/collections/sermons')).ok) await createLibrarySchema();
   await sermonsMigration().apply();
+  runSql(triggerSql('up'));
 }
 
 // Esquema de la Biblioteca tal como existe hoy en producción (sin sync_locked_fields, que llega por migración).
