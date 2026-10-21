@@ -150,7 +150,7 @@ stats.liriodelosvallescr.org  → Umami (analytics — perfil opcional)
 - Colecciones Directus: `service_schedule`, `weekly_verse`, `church_info`, `contact_messages`, `church_leaders`, `ministerios`, `team_documents`
 - Permisos públicos de lectura activos en service_schedule, weekly_verse, church_info
 - GitHub repo activo: `Asoc-Cristiana-Lirio-de-los-Valles-CR/plataforma-digital`
-- CI/CD: workflows en `.github/workflows/` (ci.yml, deploy-dev.yml, deploy-prod.yml)
+- CI/CD: workflows en `.github/workflows/` (ci.yml, deploy-prod.yml, sync-sermons.yml). `dev` es la rama de integración: solo CI, sin despliegue. Producción se publica únicamente desde `main`, mediante un PR de release `dev → main` aprobado por `@soporteLirio`. `deploy-dev.yml` se eliminó el 2026-10-21 porque desplegaba `dev` sobre el directorio de producción (`/opt/lirio/app`); no existe un staging real
 - Branch protection activo en `main` y `dev`
 - `DIRECTUS_URL=http://directus:8055` requerido en contenedor Next.js (server-side fetch)
 - Roles RBAC implementados: Administrator (root@) + Administrador CMS (admin@) con filtros de seguridad
