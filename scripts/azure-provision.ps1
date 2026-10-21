@@ -1,22 +1,16 @@
-# azure-provision.ps1 — Crear infraestructura Azure para Lirio de los Valles
+# azure-provision.ps1 - Crear infraestructura Azure para Lirio de los Valles
 # Uso: powershell -ExecutionPolicy Bypass -File scripts\azure-provision.ps1
-#
-# ANTES DE EJECUTAR:
-#   1. az login  (en esta misma sesion PowerShell)
-#   2. Verificar suscripcion ONG activa
 
 $ErrorActionPreference = "Stop"
-
-# Recargar PATH para que az funcione
 $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "User")
 
 # ============================================================
 # CONFIGURACION
 # ============================================================
 $RG          = "lirio-rg"
-$LOCATION    = "eastus"
+$LOCATION    = "centralus"
 $VM_NAME     = "lirio-vm"
-$VM_SIZE     = "Standard_B2ms"
+$VM_SIZE     = "Standard_D2s_v3"
 $OS_IMAGE    = "Canonical:ubuntu-24_04-lts:server:latest"
 $DISK_GB     = 64
 $DISK_SKU    = "Premium_LRS"
@@ -38,7 +32,7 @@ az account show --query "{Nombre:name, ID:id, Estado:state}" --output table
 Write-Host ""
 $confirm = Read-Host "Es la suscripcion ONG correcta? (s/N)"
 if ($confirm -ne "s" -and $confirm -ne "S") {
-    Write-Host "Cancela y ejecuta: az account set --subscription 'NOMBRE'"
+    Write-Host "Cancela y ejecuta: az account set --subscription NOMBRE"
     exit 1
 }
 
@@ -50,7 +44,7 @@ $sshDir = Split-Path $SSH_KEY
 if (-not (Test-Path $sshDir)) { New-Item -ItemType Directory -Path $sshDir | Out-Null }
 
 if (Test-Path $SSH_KEY) {
-    Write-Host "Clave SSH ya existe: $SSH_KEY — reutilizando"
+    Write-Host "Clave SSH ya existe: $SSH_KEY - reutilizando"
 } else {
     ssh-keygen -t ed25519 -C "lirio-azure-vm" -f $SSH_KEY -N '""'
     Write-Host "Clave SSH generada: $SSH_KEY"
@@ -59,7 +53,7 @@ $SSH_PUBLIC_KEY = Get-Content "$SSH_KEY.pub" -Raw
 
 # ============================================================
 Write-Host ""
-Write-Host "=== [2/9] Creando Resource Group: $RG ===" -ForegroundColor Cyan
+Write-Host "=== [2/9] Creando Resource Group ===" -ForegroundColor Cyan
 # ============================================================
 az group create `
     --name $RG `
@@ -101,7 +95,7 @@ az network vnet create `
 
 # ============================================================
 Write-Host ""
-Write-Host "=== [5/9] Creando NSG — solo 22, 80, 443 ===" -ForegroundColor Cyan
+Write-Host "=== [5/9] Creando NSG - solo 22, 80, 443 ===" -ForegroundColor Cyan
 # ============================================================
 az network nsg create --resource-group $RG --name $NSG_NAME --output table
 
@@ -155,7 +149,7 @@ Write-Host "VM lista." -ForegroundColor Green
 
 # ============================================================
 Write-Host ""
-Write-Host "=== [8/9] Alertas de presupuesto ONG ===`$2,000/ano" -ForegroundColor Cyan
+Write-Host "=== [8/9] Alertas de presupuesto ONG ===" -ForegroundColor Cyan
 # ============================================================
 try {
     az consumption budget create `
@@ -167,13 +161,12 @@ try {
         --end-date "2027-12-31" `
         --resource-group $RG `
         --output table
-    Write-Host "Budget configurado: $`$${BUDGET}/mes con alertas a 80/100/120%" -ForegroundColor Green
+    Write-Host "Budget configurado: $($BUDGET)/mes" -ForegroundColor Green
 } catch {
-    Write-Host ""
-    Write-Host "AVISO: Budget no se pudo crear via CLI. Crear manualmente:" -ForegroundColor Yellow
-    Write-Host "  Azure Portal → Cost Management → Budgets → + Add"
-    Write-Host "  Monto: `$150/mes"
-    Write-Host "  Alertas: 80% (`$120) aviso | 100% (`$150) limite | 120% (`$180) critico"
+    Write-Host "AVISO: Crear budget manualmente en Azure Portal:" -ForegroundColor Yellow
+    Write-Host "  Cost Management -> Budgets -> Add"
+    Write-Host "  Monto: $150/mes"
+    Write-Host "  Alertas: 80% aviso | 100% limite | 120% critico"
     Write-Host "  Email: $ALERT_EMAIL"
 }
 
@@ -181,10 +174,9 @@ try {
 Write-Host ""
 Write-Host "=== [9/9] Verificando SSH ===" -ForegroundColor Cyan
 # ============================================================
-Write-Host "Probando conexion SSH..."
-$sshResult = ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o ConnectTimeout=15 `
-    "$ADMIN_USER@$PUBLIC_IP" "echo 'SSH OK' && lsb_release -d" 2>&1
-Write-Host $sshResult
+$sshTest = ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o ConnectTimeout=15 `
+    "$ADMIN_USER@$PUBLIC_IP" "echo SSH-OK && lsb_release -d" 2>&1
+Write-Host $sshTest
 
 # ============================================================
 Write-Host ""
@@ -197,10 +189,10 @@ Write-Host "Usuario SSH         : $ADMIN_USER"
 Write-Host "Clave privada SSH   : $SSH_KEY"
 Write-Host ""
 Write-Host "Conectar con:"
-Write-Host "  ssh -i $SSH_KEY $ADMIN_USER@$PUBLIC_IP"
+Write-Host "  ssh -i $SSH_KEY ${ADMIN_USER}@${PUBLIC_IP}"
 Write-Host ""
 Write-Host "================================================================" -ForegroundColor Cyan
-Write-Host "GITHUB SECRETS — agregar en:" -ForegroundColor Cyan
+Write-Host "GITHUB SECRETS:"
 Write-Host "  https://github.com/Asoc-Cristiana-Lirio-de-los-Valles-CR/plataforma-digital/settings/secrets/actions"
 Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host ""
@@ -208,15 +200,15 @@ Write-Host "  AZURE_VM_HOST    = $PUBLIC_IP"
 Write-Host "  AZURE_VM_USER    = $ADMIN_USER"
 Write-Host "  AZURE_VM_SSH_KEY = (contenido de $SSH_KEY)"
 Write-Host ""
-Write-Host "Ver clave privada con:"
+Write-Host "Ver clave privada:"
 Write-Host "  Get-Content $SSH_KEY"
 Write-Host ""
 Write-Host "================================================================" -ForegroundColor Cyan
-Write-Host "PROXIMOS PASOS" -ForegroundColor Cyan
+Write-Host "PROXIMOS PASOS:"
 Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "1. Setup en la VM:"
-Write-Host "   ssh -i $SSH_KEY $ADMIN_USER@$PUBLIC_IP"
+Write-Host "   ssh -i $SSH_KEY ${ADMIN_USER}@${PUBLIC_IP}"
 Write-Host "   curl -fsSL https://raw.githubusercontent.com/Asoc-Cristiana-Lirio-de-los-Valles-CR/plataforma-digital/main/scripts/setup-vm.sh | sudo bash"
 Write-Host ""
 Write-Host "2. Clonar repo y arrancar:"
@@ -226,8 +218,8 @@ Write-Host "   nano .env"
 Write-Host "   docker compose up -d"
 Write-Host ""
 Write-Host "3. DNS Cloudflare (todos Proxied):"
-Write-Host "   A  @     $PUBLIC_IP"
-Write-Host "   A  www   $PUBLIC_IP"
-Write-Host "   A  admin $PUBLIC_IP"
-Write-Host "   A  api   $PUBLIC_IP"
-Write-Host "   SSL/TLS → Full (strict)"
+Write-Host "   Nombre raiz (@) -> $PUBLIC_IP"
+Write-Host "   www             -> $PUBLIC_IP"
+Write-Host "   admin           -> $PUBLIC_IP"
+Write-Host "   api             -> $PUBLIC_IP"
+Write-Host "   SSL/TLS: Full strict"

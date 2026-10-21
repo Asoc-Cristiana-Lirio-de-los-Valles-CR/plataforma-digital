@@ -222,3 +222,55 @@
 .animation-delay-300 { animation-delay: 300ms; }
 .animation-delay-400 { animation-delay: 400ms; }
 .animation-delay-500 { animation-delay: 500ms; }
+
+/* Fog animations — background-position + opacity for organic look */
+@keyframes fog-scroll-1 {
+  0%   { background-position: 0% 0%;     opacity: 0.28; }
+  25%  { background-position: 100% 50%;  opacity: 0.18; }
+  50%  { background-position: 200% 100%; opacity: 0.25; }
+  75%  { background-position: 100% 50%;  opacity: 0.20; }
+  100% { background-position: 0% 0%;     opacity: 0.28; }
+}
+@keyframes fog-scroll-2 {
+  0%   { background-position: 200% 100%; opacity: 0.22; }
+  33%  { background-position: 100% 30%;  opacity: 0.30; }
+  66%  { background-position: 0% 80%;    opacity: 0.16; }
+  100% { background-position: 200% 100%; opacity: 0.22; }
+}
+@keyframes fog-scroll-3 {
+  0%   { background-position: 50% 0%;    opacity: 0.20; }
+  30%  { background-position: 0% 100%;   opacity: 0.12; }
+  60%  { background-position: 150% 50%;  opacity: 0.22; }
+  100% { background-position: 50% 0%;    opacity: 0.20; }
+}
+.fog-layer-1 {
+  animation: fog-scroll-1 35s ease-in-out infinite;
+  animation-delay: 0s;
+}
+.fog-layer-2 {
+  animation: fog-scroll-2 50s ease-in-out infinite;
+  animation-delay: -18s;
+}
+.fog-layer-3 {
+  animation: fog-scroll-3 28s ease-in-out infinite;
+  animation-delay: -9s;
+}
+
+/* Mobile: disable fog animations to save GPU */
+@media (max-width: 640px) {
+  .fog-layer-2,
+  .fog-layer-3 {
+    display: none;
+  }
+  .fog-layer-1 {
+    animation: none;
+    opacity: 0.18;
+  }
+}
+
+/* Respect user preference for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .fog-layer-1, .fog-layer-2, .fog-layer-3 {
+    animation: none;
+  }
+}

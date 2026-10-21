@@ -2,13 +2,29 @@
   "nav": {
     "home": "Home",
     "history": "Our Story",
+    "library": "Library",
     "live": "Live",
     "donate": "Donate",
-    "contact": "Contact"
+    "contact": "Contact",
+    "ministerios": "Ministries",
+    "recursos": "Resources",
+    "register": "Register",
+    "live": "Live",
+    "liveStream": "Live Stream",
+    "members": "Members"
+  },
+  "ministerios": {
+    "title": "Ministries",
+    "subtitle": "Discover the ministries of our church",
+    "leader": "Leader",
+    "schedule": "Schedule",
+    "phone": "Phone",
+    "noMinistries": "No ministries published",
+    "back": "← Back to Ministries"
   },
   "home": {
-    "title": "Lirio de los Valles Christian Church",
-    "subtitle": "A faith community in Costa Rica",
+    "title": "Welcome Home",
+    "subtitle": "Come and feel at home.",
     "newHere": "New here?",
     "newHereDesc": "Learn more about our community",
     "schedule": "Service Schedule",
@@ -69,11 +85,38 @@
     "en": "English",
     "toggle": "Switch language"
   },
+  "days": {
+    "sunday": "Sunday",
+    "monday": "Monday",
+    "tuesday": "Tuesday",
+    "wednesday": "Wednesday",
+    "thursday": "Thursday",
+    "friday": "Friday",
+    "saturday": "Saturday"
+  },
   "common": {
     "loading": "Loading...",
     "error": "An error occurred",
     "readMore": "Read more",
     "viewAll": "View all",
     "back": "Back"
+  },
+  "biblioteca": {
+    "title": "Sermon Library",
+    "subtitle": "Sermons, series and messages from Lirio de los Valles Church",
+    "featured": "Featured sermon",
+    "recentSermons": "Recent sermons",
+    "allSeries": "All series",
+    "searchPlaceholder": "Search sermons...",
+    "noResults": "No sermons found for that criteria.",
+    "viewAll": "View all",
+    "preacher": "Preacher",
+    "series": "Series",
+    "duration": "Duration",
+    "publishedOn": "Published on",
+    "relatedSermons": "Related sermons",
+    "backToLibrary": "← Back to library",
+    "watchOnYouTube": "Watch on YouTube",
+    "metaDescription": "Sermon library from Iglesia Cristiana Lirio de los Valles."
   }
 }

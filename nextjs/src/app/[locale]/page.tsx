@@ -1,9 +1,12 @@
-import { getTranslations } from 'next-intl/server';
+import Image from 'next/image';
+import { getTranslations, getLocale } from 'next-intl/server';
 import { getServiceSchedule, getWeeklyVerse } from '@/lib/directus';
 import { DEFAULT_SCHEDULE } from '@/lib/constants';
 
 export default async function HomePage() {
   const t = await getTranslations('home');
+  const tDays = await getTranslations('days');
+  const locale = await getLocale();
   const [schedule, verse] = await Promise.all([
     getServiceSchedule(),
     getWeeklyVerse(),
@@ -13,19 +16,70 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Hero — placeholder until HeroSection component is built */}
-      <section
-        className="relative min-h-[85vh] flex items-center gradient-brand"
-        style={{
-          backgroundImage: 'linear-gradient(160deg, #2e0f52 0%, #461a7a 50%, #1a0730 100%)',
-        }}
-      >
-        {/* Decorative pattern */}
+      {/* Hero */}
+      <section className="relative min-h-[85vh] flex items-center overflow-hidden">
+        {/* Background image — Next.js Image for automatic WebP + sizing */}
+        <Image
+          src="/hero-bg.webp"
+          alt=""
+          fill
+          priority
+          quality={90}
+          className="object-cover object-center"
+          aria-hidden
+        />
+        {/* Dark overlay — preserves text legibility over the image */}
         <div
-          className="absolute inset-0 opacity-[0.04]"
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(160deg, rgba(0,0,0,0.55) 0%, rgba(10,5,20,0.40) 50%, rgba(0,0,0,0.65) 100%)' }}
+          aria-hidden
+        />
+        {/* Fog layer 1 */}
+        <div
+          className="fog-layer-1 pointer-events-none"
           style={{
-            backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
-            backgroundSize: '32px 32px',
+            position: 'absolute', inset: 0, zIndex: 1,
+            backgroundImage: [
+              'radial-gradient(ellipse 45% 35% at 5% 10%, rgba(255,255,255,0.55) 0%, transparent 70%)',
+              'radial-gradient(ellipse 40% 30% at 50% 50%, rgba(255,255,255,0.45) 0%, transparent 68%)',
+              'radial-gradient(ellipse 42% 35% at 95% 85%, rgba(255,255,255,0.52) 0%, transparent 70%)',
+            ].join(', '),
+            backgroundSize: '300% 300%',
+            filter: 'blur(30px)',
+            transform: 'translateZ(0)',
+          }}
+          aria-hidden
+        />
+        {/* Fog layer 2 */}
+        <div
+          className="fog-layer-2 pointer-events-none"
+          style={{
+            position: 'absolute', inset: 0, zIndex: 1,
+            backgroundImage: [
+              'radial-gradient(ellipse 48% 32% at 90% 8%, rgba(255,255,255,0.50) 0%, transparent 68%)',
+              'radial-gradient(ellipse 42% 34% at 8% 55%, rgba(255,255,255,0.45) 0%, transparent 65%)',
+              'radial-gradient(ellipse 45% 30% at 55% 92%, rgba(255,255,255,0.47) 0%, transparent 68%)',
+            ].join(', '),
+            backgroundSize: '300% 300%',
+            filter: 'blur(35px)',
+            transform: 'translateZ(0)',
+          }}
+          aria-hidden
+        />
+        {/* Fog layer 3 */}
+        <div
+          className="fog-layer-3 pointer-events-none"
+          style={{
+            position: 'absolute', inset: 0, zIndex: 1,
+            backgroundImage: [
+              'radial-gradient(ellipse 35% 45% at 2% 40%, rgba(220,225,255,0.42) 0%, transparent 62%)',
+              'radial-gradient(ellipse 50% 28% at 50% 2%, rgba(220,225,255,0.38) 0%, transparent 65%)',
+              'radial-gradient(ellipse 35% 45% at 98% 50%, rgba(220,225,255,0.40) 0%, transparent 62%)',
+              'radial-gradient(ellipse 50% 28% at 50% 98%, rgba(220,225,255,0.35) 0%, transparent 62%)',
+            ].join(', '),
+            backgroundSize: '250% 250%',
+            filter: 'blur(25px)',
+            transform: 'translateZ(0)',
           }}
           aria-hidden
         />
@@ -39,11 +93,11 @@ export default async function HomePage() {
               </span>
             </div>
 
-            <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl font-bold text-white leading-tight mb-6">
+            <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl font-semibold italic text-white leading-tight mb-6">
               {t('title')}
             </h1>
 
-            <p className="text-lg text-white/70 leading-relaxed mb-10 animation-delay-200 animate-fade-up opacity-0">
+            <p className="text-base sm:text-lg text-white/75 leading-relaxed mb-10 max-w-lg animation-delay-200 animate-fade-up opacity-0 font-display italic">
               {t('subtitle')}
             </p>
 
@@ -70,17 +124,22 @@ export default async function HomePage() {
             <h2 className="section-title">{t('schedule')}</h2>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4 max-w-5xl mx-auto">
             {displaySchedule.map((item, i) => (
               <div key={i} className="card-hover p-6 text-center">
-                <div className="text-2xl font-display font-semibold text-gold-500 mb-1">
-                  {item.time}
+                <div className="flex items-baseline justify-center gap-1 mb-1">
+                  <span className="text-2xl font-display font-semibold text-gold-500 leading-none">
+                    {item.time.replace(/\s*(AM|PM)$/i, '')}
+                  </span>
+                  <span className="text-xs font-bold text-gold-400 uppercase">
+                    {item.time.match(/AM|PM/i)?.[0] ?? ''}
+                  </span>
                 </div>
                 <div className="text-sm font-bold text-brand-700 dark:text-brand-300 uppercase tracking-wider mb-1">
-                  {item.day}
+                  {tDays.has(item.day as any) ? tDays(item.day as any) : item.day}
                 </div>
                 <div className="text-sm text-muted">
-                  {'name_en' in item ? item.name : (item as { name: string }).name}
+                  {locale === 'en' && 'name_en' in item && item.name_en ? item.name_en : item.name}
                 </div>
               </div>
             ))}
