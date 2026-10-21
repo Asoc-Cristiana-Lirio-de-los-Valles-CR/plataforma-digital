@@ -1,0 +1,123 @@
+# Stack E2E AISLADO — solo pruebas locales. No se despliega ni se combina con docker-compose.yml.
+# Directus, PostgreSQL (tmpfs) y Redis exclusivos, credenciales ficticias y puertos solo en loopback.
+#
+#   docker compose -f docker-compose.e2e.yml up -d --build --wait
+#   cd nextjs && E2E_ISOLATED=1 BASE_URL=http://localhost:4100 npx playwright test
+#   docker compose -f docker-compose.e2e.yml down -v
+#
+# Las pruebas de tests/e2e/isolated/ se niegan a escribir si la configuración no apunta a este stack.
+name: lirio-e2e
+
+x-e2e-credentials:
+  admin-token: &admin_token e2e-admin-token-solo-pruebas
+  sync-secret: &sync_secret e2e-sync-secret-solo-pruebas
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lirio_e2e_postgres
+    environment:
+      POSTGRES_DB: lirio_e2e
+      POSTGRES_USER: e2e_user
+      POSTGRES_PASSWORD: e2e_password_solo_pruebas
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U e2e_user -d lirio_e2e"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - lirio_e2e_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: lirio_e2e_redis
+    ports:
+      - "127.0.0.1:6390:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - lirio_e2e_net
+
+  directus:
+    image: directus/directus:11
+    container_name: lirio_e2e_directus
+    environment:
+      KEY: e2e-key-solo-pruebas-lirio-aislado
+      SECRET: e2e-secret-solo-pruebas-lirio-aislado
+      ADMIN_EMAIL: e2e-admin@example.com
+      ADMIN_PASSWORD: e2e-admin-password-solo-pruebas
+      ADMIN_TOKEN: *admin_token
+      PUBLIC_URL: http://localhost:8065
+      DB_CLIENT: pg
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: lirio_e2e
+      DB_USER: e2e_user
+      DB_PASSWORD: e2e_password_solo_pruebas
+      # Igual que producción: caché en Redis con purga automática al escribir.
+      CACHE_ENABLED: "true"
+      CACHE_STORE: redis
+      CACHE_AUTO_PURGE: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      AUTH_PROVIDERS: ""
+    ports:
+      - "127.0.0.1:8065:8055"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:8055/server/ping',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(d==='pong'?0:1))}).on('error',()=>process.exit(1))\""]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 20s
+    networks:
+      - lirio_e2e_net
+
+  nextjs:
+    build:
+      context: ./nextjs
+      dockerfile: Dockerfile
+      target: production
+    image: lirio-e2e-nextjs
+    container_name: lirio_e2e_nextjs
+    environment:
+      NODE_ENV: production
+      DIRECTUS_URL: http://directus:8055
+      NEXT_PUBLIC_DIRECTUS_URL: http://localhost:8065
+      NEXT_PUBLIC_SITE_URL: http://localhost:4100
+      # Sin clave de YouTube: En Vivo no consulta YouTube y la sync falla antes de cualquier llamada.
+      YOUTUBE_API_KEY: ""
+      YOUTUBE_CHANNEL_ID: ""
+      SYNC_SECRET: *sync_secret
+      DIRECTUS_ADMIN_TOKEN: *admin_token
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      AUTH_SECRET: e2e-auth-secret-solo-pruebas-lirio-32
+      AUTH_TRUST_HOST: "true"
+      TEAM_SECRET: e2e-team-secret-solo-pruebas
+    ports:
+      - "127.0.0.1:4100:3000"
+    depends_on:
+      directus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/health',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(JSON.parse(d).status==='ok'?0:1))}).on('error',()=>process.exit(1))\""]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 20s
+    networks:
+      - lirio_e2e_net
+
+networks:
+  lirio_e2e_net:
+    driver: bridge
