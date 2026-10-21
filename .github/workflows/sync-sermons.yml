@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0 9 * * *'  # 3am Costa Rica (UTC-6) = 9am UTC
   workflow_dispatch:       # permite disparar manualmente desde GitHub UI
+    inputs:
+      dry_run:
+        description: 'Solo devolver el plan de cambios, sin escribir en Directus'
+        type: boolean
+        default: false
 
 jobs:
   sync:
@@ -12,12 +17,19 @@ jobs:
 
     steps:
       - name: Trigger YouTube sync
+        env:
+          SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
+          DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X POST https://liriodelosvallescr.org/api/sync/youtube \
-            -H "Authorization: Bearer ${{ secrets.SYNC_SECRET }}")
-          echo "HTTP status: $response"
-          if [ "$response" != "200" ]; then
-            echo "Sync failed with status $response"
-            exit 1
-          fi
+          url="https://liriodelosvallescr.org/api/sync/youtube"
+          if [ "$DRY_RUN" = "true" ]; then url="$url?dry_run=true"; fi
+          status=$(curl -s --max-time 120 -o response.json -w "%{http_code}" \
+            -X POST "$url" -H "Authorization: Bearer $SYNC_SECRET")
+          echo "HTTP status: $status (dry_run=$DRY_RUN)"
+          # Solo contadores, IDs y títulos públicos de YouTube; la ruta nunca devuelve secretos.
+          cat response.json 2>/dev/null; echo
+          case "$status" in
+            200) ;;
+            207) echo "::error title=Sync YouTube con errores parciales::Revisa errors y unavailableSkipped en la respuesta"; exit 1 ;;
+            *)   echo "::error title=Sync YouTube falló::HTTP $status"; exit 1 ;;
+          esac

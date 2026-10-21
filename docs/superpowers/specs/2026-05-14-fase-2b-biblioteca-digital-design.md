@@ -194,27 +194,21 @@ Ejemplos:
 - Sin dependencias: cliente RESP mínimo sobre `node:net`. Usa `REDIS_HOST`/`REDIS_PORT` o, si no existen, `redis:6379` (red interna de Docker).
 - Verificado en el stack aislado: la purga automática de caché de Directus no borra la clave.
 
-### GitHub Actions cron
+### GitHub Actions cron (rev. 2026-10-21)
 
 Archivo: `.github/workflows/sync-sermons.yml`
+- `schedule` diario (`0 9 * * *`; GitHub suele retrasarlo varias horas) y `workflow_dispatch` con el input booleano `dry_run`, que llama a `?dry_run=true` y solo devuelve el plan.
+- `curl --max-time 120`. El cuerpo JSON se imprime en el log, que es público porque el repositorio lo es; solo contiene contadores, IDs y títulos públicos de YouTube.
+- 200 → éxito. **207 (errores parciales, freno de no disponibles) → job en rojo** con la anotación `::error`, para que no pase inadvertido. Cualquier otro código → job en rojo.
 
-```yaml
-name: Sync sermons from YouTube
-on:
-  schedule:
-    - cron: '0 9 * * *'  # 3am Costa Rica = 9am UTC
-  workflow_dispatch:       # disparo manual desde GitHub UI
+### Decisiones previas al release (2026-10-21)
 
-jobs:
-  sync:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger sync
-        run: |
-          curl -X POST https://liriodelosvallescr.org/api/sync/youtube \
-            -H "Authorization: Bearer ${{ secrets.SYNC_SECRET }}" \
-            --fail
-```
+| Punto | Decisión para este release | Pendiente (requiere aprobación porque cambia datos o comportamiento) |
+|---|---|---|
+| HTTP 207 | El cron lo marca en rojo e imprime `errors` | — |
+| Transmisiones programadas o en curso | **Sin cambios**: se importan al aparecer en la playlist y cada ejecución corrige título, fecha y duración cuando terminan | No importar mientras `liveBroadcastContent` sea `upcoming` o `live`. Evitaría ver en la Biblioteca servicios que aún no ocurrieron y slugs con el título del servicio anterior |
+| `sermon_date` de servicios nocturnos | **Sin cambios**: fecha UTC. 388 de 1027 registros (publicados de 18:00 a 23:59 en Costa Rica) muestran el día siguiente, igual que En Vivo | Calcular la fecha en `America/Costa_Rica`, corregir una vez esos 388 registros (con `dry_run`, respaldo y la regla de "no editada a mano") y formatear En Vivo con `timeZone: 'America/Costa_Rica'` |
+| E2E aislado en CI | Paso dentro del job "Playwright E2E" (check obligatorio en `main`) | — |
 
 ### Variable de entorno nueva
 
