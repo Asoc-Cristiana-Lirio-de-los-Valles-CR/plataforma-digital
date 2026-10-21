@@ -100,6 +100,13 @@ jobs:
           BASE_URL: http://localhost:3000
         run: npx playwright test
 
+      # Sync YouTube contra un stack propio (docker-compose.e2e.yml): Directus, PostgreSQL,
+      # Redis y credenciales exclusivos de prueba. La guarda de tests/e2e/isolated/ aborta
+      # si la configuración apunta a cualquier otro destino.
+      - name: Run isolated E2E (stack lirio-e2e)
+        working-directory: nextjs
+        run: npm run test:e2e:isolated -- tests/e2e/isolated
+
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
