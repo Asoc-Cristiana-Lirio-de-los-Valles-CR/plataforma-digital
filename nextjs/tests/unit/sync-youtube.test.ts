@@ -29,6 +29,7 @@ const staleKcyl: ExistingSermon = {
   sermon_date: '2026-10-18',
   duration_seconds: 6967,
   view_count: 120,
+  sync_locked_fields: null,
 };
 
 const youtubeKcyl: YouTubeVideo = {
@@ -166,6 +167,109 @@ describe('planSermonUpdate', () => {
     const editorialFields = ['description', 'slug', 'preacher', 'series', 'tags', 'visibility', 'featured',
       'manual_thumbnail', 'thumbnail_url', 'suggested_series', 'suggested_preacher', 'imported_at'];
     for (const field of editorialFields) expect(plan?.patch).not.toHaveProperty(field);
+  });
+
+  it('sin cambios protegidos informa protectedFields vacío', () => {
+    expect(planSermonUpdate(staleKcyl, youtubeKcyl, SYNCED_AT)?.protectedFields).toEqual([]);
+  });
+});
+
+// Caso real de producción (2026-10-21): el servicio fue el 11 de octubre y YouTube terminó de
+// publicar la transmisión a las 00:28 del 12 (hora de Costa Rica), 06:28 UTC.
+describe('planSermonUpdate con campos protegidos (sync_locked_fields)', () => {
+  const d0hl: ExistingSermon = {
+    id: 'sermon-d0hl',
+    youtube_id: 'D0hL4Ax6juU',
+    title: 'Servicio General 10 de Octubre de 2026 - Un diagnóstico que trae vida',
+    raw_youtube_title: 'Servicio General 10 de Octubre de 2026 - Un diagnóstico que trae vida',
+    youtube_status: 'available',
+    youtube_published_at: '2026-10-11T15:09:53.000Z',
+    sermon_date: '2026-10-11',
+    duration_seconds: 8356,
+    view_count: 200,
+    sync_locked_fields: ['sermon_date'],
+  };
+  const youtubeD0hl: YouTubeVideo = {
+    id: 'D0hL4Ax6juU',
+    title: 'Servicio General 11 de Octubre de 2026 - Veneno en la Olla.',
+    description: '',
+    publishedAt: '2026-10-12T06:28:31Z',
+    durationSeconds: 8356,
+    viewCount: 210,
+  };
+
+  it('sin protección, la fecha seguiría a YouTube y pasaría al 12 de octubre', () => {
+    const plan = planSermonUpdate({ ...d0hl, sync_locked_fields: null }, youtubeD0hl, SYNCED_AT);
+    expect(plan?.patch.sermon_date).toBe('2026-10-12');
+  });
+
+  it('D0hL4Ax6juU conserva el 11 de octubre y actualiza título y metadatos de YouTube', () => {
+    const plan = planSermonUpdate(d0hl, youtubeD0hl, SYNCED_AT);
+    expect(plan?.patch).toEqual({
+      title: 'Servicio General 11 de Octubre de 2026 - Veneno en la Olla.',
+      raw_youtube_title: 'Servicio General 11 de Octubre de 2026 - Veneno en la Olla.',
+      youtube_published_at: '2026-10-12T06:28:31Z',
+      view_count: 210,
+      last_synced_at: SYNCED_AT,
+    });
+    expect(plan?.protectedFields).toEqual([
+      { youtube_id: 'D0hL4Ax6juU', field: 'sermon_date', kept: '2026-10-11', youtube: '2026-10-12', reason: 'sync_locked_fields' },
+    ]);
+  });
+
+  it('una sincronización posterior no cambia la fecha protegida ni escribe nada', () => {
+    const afterFirstSync: ExistingSermon = {
+      ...d0hl,
+      title: youtubeD0hl.title,
+      raw_youtube_title: youtubeD0hl.title,
+      youtube_published_at: '2026-10-12T06:28:31.000Z',
+    };
+    expect(planSermonUpdate(afterFirstSync, youtubeD0hl, SYNCED_AT)).toBeNull();
+  });
+
+  it('si YouTube vuelve a mover la publicación, la fecha protegida sigue intacta', () => {
+    const afterFirstSync: ExistingSermon = { ...d0hl, title: youtubeD0hl.title, raw_youtube_title: youtubeD0hl.title, youtube_published_at: '2026-10-12T06:28:31.000Z' };
+    const moved = { ...youtubeD0hl, publishedAt: '2026-10-13T10:00:00Z' };
+    const plan = planSermonUpdate(afterFirstSync, moved, SYNCED_AT);
+    expect(plan?.patch).not.toHaveProperty('sermon_date');
+    expect(plan?.patch.youtube_published_at).toBe('2026-10-13T10:00:00Z');
+    expect(plan?.protectedFields).toEqual([
+      { youtube_id: 'D0hL4Ax6juU', field: 'sermon_date', kept: '2026-10-11', youtube: '2026-10-13', reason: 'sync_locked_fields' },
+    ]);
+  });
+
+  it('un título protegido no se sobrescribe aunque nunca se haya editado; raw_youtube_title sí se actualiza', () => {
+    const plan = planSermonUpdate({ ...staleKcyl, sync_locked_fields: ['title'] }, youtubeKcyl, SYNCED_AT);
+    expect(plan?.patch).toEqual({
+      raw_youtube_title: 'Servicio General 17 de Octubre de 2026 - La libertad que nace del perdón.',
+      view_count: 130,
+      last_synced_at: SYNCED_AT,
+    });
+    expect(plan?.titleChange?.editorial).toBe(true);
+    expect(plan?.protectedFields).toEqual([{
+      youtube_id: 'kcylErKffEM', field: 'title', reason: 'sync_locked_fields',
+      kept: 'Servicio General 11 de Octubre de 2026 - Veneno en la Olla.',
+      youtube: 'Servicio General 17 de Octubre de 2026 - La libertad que nace del perdón.',
+    }]);
+  });
+
+  it('informa como edición manual la fecha y el título personalizados sin protección explícita', () => {
+    const edited: ExistingSermon = {
+      ...staleKcyl, title: 'Título editorial', youtube_published_at: '2026-09-27T18:00:54.000Z', sermon_date: '2026-10-03',
+    };
+    const video = { ...youtubeKcyl, publishedAt: '2026-10-04T18:36:28Z' };
+    const plan = planSermonUpdate(edited, video, SYNCED_AT);
+    expect(plan?.patch).not.toHaveProperty('sermon_date');
+    expect(plan?.patch).not.toHaveProperty('title');
+    expect(plan?.protectedFields).toEqual([
+      { youtube_id: 'kcylErKffEM', field: 'title', kept: 'Título editorial', youtube: 'Servicio General 17 de Octubre de 2026 - La libertad que nace del perdón.', reason: 'manual_edit' },
+      { youtube_id: 'kcylErKffEM', field: 'sermon_date', kept: '2026-10-03', youtube: '2026-10-04', reason: 'manual_edit' },
+    ]);
+  });
+
+  it('una protección no informa nada si YouTube propone el mismo valor', () => {
+    const video = { ...youtubeD0hl, publishedAt: '2026-10-11T20:00:00Z' };
+    expect(planSermonUpdate(d0hl, video, SYNCED_AT)?.protectedFields).toEqual([]);
   });
 });
 

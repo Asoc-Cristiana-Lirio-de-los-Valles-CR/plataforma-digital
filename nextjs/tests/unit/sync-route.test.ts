@@ -23,7 +23,7 @@ vi.stubGlobal('fetch', fetchMock);
 function result(overrides: Partial<SyncResult> = {}): SyncResult {
   return {
     inserted: 0, updated: 0, unchanged: 1022, unavailable: 0, restored: 0,
-    titleChanges: [], changes: [], unavailableIds: [], errors: [], dryRun: false, ...overrides,
+    titleChanges: [], changes: [], protectedFields: [], unavailableIds: [], errors: [], dryRun: false, ...overrides,
   };
 }
 
@@ -150,5 +150,19 @@ describe('POST /api/sync/youtube', () => {
     acquireSyncLock.mockResolvedValue(fakeLock());
     runYoutubeSync.mockResolvedValue(result());
     expect((await POST(request())).status).toBe(200);
+  });
+
+  it('informa los campos protegidos en la respuesta del dry_run y en activity_logs de la ejecución real', async () => {
+    const protectedFields = [
+      { youtube_id: 'D0hL4Ax6juU', field: 'sermon_date' as const, kept: '2026-10-11', youtube: '2026-10-12', reason: 'sync_locked_fields' as const },
+    ];
+    runYoutubeSync.mockResolvedValue(result({ dryRun: true, protectedFields }));
+    const { POST } = await loadRoute();
+    expect(await (await POST(request('?dry_run=true'))).json()).toMatchObject({ protectedFields });
+
+    acquireSyncLock.mockResolvedValue(fakeLock());
+    runYoutubeSync.mockResolvedValue(result({ updated: 1, protectedFields }));
+    expect((await POST(request())).status).toBe(200);
+    expect(activityPosts[0]).toMatchObject({ action: 'youtube_sync', metadata: { protectedFields } });
   });
 });

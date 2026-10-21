@@ -292,3 +292,83 @@ describe('runYoutubeSync', () => {
     expect(result).toMatchObject({ lockLost: true, updated: 0, inserted: 0, titleChanges: [], changes: [] });
   });
 });
+
+describe('runYoutubeSync con campos protegidos (sync_locked_fields)', () => {
+  const D0HL_OLD = 'Servicio General 10 de Octubre de 2026 - Un diagnóstico que trae vida';
+  const D0HL_NEW = 'Servicio General 11 de Octubre de 2026 - Veneno en la Olla.';
+  const EZE2_NEW = 'Servicio General  3 de Octubre de 2026 - No nos vamos a familiarizar con la enfermedad';
+
+  beforeEach(() => {
+    yt.videos.set('D0hL4Ax6juU', ytVideo({ id: 'D0hL4Ax6juU', title: D0HL_NEW, publishedAt: '2026-10-12T06:28:31Z', duration: 'PT2H19M16S', viewCount: 210 }));
+    yt.videos.set('EZe2JywDzDc', ytVideo({ id: 'EZe2JywDzDc', title: EZE2_NEW, publishedAt: '2026-10-04T18:36:28Z', duration: 'PT1H44M4S' }));
+    dx.items.set('s5', sermonRow({
+      id: 's5', youtube_id: 'D0hL4Ax6juU', title: D0HL_OLD, raw_youtube_title: D0HL_OLD,
+      youtube_published_at: '2026-10-11T15:09:53.000Z', sermon_date: '2026-10-11', duration_seconds: 8356,
+      sync_locked_fields: ['sermon_date'],
+    }));
+    dx.items.set('s6', sermonRow({
+      id: 's6', youtube_id: 'EZe2JywDzDc', title: 'Servicio General  27de Sep de 2026 - El Cristiano y la Culpa.',
+      raw_youtube_title: 'Servicio General  27de Sep de 2026 - El Cristiano y la Culpa.',
+      youtube_published_at: '2026-09-27T18:00:54.000Z', sermon_date: '2026-09-27', duration_seconds: 6244,
+    }));
+  });
+
+  it('D0hL4Ax6juU conserva el 11 de octubre; título y metadatos sí se actualizan; el no protegido sigue a YouTube', async () => {
+    const result = await runYoutubeSync({}, deps());
+    expect(dx.items.get('s5')).toMatchObject({
+      sermon_date: '2026-10-11', title: D0HL_NEW, raw_youtube_title: D0HL_NEW, youtube_published_at: '2026-10-12T06:28:31Z',
+    });
+    expect(dx.writes.find(w => w.youtube_id === 'D0hL4Ax6juU')?.body).not.toHaveProperty('sermon_date');
+    expect(dx.items.get('s6')).toMatchObject({ sermon_date: '2026-10-04', title: EZE2_NEW });
+    expect(result.protectedFields).toEqual([
+      { youtube_id: 'D0hL4Ax6juU', field: 'sermon_date', kept: '2026-10-11', youtube: '2026-10-12', reason: 'sync_locked_fields' },
+    ]);
+    expect(result.errors).toEqual([]);
+  });
+
+  it('las ejecuciones posteriores no cambian la fecha protegida ni escriben', async () => {
+    await runYoutubeSync({}, deps());
+    const writes = dx.writes.length;
+    for (let i = 0; i < 2; i++) {
+      const again = await runYoutubeSync({}, deps());
+      expect(again).toMatchObject({ updated: 0, inserted: 0, protectedFields: [], errors: [] });
+    }
+    expect(dx.writes.length).toBe(writes);
+    expect(dx.items.get('s5')?.sermon_date).toBe('2026-10-11');
+  });
+
+  it('el dry_run informa el campo omitido y no lo cuenta como cambio', async () => {
+    const result = await runYoutubeSync({ dryRun: true }, deps());
+    expect(dx.writes).toHaveLength(0);
+    expect(result.changes.find(c => c.youtube_id === 'D0hL4Ax6juU')).toEqual({
+      youtube_id: 'D0hL4Ax6juU', action: 'update', fields: ['raw_youtube_title', 'title', 'youtube_published_at'],
+    });
+    expect(result.changes.find(c => c.youtube_id === 'EZe2JywDzDc')?.fields).toContain('sermon_date');
+    expect(result.protectedFields).toEqual([
+      { youtube_id: 'D0hL4Ax6juU', field: 'sermon_date', kept: '2026-10-11', youtube: '2026-10-12', reason: 'sync_locked_fields' },
+    ]);
+  });
+
+  it('falla cerrado si el campo de protecciones no existe en Directus (403): no escribe nada', async () => {
+    dx.state.unknownFields = ['sync_locked_fields'];
+    await expect(runYoutubeSync({}, deps())).rejects.toThrow(/Directus sermons read error: 403/);
+    await expect(runYoutubeSync({ dryRun: true }, deps())).rejects.toThrow(/Directus sermons read error: 403/);
+    expect(dx.writes).toHaveLength(0);
+  });
+
+  it('falla cerrado si la respuesta omite el campo de protecciones', async () => {
+    dx.state.dropFields = ['sync_locked_fields'];
+    await expect(runYoutubeSync({}, deps())).rejects.toThrow(/sync_locked_fields missing/);
+    expect(dx.writes).toHaveLength(0);
+  });
+
+  it.each([
+    ['un texto en vez de una lista', 'sermon_date'],
+    ['un campo no protegible', ['description']],
+    ['un valor no textual', [1]],
+  ])('falla cerrado ante una protección mal formada: %s', async (_, value) => {
+    dx.items.set('s5', { ...dx.items.get('s5')!, sync_locked_fields: value });
+    await expect(runYoutubeSync({}, deps())).rejects.toThrow(/invalid sync_locked_fields for D0hL4Ax6juU/);
+    expect(dx.writes).toHaveLength(0);
+  });
+});
