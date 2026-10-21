@@ -12,7 +12,8 @@ export function createFakeDirectus(rows: Row[] = [], token = 'admin-token') {
   const items = new Map<string, Row>(rows.map(r => [r.id, { ...r }]));
   const writes: WriteRecord[] = [];
   const failWritesFor = new Set<string>();
-  const state = { failReads: 0, seq: 0 };
+  /** maxLimit emula QUERY_LIMIT_MAX de Directus: recorta el limit pedido. */
+  const state = { failReads: 0, seq: 0, maxLimit: 0 };
 
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -29,7 +30,8 @@ export function createFakeDirectus(rows: Row[] = [], token = 'admin-token') {
         state.failReads--;
         return json({ errors: [{ message: 'injected read failure' }] }, 503);
       }
-      const limit = Number(url.searchParams.get('limit') ?? '100');
+      const requested = Number(url.searchParams.get('limit') ?? '100');
+      const limit = state.maxLimit > 0 && (requested === -1 || requested > state.maxLimit) ? state.maxLimit : requested;
       const offset = Number(url.searchParams.get('offset') ?? '0');
       const sorted = [...items.values()].sort((a, b) => a.id.localeCompare(b.id));
       return json({ data: sorted.slice(offset, limit === -1 ? undefined : offset + limit) });

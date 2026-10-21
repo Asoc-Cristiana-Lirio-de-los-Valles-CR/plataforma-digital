@@ -1,5 +1,6 @@
 // Ejecuta la suite E2E completa contra un stack lirio-e2e recién creado y lo destruye al terminar.
 // Uso: npm run test:e2e:isolated [-- <argumentos de playwright>]   (E2E_KEEP_STACK=1 para conservarlo)
+// Siempre parte de un stack nuevo: el enfriamiento de 10 min de la ruta vive en memoria del proceso de Next.
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';

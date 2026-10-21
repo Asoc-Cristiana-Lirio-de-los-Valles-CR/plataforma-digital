@@ -186,7 +186,8 @@ test.describe('ruta real POST /api/sync/youtube en el stack aislado', () => {
     }
   });
 
-  test('un fallo de configuración de YouTube no escribe nada y libera el lock', async ({ request }) => {
+  // El stack aislado no tiene clave de YouTube a propósito (sin tráfico saliente): prueba el aborto previo a cualquier lectura.
+  test('sin clave de YouTube configurada la ruta aborta sin escribir y libera el lock', async ({ request }) => {
     const before = await (await dx('/items/sermons?fields=id,title,youtube_status,last_synced_at&sort=id&limit=-1')).json();
     const res = await request.post('/api/sync/youtube', { headers: { Authorization: `Bearer ${E2E_SYNC_SECRET}` } });
     expect(res.status()).toBe(500);

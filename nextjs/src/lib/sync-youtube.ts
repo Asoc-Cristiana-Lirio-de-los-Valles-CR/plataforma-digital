@@ -6,6 +6,8 @@ const WRITE_TIMEOUT_MS = 15_000;
 const RETRY_ATTEMPTS = 3;
 const MAX_UNAVAILABLE_PER_RUN = 10;
 const MAX_UNAVAILABLE_RATIO = 0.02;
+const MAX_REPORTED_CANDIDATES = 50;
+const MAX_PLAYLIST_PAGES = 200;
 
 const EXISTING_FIELDS = [
   'id', 'youtube_id', 'title', 'raw_youtube_title', 'youtube_status',
@@ -23,6 +25,8 @@ export interface SyncResult {
   changes: SyncChange[];
   unavailableIds: string[];
   unavailableSkipped?: 'verification_failed' | 'circuit_breaker';
+  /** IDs confirmados como no disponibles que el freno no marcó (para revisión humana). */
+  unavailableCandidates?: string[];
   errors: string[];
   dryRun: boolean;
   lockLost?: boolean;
@@ -263,8 +267,13 @@ async function fetchChannelVideos(ctx: Context): Promise<{ playlistIds: string[]
   if (!uploads) throw new Error('YouTube channels error: uploads playlist not found');
 
   const seen = new Set<string>();
+  const usedTokens = new Set<string>();
   let pageToken: string | undefined;
   do {
+    if (pageToken && (usedTokens.has(pageToken) || usedTokens.size >= MAX_PLAYLIST_PAGES)) {
+      throw new Error('YouTube playlistItems error: repeated or runaway pageToken');
+    }
+    if (pageToken) usedTokens.add(pageToken);
     const params: Record<string, string> = { part: 'contentDetails', playlistId: uploads, maxResults: String(YT_PAGE_SIZE) };
     if (pageToken) params.pageToken = pageToken;
     const page = await ytGet(ctx, 'playlistItems', params);
@@ -279,7 +288,7 @@ async function fetchChannelVideos(ctx: Context): Promise<{ playlistIds: string[]
   const videos = new Map<string, YouTubeVideo>();
   for (let i = 0; i < playlistIds.length; i += YT_PAGE_SIZE) {
     const ids = playlistIds.slice(i, i + YT_PAGE_SIZE).join(',');
-    const data = await ytGet(ctx, 'videos', { part: 'snippet,contentDetails,statistics', id: ids, maxResults: String(YT_PAGE_SIZE) });
+    const data = await ytGet(ctx, 'videos', { part: 'snippet,contentDetails,statistics', id: ids });
     for (const item of (data.items ?? []) as Record<string, unknown>[]) {
       const video = toYouTubeVideo(item);
       videos.set(video.id, video);
@@ -291,7 +300,7 @@ async function fetchChannelVideos(ctx: Context): Promise<{ playlistIds: string[]
 async function findMissingOnYouTube(ctx: Context, ids: string[]): Promise<string[]> {
   const returned = new Set<string>();
   for (let i = 0; i < ids.length; i += YT_PAGE_SIZE) {
-    const data = await ytGet(ctx, 'videos', { part: 'id', id: ids.slice(i, i + YT_PAGE_SIZE).join(','), maxResults: String(YT_PAGE_SIZE) });
+    const data = await ytGet(ctx, 'videos', { part: 'id', id: ids.slice(i, i + YT_PAGE_SIZE).join(',') });
     for (const item of (data.items ?? []) as Record<string, unknown>[]) returned.add(String(item.id));
   }
   return ids.filter(id => !returned.has(id));
@@ -306,13 +315,15 @@ function directusHeaders(ctx: Context, json = false): Record<string, string> {
 
 async function loadExistingSermons(ctx: Context): Promise<Map<string, ExistingSermon>> {
   const existing = new Map<string, ExistingSermon>();
-  for (let offset = 0; ; offset += DIRECTUS_PAGE_SIZE) {
+  // Avanza por filas recibidas y termina con una página vacía: Directus puede recortar el limit (QUERY_LIMIT_MAX).
+  for (let offset = 0; ; ) {
     const query = new URLSearchParams({ fields: EXISTING_FIELDS, sort: 'id', limit: String(DIRECTUS_PAGE_SIZE), offset: String(offset) });
     const res = await ctx.fetch(`${ctx.directusUrl}/items/sermons?${query}`, { headers: directusHeaders(ctx) });
     if (!res.ok) throw new Error(`Directus sermons read error: ${res.status}`);
     const rows = ((await res.json()) as { data?: ExistingSermon[] }).data ?? [];
+    if (rows.length === 0) return existing;
     for (const row of rows) if (row.youtube_id) existing.set(row.youtube_id, row);
-    if (rows.length < DIRECTUS_PAGE_SIZE) return existing;
+    offset += rows.length;
   }
 }
 
@@ -322,7 +333,7 @@ function unavailableLimit(availableCount: number): number {
 
 type WriteOp =
   | { kind: 'insert'; youtubeId: string; body: Record<string, unknown> }
-  | { kind: 'update' | 'restore' | 'unavailable'; youtubeId: string; id: string; body: Record<string, unknown> };
+  | { kind: 'update' | 'restore' | 'unavailable'; youtubeId: string; id: string; body: Record<string, unknown>; titleChange?: TitleChange };
 
 export async function runYoutubeSync(options: SyncOptions = {}, deps: SyncDeps = {}): Promise<SyncResult> {
   const ctx: Context = {
@@ -335,6 +346,10 @@ export async function runYoutubeSync(options: SyncOptions = {}, deps: SyncDeps =
   };
   if (!ctx.apiKey || !ctx.channelId) {
     throw new Error('YouTube sync misconfigured: YOUTUBE_API_KEY and YOUTUBE_CHANNEL_ID are required');
+  }
+  // Sin token solo se verían los sermones públicos: los demás se planificarían como inserciones.
+  if (!options.dryRun && !ctx.adminToken) {
+    throw new Error('YouTube sync misconfigured: DIRECTUS_ADMIN_TOKEN is required for a real run');
   }
   const syncedAt = (deps.now ?? (() => new Date()))().toISOString();
   const result: SyncResult = {
@@ -361,8 +376,10 @@ export async function runYoutubeSync(options: SyncOptions = {}, deps: SyncDeps =
       result.unchanged++;
       continue;
     }
-    if (plan.titleChange) result.titleChanges.push(plan.titleChange);
-    ops.push({ kind: plan.patch.youtube_status === 'available' ? 'restore' : 'update', youtubeId, id: current.id, body: plan.patch });
+    ops.push({
+      kind: plan.patch.youtube_status === 'available' ? 'restore' : 'update',
+      youtubeId, id: current.id, body: plan.patch, titleChange: plan.titleChange,
+    });
   }
 
   const available = [...existing.values()].filter(s => s.youtube_status === 'available');
@@ -377,6 +394,7 @@ export async function runYoutubeSync(options: SyncOptions = {}, deps: SyncDeps =
     }
     if (missing && missing.length > unavailableLimit(available.length)) {
       result.unavailableSkipped = 'circuit_breaker';
+      result.unavailableCandidates = missing.slice(0, MAX_REPORTED_CANDIDATES);
       result.errors.push('unavailable_circuit_breaker');
     } else if (missing) {
       for (const youtubeId of missing) {
@@ -420,6 +438,7 @@ function countOp(result: SyncResult, op: WriteOp): void {
     ? []
     : Object.keys(op.body).filter(k => k !== 'last_synced_at' && k !== 'view_count').sort();
   result.changes.push({ youtube_id: op.youtubeId, action: op.kind, fields });
+  if (op.kind !== 'insert' && op.titleChange) result.titleChanges.push(op.titleChange);
   if (op.kind === 'insert') result.inserted++;
   else if (op.kind === 'update') result.updated++;
   else if (op.kind === 'restore') result.restored++;

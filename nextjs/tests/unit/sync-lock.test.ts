@@ -4,7 +4,7 @@ import net from 'node:net';
 import { acquireSyncLock, SYNC_LOCK_KEY } from '../../src/lib/sync-lock';
 
 // Servidor RESP mínimo que emula SET NX PX, GET y los dos scripts EVAL del lock.
-type Mode = 'redis' | 'error' | 'silent';
+type Mode = 'redis' | 'error' | 'silent' | 'close';
 const store = new Map<string, { value: string; expiresAt: number }>();
 let mode: Mode = 'redis';
 let server: net.Server;
@@ -79,6 +79,10 @@ beforeAll(async () => {
       if (!args) return;
       buf = '';
       if (mode === 'silent') return;
+      if (mode === 'close') {
+        socket.end();
+        return;
+      }
       socket.write(mode === 'error' ? '-ERR injected\r\n' : execute(args));
     });
   });
@@ -146,6 +150,11 @@ describe('acquireSyncLock (Redis SET NX PX)', () => {
   it('lanza error por timeout si Redis no responde', async () => {
     mode = 'silent';
     await expect(acquireSyncLock(opts())).rejects.toThrow(/timeout/i);
+  });
+
+  it('lanza error si Redis cierra la conexión sin responder (no se queda colgado)', async () => {
+    mode = 'close';
+    await expect(acquireSyncLock(opts())).rejects.toThrow(/closed/i);
   });
 
   it('lanza error si no puede conectar con Redis', async () => {

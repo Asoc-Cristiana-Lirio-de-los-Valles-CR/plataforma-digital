@@ -10,6 +10,8 @@ export interface FakeVideo {
   listed?: boolean;
   /** Devuelto por videos.list (público o no listado). Por defecto true. */
   available?: boolean;
+  /** Aparece en la playlist como "Private video" pero videos.list no lo devuelve (caso real de YouTube). */
+  placeholder?: boolean;
 }
 
 export interface FakeFailure {
@@ -31,9 +33,10 @@ export function createFakeYouTube(initial: FakeVideo[] = []) {
   const videos = new Map<string, FakeVideo>(initial.map(v => [v.id, { ...v }]));
   const failures: FakeFailure[] = [];
   const calls = { channels: 0, playlistItems: 0, videos: 0 };
+  const options = { repeatPageToken: false };
 
-  const isAvailable = (v: FakeVideo) => v.available !== false;
-  const isListed = (v: FakeVideo) => isAvailable(v) && v.listed !== false;
+  const isAvailable = (v: FakeVideo) => v.available !== false && !v.placeholder;
+  const isListed = (v: FakeVideo) => v.placeholder || (isAvailable(v) && v.listed !== false);
 
   function takeFailure(endpoint: FakeFailure['endpoint'], part: string | null): number | null {
     const f = failures.find(x => x.endpoint === endpoint && x.times > 0 && (!x.part || x.part === part));
@@ -78,11 +81,17 @@ export function createFakeYouTube(initial: FakeVideo[] = []) {
       const listed = [...videos.values()].filter(isListed);
       const offset = Number(url.searchParams.get('pageToken') ?? '0');
       const page = listed.slice(offset, offset + PAGE_SIZE);
-      const next = offset + PAGE_SIZE < listed.length ? String(offset + PAGE_SIZE) : undefined;
+      const next = options.repeatPageToken
+        ? String(PAGE_SIZE)
+        : offset + PAGE_SIZE < listed.length ? String(offset + PAGE_SIZE) : undefined;
       return json({
         items: page.map(v => ({
           kind: 'youtube#playlistItem',
-          snippet: { publishedAt: v.publishedAt, title: v.title.trim(), description: v.description ?? '' },
+          snippet: {
+            publishedAt: v.publishedAt,
+            title: v.placeholder ? 'Private video' : v.title.trim(),
+            description: v.placeholder ? 'This video is private.' : v.description ?? '',
+          },
           contentDetails: { videoId: v.id, videoPublishedAt: v.publishedAt },
         })),
         nextPageToken: next,
@@ -92,6 +101,8 @@ export function createFakeYouTube(initial: FakeVideo[] = []) {
 
     const ids = (url.searchParams.get('id') ?? '').split(',').filter(Boolean);
     if (ids.length > PAGE_SIZE) return json({ error: { code: 400, message: 'too many ids' } }, 400);
+    // La documentación de videos.list no admite maxResults junto con id.
+    if (url.searchParams.has('maxResults')) return json({ error: { code: 400, message: 'maxResults not supported with id' } }, 400);
     const found = ids.map(id => videos.get(id)).filter((v): v is FakeVideo => !!v && isAvailable(v));
     return json({ items: part === 'id' ? found.map(v => ({ kind: 'youtube#video', id: v.id })) : found.map(videoResource) });
   }
@@ -100,6 +111,7 @@ export function createFakeYouTube(initial: FakeVideo[] = []) {
     videos,
     failures,
     calls,
+    options,
     handles: (url: URL) => url.hostname === 'www.googleapis.com' && url.pathname.startsWith('/youtube/v3/'),
     handle,
   };

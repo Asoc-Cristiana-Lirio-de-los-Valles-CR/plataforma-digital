@@ -138,6 +138,40 @@ describe('runYoutubeSync', () => {
     expect(yt.calls.playlistItems).toBe(11);
   });
 
+  it('carga todos los registros aunque Directus recorte el tamaño de página (QUERY_LIMIT_MAX)', async () => {
+    dx.state.maxLimit = 100;
+    for (let i = 0; i < 520; i++) {
+      const id = `bulk${String(i).padStart(7, '0')}`;
+      yt.videos.set(id, ytVideo({ id }));
+      dx.items.set(`b${String(i).padStart(4, '0')}`, sermonRow({ id: `b${String(i).padStart(4, '0')}`, youtube_id: id }));
+    }
+    const result = await runYoutubeSync({}, deps());
+    expect(result).toMatchObject({ inserted: 1, updated: 1, unchanged: 521, errors: [] });
+  });
+
+  it('aborta sin escribir si la playlist repite el token de página', async () => {
+    yt.options.repeatPageToken = true;
+    await expect(runYoutubeSync({}, deps())).rejects.toThrow(/pageToken/);
+    expect(dx.writes).toHaveLength(0);
+    expect(yt.calls.playlistItems).toBeLessThanOrEqual(3);
+  });
+
+  it('trata los "Private video" de la playlist como no disponibles y no los importa', async () => {
+    dx.items.set('s3', sermonRow({ id: 's3', youtube_id: 'private0001' }));
+    yt.videos.set('private0001', ytVideo({ id: 'private0001', placeholder: true }));
+    yt.videos.set('private0002', ytVideo({ id: 'private0002', placeholder: true }));
+    const result = await runYoutubeSync({}, deps());
+    expect(result.unavailableIds).toEqual(['private0001']);
+    expect(dx.byYoutubeId('private0002')).toHaveLength(0);
+    expect(dx.items.get('s3')).toMatchObject({ youtube_status: 'unavailable', title: 'Servicio General' });
+  });
+
+  it('una ejecución real sin DIRECTUS_ADMIN_TOKEN falla antes de consultar nada', async () => {
+    process.env.DIRECTUS_ADMIN_TOKEN = '';
+    await expect(runYoutubeSync({}, deps())).rejects.toThrow(/DIRECTUS_ADMIN_TOKEN/);
+    expect(yt.calls).toEqual({ channels: 0, playlistItems: 0, videos: 0 });
+  });
+
   it('falla sin llamar a YouTube ni escribir si falta la configuración de YouTube', async () => {
     process.env.YOUTUBE_API_KEY = '';
     await expect(runYoutubeSync({}, deps())).rejects.toThrow(/YOUTUBE_API_KEY/);
@@ -180,11 +214,13 @@ describe('runYoutubeSync', () => {
     expect(first.errors).toEqual([expect.stringContaining('kcylErKffEM')]);
     expect(first.inserted).toBe(1);
     expect(first.changes.map(c => c.youtube_id)).toEqual(['NEWvideo001']);
+    expect(first.titleChanges).toEqual([]);
     expect(dx.items.get('s1')?.title).toBe(OLD_TITLE);
 
     dx.failWritesFor.clear();
     const second = await runYoutubeSync({}, deps());
     expect(second).toMatchObject({ updated: 1, inserted: 0, errors: [] });
+    expect(second.titleChanges.map(c => c.youtube_id)).toEqual(['kcylErKffEM']);
     expect(dx.items.get('s1')?.title).toBe(NEW_TITLE);
   });
 
@@ -215,6 +251,7 @@ describe('runYoutubeSync', () => {
     expect(result.unavailable).toBe(0);
     expect(result.unavailableSkipped).toBe('circuit_breaker');
     expect(result.errors).toContain('unavailable_circuit_breaker');
+    expect([...(result.unavailableCandidates ?? [])].sort()).toEqual(Array.from({ length: 11 }, (_, i) => `missing${String(i).padStart(4, '0')}`));
     expect([...dx.items.values()].filter(r => r.youtube_status === 'unavailable')).toHaveLength(0);
   });
 
@@ -246,5 +283,12 @@ describe('runYoutubeSync', () => {
     expect(checks).toBe(2);
     expect(result.lockLost).toBe(true);
     expect(result.errors).toContain('lock_lost');
+    expect(result.changes.map(c => c.youtube_id)).toEqual(['kcylErKffEM']);
+  });
+
+  it('sin la propiedad del lock no escribe nada ni reporta cambios', async () => {
+    const result = await runYoutubeSync({ ensureLock: async () => false }, deps());
+    expect(dx.writes).toHaveLength(0);
+    expect(result).toMatchObject({ lockLost: true, updated: 0, inserted: 0, titleChanges: [], changes: [] });
   });
 });

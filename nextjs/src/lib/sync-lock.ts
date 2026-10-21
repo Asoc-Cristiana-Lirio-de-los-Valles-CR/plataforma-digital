@@ -83,6 +83,8 @@ function redisCommand(args: string[], opts: Required<RedisOptions>): Promise<Res
     };
     socket.setTimeout(opts.timeoutMs, () => fail(new Error('Redis timeout')));
     socket.on('error', fail);
+    // Un cierre ordenado (FIN) sin respuesta no dispara 'error' ni el timeout; sin esto la promesa no termina.
+    socket.on('close', () => reject(new Error('Redis connection closed before reply')));
     socket.on('connect', () => socket.write(encodeCommand(args)));
     socket.on('data', chunk => {
       buf = Buffer.concat([buf, chunk]);

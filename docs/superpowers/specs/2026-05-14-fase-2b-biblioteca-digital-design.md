@@ -15,8 +15,7 @@ Biblioteca pública de predicaciones de la Iglesia Cristiana Lirio de los Valles
 | Layout | Híbrido (hero + filas por serie + recientes + página individual) | Combina descubrimiento visual con organización editorial |
 | Fuente pública | Directus únicamente | YouTube API nunca expuesta en frontend |
 | Sync | API route `/api/sync/youtube` + GitHub Actions cron | Reutiliza youtube.ts, sin contenedor extra |
-| Import inicial | `POST /api/sync/youtube?full=true` | Importa historial completo una sola vez |
-| Sync incremental | `publishedAfter = last_successful_sync` | Reduce quota de YouTube API |
+| Alcance de cada sync (rev. 2026-10-21) | Reconciliación completa de la playlist de subidas en cada ejecución (`?full=true` aceptado, sin efecto) | ~45 unidades de cuota para ~1 000 videos; el modo incremental (`publishedAfter`) nunca revisitaba videos ya importados y dejaba títulos viejos |
 | Series/predicadores | Admin asigna; sync sugiere (`suggested_*`) | Control editorial sin trabajo manual excesivo |
 | Búsqueda | Client-side sobre dataset cargado | Suficiente para 100–1000 predicaciones; sin complejidad extra |
 | SW offline | Definida explícitamente antes de cualquier código nuevo | Evita caché accidental de contenido privado |

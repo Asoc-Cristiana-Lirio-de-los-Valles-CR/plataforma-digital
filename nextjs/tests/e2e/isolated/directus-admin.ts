@@ -37,9 +37,13 @@ async function publicPolicyId(): Promise<string> {
   return access[0].policy;
 }
 
+// Falla cerrado: solo un Directus que acepta el token e2e y no tiene la colección cuenta como vacío.
 async function sermonCount(): Promise<number> {
+  const me = await dx('/users/me?fields=id');
+  if (!me.ok) throw new Error(`E2E aislado bloqueado: el Directus destino rechaza el token e2e (${me.status})`);
+  if (!(await dx('/collections/sermons')).ok) return 0;
   const res = await dx('/items/sermons?aggregate[count]=*');
-  if (!res.ok) return 0;
+  if (!res.ok) throw new Error(`E2E aislado bloqueado: no se pudo contar sermones (${res.status})`);
   const data = ((await res.json()) as { data: { count: number | string }[] }).data;
   return Number(data[0]?.count ?? 0);
 }

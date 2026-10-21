@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
   lastSyncAt = Date.now();
   try {
     const result = await runYoutubeSync({ ensureLock: () => lock.ensure() });
-    await logActivity('youtube_sync', { ...result });
+    await logActivity('youtube_sync', { ...result, durationMs: Date.now() - lastSyncAt });
     if (writeCount(result) > 0) revalidatePath('/[locale]/biblioteca', 'layout');
     return NextResponse.json({ ok: result.errors.length === 0, ...result }, { status: result.errors.length === 0 ? 200 : 207 });
   } catch (err) {

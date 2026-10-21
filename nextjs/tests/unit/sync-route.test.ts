@@ -96,7 +96,7 @@ describe('POST /api/sync/youtube', () => {
     expect(await res.json()).toMatchObject({ ok: true, updated: 5, unavailable: 3 });
     expect(lock.ensure).toHaveBeenCalledTimes(1);
     expect(lock.release).toHaveBeenCalledTimes(1);
-    expect(activityPosts).toEqual([{ action: 'youtube_sync', metadata: expect.objectContaining({ updated: 5, unavailable: 3 }) }]);
+    expect(activityPosts).toEqual([{ action: 'youtube_sync', metadata: expect.objectContaining({ updated: 5, unavailable: 3, durationMs: expect.any(Number) }) }]);
     expect(revalidatePath).toHaveBeenCalledWith('/[locale]/biblioteca', 'layout');
   });
 
