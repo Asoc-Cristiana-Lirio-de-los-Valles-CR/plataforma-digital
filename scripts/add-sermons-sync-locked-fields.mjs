@@ -33,6 +33,12 @@ export const FIELD_DEFINITION = {
       ],
     },
     display: 'labels',
+    display_options: {
+      choices: [
+        { text: 'Fecha del sermón', value: 'sermon_date' },
+        { text: 'Título', value: 'title' },
+      ],
+    },
     note: 'Campos que la sincronización con YouTube nunca sobrescribe en este sermón. Vacío: sin protección.',
     width: 'full',
   },
@@ -54,12 +60,21 @@ export function createMigration({ directusUrl, token, fetch = globalThis.fetch }
     return { status: res.status, ok: res.ok, data };
   }
 
-  // Directus 11 responde 403 (no 404) a un campo que no existe.
+  /** Origen y nombre del proyecto Directus, para que el operador confirme el destino antes de leer la salida. */
+  async function target() {
+    const res = await api('GET', '/server/info');
+    return { origin: new URL(directusUrl).origin, project: res.data?.data?.project?.project_name ?? null };
+  }
+
+  // Se lee la lista de campos y no /fields/sermons/<campo>: Directus 11 responde 403 tanto a un campo
+  // inexistente como a un token sin permisos, y aquí un "no existe" falso no debe pasar en silencio.
   async function check() {
-    const res = await api('GET', `/fields/sermons/${FIELD}`);
-    if (res.ok) return { exists: true, type: res.data?.data?.type };
-    if (res.status === 403 || res.status === 404) return { exists: false };
-    throw new Error(`No se pudo consultar el campo ${FIELD}: HTTP ${res.status}`);
+    const res = await api('GET', '/fields/sermons');
+    if (!res.ok || !Array.isArray(res.data?.data)) {
+      throw new Error(`No se pudo leer el esquema de sermons (HTTP ${res.status}): token sin permisos o destino equivocado`);
+    }
+    const field = res.data.data.find(f => f.field === FIELD);
+    return field ? { exists: true, type: field.type } : { exists: false };
   }
 
   async function apply() {
@@ -75,11 +90,16 @@ export function createMigration({ directusUrl, token, fetch = globalThis.fetch }
     return { created: true };
   }
 
+  // Borrar el campo no deja revisiones por sermón: la salida registra las protecciones que se pierden.
   async function revert() {
-    if (!(await check()).exists) return { removed: false };
+    if (!(await check()).exists) return { removed: false, lostLocks: [] };
+    const query = new URLSearchParams({ [`filter[${FIELD}][_nnull]`]: 'true', fields: `youtube_id,${FIELD}`, limit: '-1' });
+    const locked = await api('GET', `/items/sermons?${query}`);
+    if (!locked.ok) throw new Error(`No se pudieron listar las protecciones antes de revertir: HTTP ${locked.status}`);
+    const lostLocks = (locked.data?.data ?? []).map(s => ({ youtube_id: s.youtube_id, [FIELD]: s[FIELD] }));
     const res = await api('DELETE', `/fields/sermons/${FIELD}`);
     if (!res.ok) throw new Error(`No se pudo eliminar sermons.${FIELD}: HTTP ${res.status}`);
-    return { removed: true };
+    return { removed: true, lostLocks };
   }
 
   async function findSermon(youtubeId) {
@@ -97,7 +117,11 @@ export function createMigration({ directusUrl, token, fetch = globalThis.fetch }
     }
     if (!(await check()).exists) throw new Error(`sermons.${FIELD} no existe: ejecute apply primero`);
     const sermon = await findSermon(youtubeId);
-    const before = Array.isArray(sermon[FIELD]) ? sermon[FIELD] : null;
+    const before = sermon[FIELD] ?? null;
+    // Igual que la sync: un valor mal formado no se interpreta como "sin protección" ni se pisa.
+    if (before !== null && !(Array.isArray(before) && before.every(f => LOCKABLE_FIELDS.includes(f)))) {
+      throw new Error(`${FIELD} de ${youtubeId} tiene un valor inválido (${JSON.stringify(before)}); corríjalo en Directus antes de continuar`);
+    }
     const set = new Set(before ?? []);
     if (add) set.add(field); else set.delete(field);
     const next = LOCKABLE_FIELDS.filter(f => set.has(f));
@@ -111,6 +135,7 @@ export function createMigration({ directusUrl, token, fetch = globalThis.fetch }
   }
 
   return {
+    target,
     check,
     apply,
     revert,
@@ -124,15 +149,15 @@ async function main([command, ...args]) {
   const commands = {
     check: () => migration.check(),
     apply: () => migration.apply(),
-    revert: () => {
-      if (args[0] !== '--yes') throw new Error('revert elimina el campo y todas las protecciones: confirme con --yes');
-      return migration.revert();
-    },
+    revert: () => migration.revert(),
     lock: () => migration.lock(args[0], args[1]),
     unlock: () => migration.unlock(args[0], args[1]),
   };
+  // Validaciones antes de cualquier conexión.
   if (!commands[command]) throw new Error('Uso: check | apply | lock <youtube_id> <campo> | unlock <youtube_id> <campo> | revert --yes');
-  console.log(JSON.stringify({ command, args, result: await commands[command]() }));
+  if (command === 'revert' && args[0] !== '--yes') throw new Error('revert elimina el campo y todas las protecciones: confirme con --yes');
+  const target = await migration.target();
+  console.log(JSON.stringify({ command, args, target, result: await commands[command]() }));
 }
 
 // CLI por archivo o por stdin (`node --input-type=module -`); al importarlo (pruebas) no hace nada.

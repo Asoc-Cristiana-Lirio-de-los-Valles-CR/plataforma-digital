@@ -182,7 +182,9 @@ test.describe('campos protegidos (sync_locked_fields) con la migración real', (
   });
 
   test('sin el campo de protecciones la sync falla cerrado y no escribe (Directus real)', async () => {
-    expect(await sermonsMigration().revert()).toEqual({ removed: true });
+    expect(await sermonsMigration().revert()).toEqual({
+      removed: true, lostLocks: [{ youtube_id: e.id, sync_locked_fields: ['sermon_date'] }],
+    });
     try {
       yt.videos.set(e.id, { id: e.id, title: `${e.new} 2`, publishedAt: '2099-01-07T10:00:00Z' });
       const before = await (await dx('/items/sermons?fields=id,title,sermon_date,last_synced_at&sort=id&limit=-1')).json();

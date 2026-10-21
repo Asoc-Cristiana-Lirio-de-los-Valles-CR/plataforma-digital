@@ -1,12 +1,15 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import {
   createMigration, FIELD, FIELD_DEFINITION, LOCKABLE_FIELDS as SCRIPT_LOCKABLE,
 } from '../../../scripts/add-sermons-sync-locked-fields.mjs';
 import { LOCKABLE_FIELDS } from '../../src/lib/sync-youtube';
 
 const TOKEN = 'admin-token';
-type Sermon = { id: string; youtube_id: string; sermon_date: string; sync_locked_fields?: string[] | null };
+type Sermon = { id: string; youtube_id: string; sermon_date: string; sync_locked_fields?: unknown };
 
 // Doble mínimo de Directus para /fields y /items/sermons (403 para un campo inexistente, como Directus 11).
 function fakeDirectus(sermons: Sermon[]) {
@@ -17,9 +20,13 @@ function fakeDirectus(sermons: Sermon[]) {
     const url = new URL(String(input));
     const method = (init?.method ?? 'GET').toUpperCase();
     state.calls.push(`${method} ${url.pathname}`);
+    if (url.pathname === '/server/info') return json({ data: { project: { project_name: 'LIRIO-PRUEBA' } } });
     if (new Headers(init?.headers).get('authorization') !== `Bearer ${TOKEN}`) return json({ errors: [] }, 401);
+    if (url.pathname === '/fields/sermons' && method === 'GET') {
+      const base = [{ field: 'id', type: 'uuid' }, { field: 'sermon_date', type: 'date' }];
+      return json({ data: state.fieldExists ? [...base, { field: FIELD, type: state.fieldType }] : base });
+    }
     if (url.pathname === `/fields/sermons/${FIELD}`) {
-      if (method === 'GET') return state.fieldExists ? json({ data: { field: FIELD, type: state.fieldType } }) : json({ errors: [] }, 403);
       if (method === 'DELETE') {
         if (!state.fieldExists) return json({ errors: [] }, 403);
         state.fieldExists = false;
@@ -37,6 +44,9 @@ function fakeDirectus(sermons: Sermon[]) {
     }
     if (url.pathname === '/items/sermons' && method === 'GET') {
       if (!state.fieldExists && url.searchParams.get('fields')?.includes(FIELD)) return json({ errors: [] }, 403);
+      if (url.searchParams.get(`filter[${FIELD}][_nnull]`) === 'true') {
+        return json({ data: [...items.values()].filter(s => s.sync_locked_fields != null) });
+      }
       const youtubeId = url.searchParams.get('filter[youtube_id][_eq]');
       return json({ data: [...items.values()].filter(s => s.youtube_id === youtubeId) });
     }
@@ -81,7 +91,17 @@ describe('migración sermons.sync_locked_fields', () => {
 
   it('check es de solo lectura e informa si el campo existe', async () => {
     expect(await migration().check()).toEqual({ exists: false });
-    expect(dx.state.calls).toEqual([`GET /fields/sermons/${FIELD}`]);
+    expect(dx.state.calls).toEqual(['GET /fields/sermons']);
+  });
+
+  it('check falla (no responde "no existe") si el token no tiene permisos o el destino no es Directus', async () => {
+    const wrong = createMigration({ directusUrl: 'http://directus:8055', token: 'otro-token', fetch: dx.fetch });
+    await expect(wrong.check()).rejects.toThrow(/sin permisos o destino equivocado/);
+    await expect(wrong.revert()).rejects.toThrow(/sin permisos o destino equivocado/);
+  });
+
+  it('target identifica el destino (origen y nombre del proyecto) sin credenciales', async () => {
+    expect(await migration().target()).toEqual({ origin: 'http://directus:8055', project: 'LIRIO-PRUEBA' });
   });
 
   it('apply crea el campo, lo verifica y deja todos los sermones sin protección', async () => {
@@ -94,7 +114,7 @@ describe('migración sermons.sync_locked_fields', () => {
     await migration().apply();
     dx.state.calls = [];
     expect(await migration().apply()).toEqual({ created: false });
-    expect(dx.state.calls).toEqual([`GET /fields/sermons/${FIELD}`]);
+    expect(dx.state.calls).toEqual(['GET /fields/sermons']);
   });
 
   it('apply se detiene si existe un campo con ese nombre pero de otro tipo', async () => {
@@ -126,10 +146,48 @@ describe('migración sermons.sync_locked_fields', () => {
     await expect(migration().lock('DUPLICADO01', 'sermon_date')).rejects.toThrow(/2 sermones/);
   });
 
-  it('revert elimina el campo y es idempotente', async () => {
+  it('lock no pisa una protección guardada con un valor mal formado', async () => {
     await migration().apply();
-    expect(await migration().revert()).toEqual({ removed: true });
-    expect(await migration().revert()).toEqual({ removed: false });
+    dx.items.get('s-d0hl')!.sync_locked_fields = 'sermon_date';
+    await expect(migration().lock('D0hL4Ax6juU', 'title')).rejects.toThrow(/valor inválido/);
+    expect(dx.items.get('s-d0hl')?.sync_locked_fields).toBe('sermon_date');
+  });
+
+  it('revert elimina el campo, informa las protecciones que se pierden y es idempotente', async () => {
+    await migration().apply();
+    await migration().lock('D0hL4Ax6juU', 'sermon_date');
+    expect(await migration().revert()).toEqual({
+      removed: true, lostLocks: [{ youtube_id: 'D0hL4Ax6juU', sync_locked_fields: ['sermon_date'] }],
+    });
+    expect(await migration().revert()).toEqual({ removed: false, lostLocks: [] });
     expect(await migration().check()).toEqual({ exists: false });
+  });
+});
+
+describe('CLI de la migración (por stdin, como en producción)', () => {
+  const script = readFileSync(path.resolve(__dirname, '../../../scripts/add-sermons-sync-locked-fields.mjs'));
+  const cli = (args: string[], env: Record<string, string>) => spawnSync(process.execPath, ['--input-type=module', '-', ...args], {
+    input: script, encoding: 'utf8',
+    env: { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('DIRECTUS_'))), ...env } as NodeJS.ProcessEnv,
+  });
+  const env = { DIRECTUS_URL: 'http://127.0.0.1:9', DIRECTUS_ADMIN_TOKEN: 'x' };
+
+  it('exige DIRECTUS_URL y DIRECTUS_ADMIN_TOKEN', () => {
+    const res = cli(['check'], {});
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/Se requieren DIRECTUS_URL y DIRECTUS_ADMIN_TOKEN/);
+  });
+
+  it('revert sin --yes se niega antes de conectarse', () => {
+    const res = cli(['revert'], env);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/confirme con --yes/);
+  });
+
+  it('un comando desconocido muestra el uso y no se conecta', () => {
+    const res = cli(['borrar'], env);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/Uso:/);
+    expect(res.stdout).toBe('');
   });
 });

@@ -20,9 +20,10 @@ export declare function createMigration(options: {
   token: string;
   fetch?: typeof globalThis.fetch;
 }): {
+  target(): Promise<{ origin: string; project: string | null }>;
   check(): Promise<{ exists: boolean; type?: string }>;
   apply(): Promise<{ created: boolean }>;
-  revert(): Promise<{ removed: boolean }>;
+  revert(): Promise<{ removed: boolean; lostLocks: { youtube_id: string; sync_locked_fields: unknown }[] }>;
   lock(youtubeId: string, field: string): Promise<LockResult>;
   unlock(youtubeId: string, field: string): Promise<LockResult>;
 };
