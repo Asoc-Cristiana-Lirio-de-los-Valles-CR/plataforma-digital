@@ -300,6 +300,85 @@ describe('planSermonUpdate con campos protegidos (sync_locked_fields)', () => {
   });
 });
 
+// Producción y YouTube, 2026-10-22. La fecha editorial es el día del inicio de la transmisión en hora de
+// Costa Rica y coincide con la del título de YouTube; la sync, en cambio, deriva sermon_date del día UTC
+// de publishedAt, que para un servicio de la tarde o un video procesado de madrugada cae al día siguiente.
+describe('fechas editoriales de la Biblioteca (casos reales, set-date + sync_locked_fields)', () => {
+  const casos = [
+    { youtube_id: 'EZe2JywDzDc', guardada: '2026-09-27', editorial: '2026-10-03', publicadoGuardado: '2026-09-27T18:00:54.000Z',
+      tituloGuardado: 'Servicio General  27de Sep de 2026 - El Cristiano y la Culpa.',
+      tituloYoutube: 'Servicio General  3 de Octubre de 2026 - No nos vamos a familiarizar con la enfermedad', publishedAt: '2026-10-04T18:36:28Z' },
+    { youtube_id: 'kcylErKffEM', guardada: '2026-10-18', editorial: '2026-10-17', publicadoGuardado: '2026-10-18T02:39:23.000Z',
+      tituloGuardado: 'Servicio General 11 de Octubre de 2026 - Veneno en la Olla.',
+      tituloYoutube: 'Servicio General 17 de Octubre de 2026 - La libertad que nace del perdón. ', publishedAt: '2026-10-18T15:21:56Z' },
+    { youtube_id: 'ThtKPaa4WvI', guardada: '2026-10-05', editorial: '2026-10-04', publicadoGuardado: '2026-10-05T07:03:44.000Z',
+      tituloGuardado: 'Servicio General  3 de Octubre de 2026 - No nos vamos a familiarizar con la enfermedad',
+      tituloYoutube: 'Servicio General 4 de Octubre de 2026 ', publishedAt: '2026-10-05T07:03:44Z' },
+    { youtube_id: '6hr2-CqUGE8', guardada: '2026-09-28', editorial: '2026-09-27', publicadoGuardado: '2026-09-28T09:00:15.000Z',
+      tituloGuardado: 'Servicio General  27de Sep de 2026 - El Cristiano y la Culpa.',
+      tituloYoutube: 'Servicio General 27 de Sep de 2026 - El Cristiano y la Culpa.', publishedAt: '2026-09-28T09:00:15Z' },
+    { youtube_id: 'D0hL4Ax6juU', guardada: '2026-10-11', editorial: '2026-10-11', publicadoGuardado: '2026-10-11T15:09:53.000Z',
+      tituloGuardado: 'Servicio General 10 de Octubre de 2026 - Un diagnóstico que trae vida',
+      tituloYoutube: 'Servicio General 11 de Octubre de 2026 - Veneno en la Olla.', publishedAt: '2026-10-12T06:28:31Z' },
+  ];
+  const registro = (c: (typeof casos)[number], over: Partial<ExistingSermon> = {}): ExistingSermon => ({
+    id: `sermon-${c.youtube_id}`, youtube_id: c.youtube_id, title: c.tituloGuardado, raw_youtube_title: c.tituloGuardado,
+    youtube_status: 'available', youtube_published_at: c.publicadoGuardado, sermon_date: c.guardada,
+    duration_seconds: 6000, view_count: 100, sync_locked_fields: null, ...over,
+  });
+  const video = (c: (typeof casos)[number]): YouTubeVideo => ({
+    id: c.youtube_id, title: c.tituloYoutube, description: '', publishedAt: c.publishedAt, durationSeconds: 6000, viewCount: 100,
+  });
+  const diaUtc = (iso: string) => iso.slice(0, 10);
+
+  it('sin corregir, la sync movería EZe2JywDzDc al 4 de octubre y D0hL4Ax6juU al 12, y dejaría las otras tres un día después', () => {
+    const propuesta = Object.fromEntries(casos.map(c => [c.youtube_id, planSermonUpdate(registro(c), video(c), SYNCED_AT)?.patch.sermon_date ?? 'sin cambio']));
+    expect(propuesta).toEqual({
+      EZe2JywDzDc: '2026-10-04', kcylErKffEM: 'sin cambio', ThtKPaa4WvI: 'sin cambio', '6hr2-CqUGE8': 'sin cambio', D0hL4Ax6juU: '2026-10-12',
+    });
+  });
+
+  // La sync solo reevalúa la fecha cuando YouTube cambia publishedAt (EZe2, kcyl y D0hL); en ThtK y 6hr2
+  // no la toca, y la protección cubre el día en que YouTube la mueva.
+  it('con la fecha editorial fijada y protegida, la sync corrige el título y no toca ninguna fecha', () => {
+    for (const c of casos) {
+      const plan = planSermonUpdate(registro(c, { sermon_date: c.editorial, sync_locked_fields: ['sermon_date'] }), video(c), SYNCED_AT);
+      expect(plan?.patch, c.youtube_id).not.toHaveProperty('sermon_date');
+      expect(plan?.patch.title, c.youtube_id).toBe(c.tituloYoutube.trim());
+      const publicacionCambia = Date.parse(c.publishedAt) !== Date.parse(c.publicadoGuardado);
+      expect(plan?.protectedFields, c.youtube_id).toEqual(publicacionCambia
+        ? [{ youtube_id: c.youtube_id, field: 'sermon_date', kept: c.editorial, youtube: diaUtc(c.publishedAt), reason: 'sync_locked_fields' }]
+        : []);
+    }
+  });
+
+  it('si YouTube mueve la publicación más adelante, las cinco fechas protegidas siguen intactas', () => {
+    for (const c of casos) {
+      const sincronizado = registro(c, {
+        sermon_date: c.editorial, sync_locked_fields: ['sermon_date'],
+        title: c.tituloYoutube.trim(), raw_youtube_title: c.tituloYoutube.trim(), youtube_published_at: c.publishedAt,
+      });
+      const movido = { ...video(c), publishedAt: '2026-11-01T12:00:00Z' };
+      expect(planSermonUpdate(sincronizado, movido, SYNCED_AT)?.patch, c.youtube_id).not.toHaveProperty('sermon_date');
+    }
+  });
+
+  it('después de esa sincronización, la siguiente no escribe nada', () => {
+    for (const c of casos) {
+      const sincronizado = registro(c, {
+        sermon_date: c.editorial, sync_locked_fields: ['sermon_date'],
+        title: c.tituloYoutube.trim(), raw_youtube_title: c.tituloYoutube.trim(), youtube_published_at: c.publishedAt,
+      });
+      expect(planSermonUpdate(sincronizado, video(c), SYNCED_AT), c.youtube_id).toBeNull();
+    }
+  });
+
+  it('sin la protección, las cuatro fechas corregidas se conservan como edición manual, pero D0hL4Ax6juU no: necesita el lock', () => {
+    const conservadas = casos.filter(c => !('sermon_date' in (planSermonUpdate(registro(c, { sermon_date: c.editorial }), video(c), SYNCED_AT)?.patch ?? {})));
+    expect(conservadas.map(c => c.youtube_id)).toEqual(['EZe2JywDzDc', 'kcylErKffEM', 'ThtKPaa4WvI', '6hr2-CqUGE8']);
+  });
+});
+
 describe('suggestFromTitle', () => {
   it('extracts series from known pattern', () => {
     const result = suggestFromTitle('Serie Romanos #3 — El llamado');

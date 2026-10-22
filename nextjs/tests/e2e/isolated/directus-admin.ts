@@ -108,6 +108,7 @@ export function sermonsMigration() {
     apply: async () => runMigration('apply'),
     revert: async () => runMigration('revert', '--yes'),
     lock: async (youtubeId: string, field: string) => runMigration('lock', youtubeId, field),
+    setDate: async (youtubeId: string, date: string) => runMigration('set-date', youtubeId, date),
   };
 }
 
