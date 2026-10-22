@@ -13,8 +13,9 @@ type Sermon = { id: string; youtube_id: string; sermon_date: string; sync_locked
 
 // Doble mínimo de Directus para /fields y /items/sermons (403 para un campo inexistente, como Directus 11).
 function fakeDirectus(sermons: Sermon[]) {
-  // maxLimit emula QUERY_LIMIT_MAX; deleteNoop, un DELETE que responde 204 sin borrar el campo.
-  const state = { fieldExists: false, fieldType: 'json', calls: [] as string[], maxLimit: 0, deleteNoop: false };
+  // maxLimit emula QUERY_LIMIT_MAX; deleteNoop, un DELETE que responde 204 sin borrar el campo;
+  // patchIgnores, campos que un PATCH acepta (200) pero no guarda.
+  const state = { fieldExists: false, fieldType: 'json', calls: [] as string[], maxLimit: 0, deleteNoop: false, patchIgnores: [] as string[] };
   const items = new Map(sermons.map(s => [s.id, { ...s }]));
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
   const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -60,7 +61,9 @@ function fakeDirectus(sermons: Sermon[]) {
     if (patchMatch && method === 'PATCH') {
       const row = items.get(patchMatch[1]);
       if (!row) return json({ errors: [] }, 404);
-      Object.assign(row, JSON.parse(String(init?.body)));
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      for (const f of state.patchIgnores) delete body[f];
+      Object.assign(row, body);
       return json({ data: row });
     }
     return json({ errors: [{ message: `no soportado: ${method} ${url.pathname}` }] }, 405);
@@ -74,6 +77,8 @@ const migration = () => createMigration({ directusUrl: 'http://directus:8055', t
 beforeEach(() => {
   dx = fakeDirectus([
     { id: 's-d0hl', youtube_id: 'D0hL4Ax6juU', sermon_date: '2026-10-11' },
+    // Producción (2026-10-22): el servicio fue el 3 de octubre y el registro conserva la fecha del video anterior.
+    { id: 's-eze2', youtube_id: 'EZe2JywDzDc', sermon_date: '2026-09-27' },
     { id: 's-dup1', youtube_id: 'DUPLICADO01', sermon_date: '2026-01-01' },
     { id: 's-dup2', youtube_id: 'DUPLICADO01', sermon_date: '2026-01-01' },
   ]);
@@ -205,6 +210,75 @@ describe('migración sermons.sync_locked_fields', () => {
     dx.state.deleteNoop = true;
     await expect(migration().revert()).rejects.toThrow(/sigue existiendo/);
   });
+
+  it('setDate fija la fecha editorial y la protege en una sola escritura', async () => {
+    await migration().apply();
+    dx.state.calls = [];
+    expect(await migration().setDate('EZe2JywDzDc', '2026-10-03')).toEqual({
+      youtube_id: 'EZe2JywDzDc',
+      before: { sermon_date: '2026-09-27', sync_locked_fields: null },
+      after: { sermon_date: '2026-10-03', sync_locked_fields: ['sermon_date'] },
+      changed: true,
+    });
+    expect(dx.state.calls.filter(c => c.startsWith('PATCH'))).toEqual(['PATCH /items/sermons/s-eze2']);
+    expect(dx.items.get('s-eze2')).toMatchObject({ sermon_date: '2026-10-03', sync_locked_fields: ['sermon_date'] });
+  });
+
+  it('setDate conserva las demás protecciones y es idempotente', async () => {
+    await migration().apply();
+    await migration().lock('EZe2JywDzDc', 'title');
+    expect(await migration().setDate('EZe2JywDzDc', '2026-10-03')).toMatchObject({
+      after: { sermon_date: '2026-10-03', sync_locked_fields: ['sermon_date', 'title'] }, changed: true,
+    });
+    dx.state.calls = [];
+    expect(await migration().setDate('EZe2JywDzDc', '2026-10-03')).toMatchObject({ changed: false });
+    expect(dx.state.calls.filter(c => c.startsWith('PATCH'))).toEqual([]);
+  });
+
+  it('setDate con la fecha ya correcta solo añade la protección', async () => {
+    await migration().apply();
+    dx.state.calls = [];
+    const bodies: unknown[] = [];
+    const spy = (async (input: string | URL | Request, init?: RequestInit) => {
+      if ((init?.method ?? 'GET') === 'PATCH') bodies.push(JSON.parse(String(init?.body)));
+      return dx.fetch(input, init);
+    }) as typeof globalThis.fetch;
+    const m = createMigration({ directusUrl: 'http://directus:8055', token: TOKEN, fetch: spy });
+    expect(await m.setDate('D0hL4Ax6juU', '2026-10-11')).toMatchObject({
+      after: { sermon_date: '2026-10-11', sync_locked_fields: ['sermon_date'] }, changed: true,
+    });
+    expect(bodies).toEqual([{ sync_locked_fields: ['sermon_date'] }]);
+  });
+
+  it('setDate no cambia una fecha que ya está protegida con otro valor', async () => {
+    await migration().apply();
+    await migration().lock('D0hL4Ax6juU', 'sermon_date');
+    dx.state.calls = [];
+    await expect(migration().setDate('D0hL4Ax6juU', '2026-10-12')).rejects.toThrow(/ya está protegida con 2026-10-11.*unlock/);
+    expect(dx.state.calls.filter(c => c.startsWith('PATCH'))).toEqual([]);
+    expect(dx.items.get('s-d0hl')?.sermon_date).toBe('2026-10-11');
+  });
+
+  it('setDate rechaza fechas inválidas antes de conectarse', async () => {
+    for (const bad of ['2026-02-30', '03/10/2026', '2026-10-3', '2026-10-03T00:00:00Z', '']) {
+      await expect(migration().setDate('EZe2JywDzDc', bad)).rejects.toThrow(/Fecha inválida/);
+    }
+    expect(dx.state.calls).toEqual([]);
+  });
+
+  it('setDate exige el campo migrado y no pisa una protección mal formada', async () => {
+    await expect(migration().setDate('EZe2JywDzDc', '2026-10-03')).rejects.toThrow(/no existe.*apply/);
+    await migration().apply();
+    dx.items.get('s-eze2')!.sync_locked_fields = 'sermon_date';
+    await expect(migration().setDate('EZe2JywDzDc', '2026-10-03')).rejects.toThrow(/valor inválido/);
+    expect(dx.items.get('s-eze2')?.sermon_date).toBe('2026-09-27');
+  });
+
+  it('setDate verifica que la fecha y la protección quedaron guardadas', async () => {
+    await migration().apply();
+    dx.state.patchIgnores = ['sermon_date'];
+    await expect(migration().setDate('EZe2JywDzDc', '2026-10-03')).rejects.toThrow(/no quedó guardada/);
+  });
 });
 
 describe('runCli (lo que ejecuta la CLI)', () => {
@@ -248,6 +322,31 @@ describe('runCli (lo que ejecuta la CLI)', () => {
     await expect(runCli(['unlock', 'D0hL4Ax6juU'], { env, fetch: dx.fetch, out })).rejects.toThrow(/no se puede proteger/);
     await expect(runCli(['lock'], { env, fetch: dx.fetch, out })).rejects.toThrow(/Uso: lock <youtube_id> <campo>/);
     expect(dx.state.calls).toEqual([]);
+  });
+
+  it('set-date valida sus argumentos antes de conectarse', async () => {
+    const { out } = capture();
+    await expect(runCli(['set-date', 'EZe2JywDzDc'], { env, fetch: dx.fetch, out })).rejects.toThrow(/Fecha inválida/);
+    await expect(runCli(['set-date', 'EZe2JywDzDc', '3/10/2026'], { env, fetch: dx.fetch, out })).rejects.toThrow(/Fecha inválida/);
+    await expect(runCli(['set-date'], { env, fetch: dx.fetch, out })).rejects.toThrow(/Uso: set-date <youtube_id> <AAAA-MM-DD>/);
+    expect(dx.state.calls).toEqual([]);
+  });
+
+  it('set-date imprime el destino y después el antes y el después', async () => {
+    await migration().apply();
+    const { lines, out } = capture();
+    await runCli(['set-date', 'EZe2JywDzDc', '2026-10-03'], { env, fetch: dx.fetch, out });
+    expect(lines).toEqual([
+      { command: 'set-date', args: ['EZe2JywDzDc', '2026-10-03'], target: { origin: 'http://directus:8055', project: 'LIRIO-PRUEBA' } },
+      {
+        command: 'set-date', target: { origin: 'http://directus:8055', project: 'LIRIO-PRUEBA' },
+        result: {
+          youtube_id: 'EZe2JywDzDc', changed: true,
+          before: { sermon_date: '2026-09-27', sync_locked_fields: null },
+          after: { sermon_date: '2026-10-03', sync_locked_fields: ['sermon_date'] },
+        },
+      },
+    ]);
   });
 });
 

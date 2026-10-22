@@ -6,6 +6,7 @@
  *   node scripts/add-sermons-sync-locked-fields.mjs apply                    # crea el campo (idempotente)
  *   node scripts/add-sermons-sync-locked-fields.mjs lock <youtube_id> <campo>
  *   node scripts/add-sermons-sync-locked-fields.mjs unlock <youtube_id> <campo>
+ *   node scripts/add-sermons-sync-locked-fields.mjs set-date <youtube_id> <AAAA-MM-DD>  # fija y protege la fecha editorial
  *   node scripts/add-sermons-sync-locked-fields.mjs revert --yes             # elimina el campo y sus protecciones
  *
  * En producción se ejecuta dentro del contenedor, sin que el token salga del servidor:
@@ -53,12 +54,27 @@ function assertLockable(field) {
   }
 }
 
+// Fecha editorial del calendario, sin hora ni zona: la que se guarda tal cual en sermons.sermon_date.
+function assertDate(date) {
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(date ?? '') && new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) === date;
+  if (!valid) throw new Error(`Fecha inválida: ${JSON.stringify(date ?? null)}; use AAAA-MM-DD (día editorial, sin hora)`);
+}
+
 // Igual que la sync: una clave ausente no se interpreta como "sin protección".
 function locksOf(sermon, youtubeId) {
   if (!Object.prototype.hasOwnProperty.call(sermon, FIELD)) {
     throw new Error(`Directus no devolvió ${FIELD} de ${youtubeId}; revise el token y el esquema`);
   }
   return sermon[FIELD];
+}
+
+// Igual que la sync: un valor mal formado no se interpreta como "sin protección" ni se pisa.
+function validLocksOf(sermon, youtubeId) {
+  const locks = locksOf(sermon, youtubeId);
+  if (locks !== null && !(Array.isArray(locks) && locks.every(f => LOCKABLE_FIELDS.includes(f)))) {
+    throw new Error(`${FIELD} de ${youtubeId} tiene un valor inválido (${JSON.stringify(locks)}); corríjalo en Directus antes de continuar`);
+  }
+  return locks;
 }
 
 export function createMigration({ directusUrl, token, fetch = globalThis.fetch }) {
@@ -138,7 +154,7 @@ export function createMigration({ directusUrl, token, fetch = globalThis.fetch }
   }
 
   async function findSermon(youtubeId) {
-    const query = new URLSearchParams({ 'filter[youtube_id][_eq]': youtubeId, fields: `id,youtube_id,${FIELD}`, limit: '2' });
+    const query = new URLSearchParams({ 'filter[youtube_id][_eq]': youtubeId, fields: `id,youtube_id,sermon_date,${FIELD}`, limit: '2' });
     const res = await api('GET', `/items/sermons?${query}`);
     if (!res.ok) throw new Error(`No se pudo leer el sermón ${youtubeId}: HTTP ${res.status}`);
     const rows = res.data?.data ?? [];
@@ -150,11 +166,7 @@ export function createMigration({ directusUrl, token, fetch = globalThis.fetch }
     assertLockable(field);
     if (!(await check()).exists) throw new Error(`sermons.${FIELD} no existe: ejecute apply primero`);
     const sermon = await findSermon(youtubeId);
-    const before = locksOf(sermon, youtubeId);
-    // Igual que la sync: un valor mal formado no se interpreta como "sin protección" ni se pisa.
-    if (before !== null && !(Array.isArray(before) && before.every(f => LOCKABLE_FIELDS.includes(f)))) {
-      throw new Error(`${FIELD} de ${youtubeId} tiene un valor inválido (${JSON.stringify(before)}); corríjalo en Directus antes de continuar`);
-    }
+    const before = validLocksOf(sermon, youtubeId);
     const set = new Set(before ?? []);
     if (add) set.add(field); else set.delete(field);
     const next = LOCKABLE_FIELDS.filter(f => set.has(f));
@@ -167,6 +179,30 @@ export function createMigration({ directusUrl, token, fetch = globalThis.fetch }
     return { youtube_id: youtubeId, before, after, changed: true };
   }
 
+  // Fecha y protección van en el mismo PATCH: la fecha corregida nunca queda sin proteger. Cambiar una fecha
+  // ya protegida exige unlock antes (el trigger de PostgreSQL también lo rechazaría).
+  async function setDate(youtubeId, date) {
+    assertDate(date);
+    if (!(await check()).exists) throw new Error(`sermons.${FIELD} no existe: ejecute apply primero`);
+    const sermon = await findSermon(youtubeId);
+    const locks = validLocksOf(sermon, youtubeId);
+    const before = { sermon_date: sermon.sermon_date, [FIELD]: locks };
+    const wasLocked = (locks ?? []).includes('sermon_date');
+    if (wasLocked && sermon.sermon_date !== date) {
+      throw new Error(`La fecha de ${youtubeId} ya está protegida con ${sermon.sermon_date}; ejecute unlock ${youtubeId} sermon_date antes de cambiarla`);
+    }
+    if (wasLocked) return { youtube_id: youtubeId, before, after: before, changed: false };
+    const after = { sermon_date: date, [FIELD]: LOCKABLE_FIELDS.filter(f => f === 'sermon_date' || (locks ?? []).includes(f)) };
+    const body = sermon.sermon_date === date ? { [FIELD]: after[FIELD] } : after;
+    const res = await api('PATCH', `/items/sermons/${sermon.id}`, body);
+    if (!res.ok) throw new Error(`No se pudo actualizar ${youtubeId}: HTTP ${res.status}`);
+    const saved = await findSermon(youtubeId);
+    if (saved.sermon_date !== date || JSON.stringify(locksOf(saved, youtubeId)) !== JSON.stringify(after[FIELD])) {
+      throw new Error(`La fecha protegida de ${youtubeId} no quedó guardada`);
+    }
+    return { youtube_id: youtubeId, before, after, changed: true };
+  }
+
   return {
     target,
     check,
@@ -174,6 +210,7 @@ export function createMigration({ directusUrl, token, fetch = globalThis.fetch }
     revert,
     lock: (youtubeId, field) => setLocks(youtubeId, field, true),
     unlock: (youtubeId, field) => setLocks(youtubeId, field, false),
+    setDate,
   };
 }
 
@@ -182,13 +219,19 @@ export function createMigration({ directusUrl, token, fetch = globalThis.fetch }
  * que se pierden (antes de borrar) y al final el resultado. Si el comando falla, el destino ya quedó impreso.
  */
 export async function runCli([command, ...args], { env = process.env, fetch = globalThis.fetch, out = console.log } = {}) {
-  const commands = ['check', 'apply', 'revert', 'lock', 'unlock'];
+  const commands = ['check', 'apply', 'revert', 'lock', 'unlock', 'set-date'];
   // Validaciones antes de cualquier conexión.
-  if (!commands.includes(command)) throw new Error('Uso: check | apply | lock <youtube_id> <campo> | unlock <youtube_id> <campo> | revert --yes');
+  if (!commands.includes(command)) {
+    throw new Error('Uso: check | apply | lock <youtube_id> <campo> | unlock <youtube_id> <campo> | set-date <youtube_id> <AAAA-MM-DD> | revert --yes');
+  }
   if (command === 'revert' && args[0] !== '--yes') throw new Error('revert elimina el campo y todas las protecciones: confirme con --yes');
   if (command === 'lock' || command === 'unlock') {
     if (!args[0]) throw new Error(`Uso: ${command} <youtube_id> <campo>`);
     assertLockable(args[1]);
+  }
+  if (command === 'set-date') {
+    if (!args[0]) throw new Error('Uso: set-date <youtube_id> <AAAA-MM-DD>');
+    assertDate(args[1]);
   }
   const migration = createMigration({ directusUrl: env.DIRECTUS_URL, token: env.DIRECTUS_ADMIN_TOKEN, fetch });
   const target = await migration.target();
@@ -199,6 +242,7 @@ export async function runCli([command, ...args], { env = process.env, fetch = gl
     revert: () => migration.revert({ beforeDelete: lostLocks => out(JSON.stringify({ command, target, lostLocks })) }),
     lock: () => migration.lock(args[0], args[1]),
     unlock: () => migration.unlock(args[0], args[1]),
+    'set-date': () => migration.setDate(args[0], args[1]),
   };
   const result = await run[command]();
   out(JSON.stringify({ command, target, result }));
