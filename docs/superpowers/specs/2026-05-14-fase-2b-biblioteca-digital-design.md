@@ -128,6 +128,10 @@ runtimeCaching: [
   - `check`: solo lectura. Lee la lista de campos; un 403 se trata como error ("sin permisos o destino equivocado"), nunca como "no existe".
   - `apply`: crea el campo JSON opcional. Es idempotente.
   - `lock <youtube_id> <campo>` y `unlock <youtube_id> <campo>`: idempotentes y verificados con una relectura. Validan el campo antes de conectarse y se niegan a pisar un valor mal formado o ausente en la respuesta.
+  - `set-date <youtube_id> <AAAA-MM-DD>`: corrige la fecha editorial y la protege **en un mismo PATCH**, así que la fecha corregida nunca queda sin protección y Directus registra una sola revisión con los dos campos.
+    - Valida la fecha (día del calendario, sin hora) antes de conectarse.
+    - Es idempotente y verifica con una relectura.
+    - Si la fecha ya está protegida con otro valor, se niega: hay que hacer `unlock` antes. El trigger también rechazaría ese cambio.
   - `revert --yes`: elimina el campo y todas las protecciones, y comprueba después que el campo ya no existe. Antes del DELETE imprime las protecciones que se pierden, porque borrar el campo no deja revisiones por sermón. Pagina la lista (por si Directus recorta el `limit`) y no cuenta las listas vacías.
   - Salida: una línea JSON por paso. Primero el destino (origen y `project_name`), antes de ejecutar nada, de modo que queda impreso aunque el comando falle. Luego, en `revert`, `lostLocks`. Al final, `result`.
 - En producción se ejecuta **desde Git Bash** (PowerShell 5.1 no admite `<` y altera la codificación), dentro del contenedor para que el token no salga del servidor: `ssh … 'docker exec -i lirio_nextjs node --input-type=module - <comando>' < scripts/add-sermons-sync-locked-fields.mjs`.
@@ -137,7 +141,7 @@ runtimeCaching: [
   2. Release del código.
   3. `apply`.
   4. Trigger `up` y su verificación en `pg_trigger`.
-  5. `lock` de los casos aprobados.
+  5. `lock` y `set-date` de los casos aprobados.
   6. `dry_run`.
   7. Sync real autorizada.
   8. Reactivar el cron.
@@ -265,6 +269,31 @@ Archivo: `.github/workflows/sync-sermons.yml`
 | Transmisiones programadas o en curso | **Sin cambios**: se importan al aparecer en la playlist y cada ejecución corrige título, fecha y duración cuando terminan | No importar mientras `liveBroadcastContent` sea `upcoming` o `live`. Evitaría ver en la Biblioteca servicios que aún no ocurrieron y slugs con el título del servicio anterior |
 | `sermon_date` de servicios nocturnos | **Sin cambios**: fecha UTC. 388 de 1027 registros (publicados de 18:00 a 23:59 en Costa Rica) muestran el día siguiente, igual que En Vivo | Calcular la fecha en `America/Costa_Rica`, corregir una vez esos 388 registros (con `dry_run`, respaldo y la regla de "no editada a mano") y formatear En Vivo con `timeZone: 'America/Costa_Rica'` |
 | E2E aislado en CI | Paso dentro del job "Playwright E2E" (check obligatorio en `main`) | — |
+
+### Fechas editoriales de la Biblioteca (2026-10-22)
+
+**Criterio.** La fecha editorial es el día del **inicio de la transmisión en hora de Costa Rica**. Ese dato coincide con la fecha que trae el título de YouTube.
+
+La sync, en cambio, toma el día UTC de `publishedAt`. Además, solo lo reevalúa cuando YouTube cambia `publishedAt`. Por eso:
+- un servicio de la tarde, o un video que se termina de procesar de madrugada, queda con el día siguiente;
+- un registro importado con los datos de la transmisión programada anterior conserva esa fecha.
+
+**Casos aprobados por el usuario.** Se corrigen con `set-date` y se protegen. Pendiente de autorización en producción:
+
+| Video | Fecha guardada | Fecha editorial | Inicio del vivo (CR) |
+|---|---|---|---|
+| `EZe2JywDzDc` | 2026-09-27 | 2026-10-03 | 3 oct, 18:45 |
+| `kcylErKffEM` | 2026-10-18 | 2026-10-17 | 17 oct, 18:43 |
+| `ThtKPaa4WvI` | 2026-10-05 | 2026-10-04 | 4 oct, 09:38 |
+| `6hr2-CqUGE8` | 2026-09-28 | 2026-09-27 | 27 sep, 10:35 |
+
+Sin protección, la sync pondría `EZe2JywDzDc` en el 4 de octubre. `D0hL4Ax6juU` (2026-10-11) se protege con `lock`, sin cambiar su valor.
+
+Los demás registros con el mismo desfase (por ejemplo `rj9hxl2vGXM`, `xe5mHjhrS-A`, `BVIRBzLtmpk` y `Cmk-_hMCYJ4`) **no se tocan** sin una decisión aparte (ver la fila de servicios nocturnos arriba).
+
+**Visualización.** `sermon_date` se formatea con `formatSermonDate` (`src/lib/sermon-date.ts`): el mismo día de calendario en el servidor y en cualquier navegador.
+- **Antes:** `BibliotecaClient` la pintaba en el navegador con `new Date('AAAA-MM-DD')`. En Costa Rica mostraba el día anterior en el destacado y el mes anterior en las tarjetas del día 1, y React daba el error de hidratación #418.
+- **Riesgo que queda:** `getAvailableYears` calcula el año con `getFullYear()`, que depende de la zona del servidor. Hoy el servidor está en UTC y funciona.
 
 ### Variable de entorno nueva
 
