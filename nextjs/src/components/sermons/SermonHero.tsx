@@ -1,4 +1,5 @@
 import type { Sermon } from '@/lib/types';
+import { formatSermonDate } from '@/lib/sermon-date';
 import { YoutubeEmbed } from './YoutubeEmbed';
 
 interface SermonHeroProps {
@@ -52,7 +53,7 @@ export function SermonHero({ sermon }: SermonHeroProps) {
           )}
           {sermon.sermon_date && (
             <span>
-              {new Date(sermon.sermon_date).toLocaleDateString('es-CR', { year: 'numeric', month: 'long', day: 'numeric' })}
+              {formatSermonDate(sermon.sermon_date, { year: 'numeric', month: 'long', day: 'numeric' })}
             </span>
           )}
           {sermon.duration_seconds && (

@@ -15,6 +15,18 @@ export interface LockResult {
   changed: boolean;
 }
 
+export interface DateLock {
+  sermon_date: string | null;
+  sync_locked_fields: unknown;
+}
+
+export interface SetDateResult {
+  youtube_id: string;
+  before: DateLock;
+  after: DateLock;
+  changed: boolean;
+}
+
 export declare function createMigration(options: {
   directusUrl: string;
   token: string;
@@ -26,6 +38,7 @@ export declare function createMigration(options: {
   revert(options?: { beforeDelete?: (lostLocks: LostLock[]) => void }): Promise<{ removed: boolean; lostLocks: LostLock[] }>;
   lock(youtubeId: string, field: string): Promise<LockResult>;
   unlock(youtubeId: string, field: string): Promise<LockResult>;
+  setDate(youtubeId: string, date: string): Promise<SetDateResult>;
 };
 
 export interface LostLock {

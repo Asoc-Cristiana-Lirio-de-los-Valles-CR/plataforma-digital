@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Sermon } from '@/lib/types';
+import { formatSermonDate } from '@/lib/sermon-date';
 
 interface SermonCardProps {
   sermon: Sermon;
@@ -63,7 +64,7 @@ export function SermonCard({ sermon, locale }: SermonCardProps) {
             <>
               <span className="text-xs text-muted">·</span>
               <span className="text-xs text-muted">
-                {new Date(sermon.sermon_date).toLocaleDateString('es-CR', { year: 'numeric', month: 'short' })}
+                {formatSermonDate(sermon.sermon_date, { year: 'numeric', month: 'short' })}
               </span>
             </>
           )}

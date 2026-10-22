@@ -334,6 +334,82 @@ test.describe('trigger de protección en PostgreSQL (Directus real)', () => {
   });
 });
 
+// Réplica de EZe2JywDzDc: el registro conserva la fecha de la transmisión anterior; el servicio fue la tarde
+// del día 1 en Costa Rica y YouTube publicó el video el día 2 (UTC).
+test.describe('fecha editorial con set-date y su visualización en hora de Costa Rica (Directus real)', () => {
+  test.use({ timezoneId: 'America/Costa_Rica', locale: 'es-CR' });
+  const g = { id: `G${run}0000`.slice(0, 11), slug: `e2e-${run}-g`, old: `E2E ${run} Servicio G - título del anterior`, new: `E2E ${run} Servicio G - corregido` };
+  const rowG = async () => (await findSermons(g.id))[0];
+  async function revisionsOfG(): Promise<{ delta: Record<string, unknown> }[]> {
+    const res = await dx(`/revisions?filter[collection][_eq]=sermons&filter[item][_eq]=${sermonIds.g}&fields=delta&sort=-id&limit=-1`);
+    return ((await res.json()) as { data: { delta: Record<string, unknown> }[] }).data;
+  }
+
+  test.beforeAll(async () => {
+    yt.videos.set(g.id, { id: g.id, title: g.old, publishedAt: '2099-03-08T18:00:54Z' });
+    sermonIds.g = await createSermon({ youtube_id: g.id, title: g.old, raw_youtube_title: g.old, slug: g.slug, sermon_date: '2099-03-08', youtube_published_at: '2099-03-08T18:00:54Z' });
+  });
+
+  test('set-date fija y protege la fecha en una sola escritura auditada y es idempotente', async () => {
+    const before = (await revisionsOfG()).length;
+    expect(await sermonsMigration().setDate(g.id, '2099-04-01')).toEqual({
+      youtube_id: g.id, changed: true,
+      before: { sermon_date: '2099-03-08', sync_locked_fields: null },
+      after: { sermon_date: '2099-04-01', sync_locked_fields: ['sermon_date'] },
+    });
+    const revisions = await revisionsOfG();
+    expect(revisions).toHaveLength(before + 1);
+    expect(revisions[0].delta).toMatchObject({ sermon_date: '2099-04-01', sync_locked_fields: ['sermon_date'] });
+    expect(await sermonsMigration().setDate(g.id, '2099-04-01')).toMatchObject({ changed: false });
+    expect(await revisionsOfG()).toHaveLength(before + 1);
+  });
+
+  test('set-date sobre un sermón con el título protegido conserva esa protección (trigger real)', async () => {
+    const h = { id: `H${run}0000`.slice(0, 11), slug: `e2e-${run}-h`, title: `E2E ${run} Servicio H` };
+    yt.videos.set(h.id, { id: h.id, title: h.title, publishedAt: '2099-03-15T15:00:00Z' });
+    await createSermon({ youtube_id: h.id, title: h.title, raw_youtube_title: h.title, slug: h.slug, sermon_date: '2099-03-15', youtube_published_at: '2099-03-15T15:00:00Z' });
+    await sermonsMigration().lock(h.id, 'title');
+    expect(await sermonsMigration().setDate(h.id, '2099-03-14')).toMatchObject({
+      changed: true, after: { sermon_date: '2099-03-14', sync_locked_fields: ['sermon_date', 'title'] },
+    });
+    expect((await findSermons(h.id))[0]).toMatchObject({ sermon_date: '2099-03-14', title: h.title, sync_locked_fields: ['sermon_date', 'title'] });
+  });
+
+  test('set-date no cambia una fecha ya protegida con otro valor', async () => {
+    const before = (await revisionsOfG()).length;
+    await expect(sermonsMigration().setDate(g.id, '2099-04-02')).rejects.toThrow(/ya está protegida con 2099-04-01/);
+    expect(await rowG()).toMatchObject({ sermon_date: '2099-04-01', sync_locked_fields: ['sermon_date'] });
+    expect(await revisionsOfG()).toHaveLength(before);
+  });
+
+  test('la sync corrige el título y conserva la fecha fijada aunque YouTube publique al día siguiente', async () => {
+    yt.videos.set(g.id, { id: g.id, title: g.new, publishedAt: '2099-04-02T18:36:28Z' });
+    const result = await syncNow();
+    expect(result.errors).toEqual([]);
+    expect(result.protectedFields).toContainEqual({ youtube_id: g.id, field: 'sermon_date', kept: '2099-04-01', youtube: '2099-04-02', reason: 'sync_locked_fields' });
+    expect(await rowG()).toMatchObject({ sermon_date: '2099-04-01', title: g.new, sync_locked_fields: ['sermon_date'] });
+  });
+
+  test('un navegador en Costa Rica ve el día editorial en el destacado, la tarjeta y el detalle, sin error de hidratación', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+    page.on('pageerror', e => errors.push(e.message));
+
+    await page.goto('/es/biblioteca');
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { level: 2, name: g.new, exact: true })).toBeVisible();
+    await expect(page.getByText('1 de abril de 2099', { exact: true }).first()).toBeVisible();
+    await expect(page.locator(`a[href="/es/biblioteca/${g.slug}"]`).getByText('abr 2099', { exact: true })).toBeVisible();
+
+    await page.goto(`/es/biblioteca/${g.slug}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(g.new);
+    await expect(page.getByText('1 de abril de 2099', { exact: true }).first()).toBeVisible();
+
+    expect(errors.filter(e => /#418|#423|#425|hydrat/i.test(e))).toEqual([]);
+  });
+});
+
 test.describe('lock atómico en el Redis aislado', () => {
   function redisOpts() {
     const redis = new URL(isolatedConfig().redisUrl);
