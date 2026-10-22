@@ -1,5 +1,10 @@
 // Administración del Directus AISLADO (stack lirio-e2e). Toda llamada pasa antes por la guarda.
+import { spawn, spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { assertIsolatedDirectusState, assertIsolatedE2E, isolatedConfigFromEnv, E2E_SENTINEL } from './guard';
+
+const MIGRATION_SCRIPT = path.resolve(__dirname, '../../../../scripts/add-sermons-sync-locked-fields.mjs');
 
 export const E2E_ADMIN_TOKEN = process.env.E2E_DIRECTUS_TOKEN ?? 'e2e-admin-token-solo-pruebas';
 export const E2E_SYNC_SECRET = process.env.E2E_SYNC_SECRET ?? 'e2e-sync-secret-solo-pruebas';
@@ -48,14 +53,79 @@ async function sermonCount(): Promise<number> {
   return Number(data[0]?.count ?? 0);
 }
 
-/** Verifica que el destino es el stack aislado y crea el esquema mínimo de la Biblioteca (idempotente). */
+// Ejecuta la migración igual que en producción (script por stdin a `node --input-type=module -`),
+// apuntada al Directus aislado tras pasar la guarda.
+function runMigration(...args: string[]): unknown {
+  const res = spawnSync(process.execPath, ['--input-type=module', '-', ...args], {
+    input: readFileSync(MIGRATION_SCRIPT),
+    env: { ...process.env, DIRECTUS_URL: isolatedConfig().directusUrl, DIRECTUS_ADMIN_TOKEN: E2E_ADMIN_TOKEN },
+    encoding: 'utf8',
+  });
+  if (res.status !== 0) throw new Error(`Migración ${args.join(' ')} falló: ${res.stderr}`);
+  // Una línea JSON por paso (destino, protecciones perdidas en revert, resultado): el resultado es la última.
+  return (JSON.parse(res.stdout.trim().split('\n').at(-1)!) as { result: unknown }).result;
+}
+
+// PostgreSQL del stack aislado: sin puertos publicados, se usa psql dentro del contenedor.
+const E2E_PG_CONTAINER = 'lirio_e2e_postgres';
+const PSQL_ARGS = ['exec', '-i', E2E_PG_CONTAINER, 'psql', '-U', 'e2e_user', '-d', 'lirio_e2e', '-v', 'ON_ERROR_STOP=1', '-q', '-At'];
+const SQL_DIR = path.resolve(__dirname, '../../../../scripts/sql');
+
+function assertIsolatedPostgres(): void {
+  isolatedConfig();
+  const label = spawnSync('docker', ['inspect', '--format', '{{ index .Config.Labels "com.docker.compose.project" }}', E2E_PG_CONTAINER], { encoding: 'utf8' });
+  if (label.status !== 0 || label.stdout.trim() !== 'lirio-e2e') {
+    throw new Error(`E2E aislado bloqueado: ${E2E_PG_CONTAINER} no pertenece al proyecto lirio-e2e`);
+  }
+}
+
+/** Ejecuta SQL en el PostgreSQL aislado y devuelve la salida (-At). */
+export function runSql(sql: string): string {
+  assertIsolatedPostgres();
+  const res = spawnSync('docker', PSQL_ARGS, { input: sql, encoding: 'utf8' });
+  if (res.status !== 0) throw new Error(`psql aislado falló: ${res.stderr}`);
+  return res.stdout.trim();
+}
+
+/** Igual que runSql, pero sin esperar: para abrir una transacción concurrente. */
+export function runSqlInBackground(sql: string): Promise<{ status: number | null; stderr: string }> {
+  assertIsolatedPostgres();
+  return new Promise(resolve => {
+    const child = spawn('docker', PSQL_ARGS, { stdio: ['pipe', 'ignore', 'pipe'] });
+    let stderr = '';
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    child.on('close', status => resolve({ status, stderr }));
+    child.stdin.end(sql);
+  });
+}
+
+export const triggerSql = (direction: 'up' | 'down') =>
+  readFileSync(path.join(SQL_DIR, `sermons-sync-locks-trigger.${direction}.sql`), 'utf8');
+
+export function sermonsMigration() {
+  return {
+    check: async () => runMigration('check'),
+    apply: async () => runMigration('apply'),
+    revert: async () => runMigration('revert', '--yes'),
+    lock: async (youtubeId: string, field: string) => runMigration('lock', youtubeId, field),
+    setDate: async (youtubeId: string, date: string) => runMigration('set-date', youtubeId, date),
+  };
+}
+
+/** Verifica que el destino es el stack aislado, crea el esquema de la Biblioteca y aplica la migración (idempotente). */
 export async function prepareIsolatedDirectus(): Promise<void> {
   const { directusUrl } = isolatedConfig();
   const info = (await (await fetch(`${directusUrl}/server/info`)).json()) as { data?: { project?: { project_name?: string } } };
   assertIsolatedDirectusState({ projectName: info.data?.project?.project_name ?? null, sermonCount: await sermonCount() });
   await dxOk('/settings', { method: 'PATCH', body: JSON.stringify({ project_name: E2E_SENTINEL }) });
 
-  if ((await dx('/collections/sermons')).ok) return;
+  if (!(await dx('/collections/sermons')).ok) await createLibrarySchema();
+  await sermonsMigration().apply();
+  runSql(triggerSql('up'));
+}
+
+// Esquema de la Biblioteca tal como existe hoy en producción (sin sync_locked_fields, que llega por migración).
+async function createLibrarySchema(): Promise<void> {
 
   await createCollection('preachers', [
     uuidPk,
@@ -131,7 +201,8 @@ export async function prepareIsolatedDirectus(): Promise<void> {
   const policy = await publicPolicyId();
   const read = (collection: string, permissions: Record<string, unknown> = {}) =>
     dxOk('/permissions', { method: 'POST', body: JSON.stringify({ policy, collection, action: 'read', permissions, fields: ['*'] }) });
-  await read('sermons', { visibility: { _eq: 'public' } });
+  // Como producción (verificado el 2026-10-21 en directus_permissions): lectura pública de sermons sin filtro.
+  await read('sermons');
   await read('preachers', { active: { _eq: true } });
   await read('sermon_series', { active: { _eq: true } });
   await read('sermon_tags');

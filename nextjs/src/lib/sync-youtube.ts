@@ -11,8 +11,12 @@ const MAX_PLAYLIST_PAGES = 200;
 
 const EXISTING_FIELDS = [
   'id', 'youtube_id', 'title', 'raw_youtube_title', 'youtube_status',
-  'youtube_published_at', 'sermon_date', 'duration_seconds', 'view_count',
+  'youtube_published_at', 'sermon_date', 'duration_seconds', 'view_count', 'sync_locked_fields',
 ].join(',');
+
+/** Campos editoriales que un editor puede proteger por sermón en Directus (`sync_locked_fields`). */
+export const LOCKABLE_FIELDS = ['sermon_date', 'title'] as const;
+export type LockableField = (typeof LOCKABLE_FIELDS)[number];
 
 export interface SyncResult {
   inserted: number;
@@ -23,6 +27,8 @@ export interface SyncResult {
   titleChanges: TitleChange[];
   /** Escrituras aplicadas (o planificadas en dryRun), con los nombres de los campos que cambian. */
   changes: SyncChange[];
+  /** Cambios de YouTube que no se aplican porque el campo está protegido. */
+  protectedFields: ProtectedField[];
   unavailableIds: string[];
   unavailableSkipped?: 'verification_failed' | 'circuit_breaker';
   /** IDs confirmados como no disponibles que el freno no marcó (para revisión humana). */
@@ -60,6 +66,17 @@ export interface ExistingSermon {
   sermon_date: string | null;
   duration_seconds: number | null;
   view_count: number | null;
+  sync_locked_fields: LockableField[] | null;
+}
+
+export interface ProtectedField {
+  youtube_id: string;
+  field: LockableField;
+  /** Valor que se conserva. */
+  kept: string | null;
+  /** Valor que proponía YouTube. */
+  youtube: string | null;
+  reason: 'sync_locked_fields' | 'manual_edit';
 }
 
 export interface YouTubeVideo {
@@ -81,6 +98,7 @@ export interface TitleChange {
 export interface SermonUpdatePlan {
   patch: Record<string, unknown>;
   titleChange?: TitleChange;
+  protectedFields: ProtectedField[];
 }
 
 const SERIES_PATTERNS = [
@@ -130,30 +148,41 @@ function utcDate(value: string | null): string | null {
 }
 
 // Sigue a YouTube en los campos que YouTube administra; los campos editoriales nunca se tocan.
+// title y sermon_date se conservan si están en sync_locked_fields o si un editor los cambió a mano.
+// Una protección siempre acompaña a un cambio que sí se escribe (raw_youtube_title o youtube_published_at),
+// así que null sigue significando "nada que escribir ni que informar".
 export function planSermonUpdate(
   existing: ExistingSermon,
   video: YouTubeVideo,
   syncedAt: string
 ): SermonUpdatePlan | null {
   const patch: Record<string, unknown> = {};
+  const protectedFields: ProtectedField[] = [];
+  const locked = new Set(existing.sync_locked_fields ?? []);
   let titleChange: TitleChange | undefined;
 
   const ytTitle = video.title.trim();
   const storedRaw = (existing.raw_youtube_title ?? '').trim();
   const storedTitle = (existing.title ?? '').trim();
   if (ytTitle && ytTitle !== storedRaw) {
-    const editorial = storedTitle !== storedRaw;
+    const reason = locked.has('title') ? 'sync_locked_fields' : storedTitle !== storedRaw ? 'manual_edit' : null;
     patch.raw_youtube_title = ytTitle;
-    if (!editorial) patch.title = ytTitle;
-    titleChange = { youtube_id: existing.youtube_id, from: storedRaw, to: ytTitle, editorial };
+    if (!reason) patch.title = ytTitle;
+    else if (ytTitle !== storedTitle) {
+      protectedFields.push({ youtube_id: existing.youtube_id, field: 'title', kept: existing.title, youtube: ytTitle, reason });
+    }
+    titleChange = { youtube_id: existing.youtube_id, from: storedRaw, to: ytTitle, editorial: reason !== null };
   }
 
   const ytPublished = toInstant(video.publishedAt);
   if (ytPublished !== null && ytPublished !== toInstant(existing.youtube_published_at)) {
     patch.youtube_published_at = video.publishedAt;
-    if (existing.sermon_date === utcDate(existing.youtube_published_at)) {
-      const newDate = utcDate(video.publishedAt);
-      if (newDate !== existing.sermon_date) patch.sermon_date = newDate;
+    const newDate = utcDate(video.publishedAt);
+    if (newDate !== existing.sermon_date) {
+      const reason = locked.has('sermon_date') ? 'sync_locked_fields'
+        : existing.sermon_date !== utcDate(existing.youtube_published_at) ? 'manual_edit' : null;
+      if (!reason) patch.sermon_date = newDate;
+      else protectedFields.push({ youtube_id: existing.youtube_id, field: 'sermon_date', kept: existing.sermon_date, youtube: newDate, reason });
     }
   }
 
@@ -167,7 +196,7 @@ export function planSermonUpdate(
 
   if (video.viewCount !== null) patch.view_count = video.viewCount;
   patch.last_synced_at = syncedAt;
-  return { patch, titleChange };
+  return { patch, titleChange, protectedFields };
 }
 
 export function buildThumbnailUrl(youtubeId: string): string {
@@ -322,8 +351,53 @@ async function loadExistingSermons(ctx: Context): Promise<Map<string, ExistingSe
     if (!res.ok) throw new Error(`Directus sermons read error: ${res.status}`);
     const rows = ((await res.json()) as { data?: ExistingSermon[] }).data ?? [];
     if (rows.length === 0) return existing;
-    for (const row of rows) if (row.youtube_id) existing.set(row.youtube_id, row);
+    for (const row of rows) {
+      assertValidLocks(row);
+      if (row.youtube_id) existing.set(row.youtube_id, row);
+    }
     offset += rows.length;
+  }
+}
+
+// Sin admin_access, Directus 11 puede devolver null en un campo que el token no puede leer en esa fila
+// (varias políticas con campos distintos) en vez de responder 403: ese null ocultaría una protección.
+async function assertAdminAccess(ctx: Context): Promise<void> {
+  const res = await ctx.fetch(`${ctx.directusUrl}/policies/me/globals`, { headers: directusHeaders(ctx) });
+  if (!res.ok) throw new Error(`Directus access check error: ${res.status}`);
+  const globals = ((await res.json()) as { data?: { admin_access?: unknown } }).data;
+  if (globals?.admin_access !== true) {
+    throw new Error('Directus access check error: DIRECTUS_ADMIN_TOKEN lacks admin_access');
+  }
+}
+
+// Relee la fila justo antes de escribir sermon_date o title: una protección marcada durante la sync se respeta.
+async function replanBeforeWrite(ctx: Context, op: UpdateOp, syncedAt: string): Promise<UpdateOp | null> {
+  const query = new URLSearchParams({ fields: EXISTING_FIELDS });
+  const res = await ctx.fetch(`${ctx.directusUrl}/items/sermons/${op.id}?${query}`, { headers: directusHeaders(ctx) });
+  if (!res.ok) throw new Error(`Directus sermons read error: ${res.status}`);
+  const row = ((await res.json()) as { data?: ExistingSermon }).data;
+  if (!row) throw new Error('Directus sermons read error: empty');
+  assertValidLocks(row);
+  const plan = planSermonUpdate(row, op.video, syncedAt);
+  return plan ? toUpdateOp(op.youtubeId, op.id, op.video, plan) : null;
+}
+
+function toUpdateOp(youtubeId: string, id: string, video: YouTubeVideo, plan: SermonUpdatePlan): UpdateOp {
+  return {
+    kind: plan.patch.youtube_status === 'available' ? 'restore' : 'update',
+    youtubeId, id, video, body: plan.patch, titleChange: plan.titleChange, protectedFields: plan.protectedFields,
+  };
+}
+
+// Falla cerrado: una protección ausente o ilegible nunca se interpreta como "sin protección".
+function assertValidLocks(row: ExistingSermon): void {
+  if (!Object.prototype.hasOwnProperty.call(row, 'sync_locked_fields')) {
+    throw new Error('Directus sermons read error: sync_locked_fields missing');
+  }
+  const value: unknown = row.sync_locked_fields;
+  if (value === null) return;
+  if (!Array.isArray(value) || !value.every(f => (LOCKABLE_FIELDS as readonly unknown[]).includes(f))) {
+    throw new Error(`Directus sermons read error: invalid sync_locked_fields for ${row.youtube_id}`);
   }
 }
 
@@ -331,9 +405,15 @@ function unavailableLimit(availableCount: number): number {
   return Math.max(1, Math.min(MAX_UNAVAILABLE_PER_RUN, Math.floor(availableCount * MAX_UNAVAILABLE_RATIO)));
 }
 
+interface UpdateOp {
+  kind: 'update' | 'restore'; youtubeId: string; id: string; video: YouTubeVideo; body: Record<string, unknown>;
+  titleChange?: TitleChange; protectedFields: ProtectedField[];
+}
+
 type WriteOp =
   | { kind: 'insert'; youtubeId: string; body: Record<string, unknown> }
-  | { kind: 'update' | 'restore' | 'unavailable'; youtubeId: string; id: string; body: Record<string, unknown>; titleChange?: TitleChange };
+  | { kind: 'unavailable'; youtubeId: string; id: string; body: Record<string, unknown> }
+  | UpdateOp;
 
 export async function runYoutubeSync(options: SyncOptions = {}, deps: SyncDeps = {}): Promise<SyncResult> {
   const ctx: Context = {
@@ -354,10 +434,11 @@ export async function runYoutubeSync(options: SyncOptions = {}, deps: SyncDeps =
   const syncedAt = (deps.now ?? (() => new Date()))().toISOString();
   const result: SyncResult = {
     inserted: 0, updated: 0, unchanged: 0, unavailable: 0, restored: 0,
-    titleChanges: [], changes: [], unavailableIds: [], errors: [], dryRun: Boolean(options.dryRun),
+    titleChanges: [], changes: [], protectedFields: [], unavailableIds: [], errors: [], dryRun: Boolean(options.dryRun),
   };
 
   // 1. Todas las lecturas antes de cualquier escritura: un fallo aquí aborta sin tocar datos.
+  if (ctx.adminToken) await assertAdminAccess(ctx);
   const { playlistIds, videos } = await fetchChannelVideos(ctx);
   const existing = await loadExistingSermons(ctx);
 
@@ -376,10 +457,7 @@ export async function runYoutubeSync(options: SyncOptions = {}, deps: SyncDeps =
       result.unchanged++;
       continue;
     }
-    ops.push({
-      kind: plan.patch.youtube_status === 'available' ? 'restore' : 'update',
-      youtubeId, id: current.id, body: plan.patch, titleChange: plan.titleChange,
-    });
+    ops.push(toUpdateOp(youtubeId, current.id, video, plan));
   }
 
   const available = [...existing.values()].filter(s => s.youtube_status === 'available');
@@ -409,15 +487,30 @@ export async function runYoutubeSync(options: SyncOptions = {}, deps: SyncDeps =
   }
 
   // 3. Escrituras, confirmando la propiedad del lock antes de cada una.
-  for (const op of ops) {
+  for (let op of ops) {
     if (options.ensureLock && !(await options.ensureLock())) {
       result.lockLost = true;
       result.errors.push('lock_lost');
       break;
     }
+    if ((op.kind === 'update' || op.kind === 'restore') && LOCKABLE_FIELDS.some(f => f in op.body)) {
+      let fresh: UpdateOp | null;
+      try {
+        fresh = await replanBeforeWrite(ctx, op, syncedAt);
+      } catch (err) {
+        result.errors.push(`${op.youtubeId}: ${op.kind} lock_recheck_failed ${String(err)}`);
+        continue;
+      }
+      if (!fresh) {
+        result.unchanged++;
+        continue;
+      }
+      op = fresh;
+    }
     const isInsert = op.kind === 'insert';
+    const path = op.kind === 'insert' ? '' : `/${op.id}`;
     try {
-      const res = await ctx.fetch(`${ctx.directusUrl}/items/sermons${isInsert ? '' : `/${op.id}`}`, {
+      const res = await ctx.fetch(`${ctx.directusUrl}/items/sermons${path}`, {
         method: isInsert ? 'POST' : 'PATCH',
         headers: directusHeaders(ctx, true),
         body: JSON.stringify(op.body),
@@ -438,7 +531,10 @@ function countOp(result: SyncResult, op: WriteOp): void {
     ? []
     : Object.keys(op.body).filter(k => k !== 'last_synced_at' && k !== 'view_count').sort();
   result.changes.push({ youtube_id: op.youtubeId, action: op.kind, fields });
-  if (op.kind !== 'insert' && op.titleChange) result.titleChanges.push(op.titleChange);
+  if (op.kind === 'update' || op.kind === 'restore') {
+    if (op.titleChange) result.titleChanges.push(op.titleChange);
+    result.protectedFields.push(...op.protectedFields);
+  }
   if (op.kind === 'insert') result.inserted++;
   else if (op.kind === 'update') result.updated++;
   else if (op.kind === 'restore') result.restored++;

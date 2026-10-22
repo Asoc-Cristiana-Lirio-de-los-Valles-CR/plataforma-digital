@@ -5,6 +5,7 @@ import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import Link from 'next/link';
 import { getSermon, getRelatedSermons } from '@/lib/sermons';
+import { formatSermonDate } from '@/lib/sermon-date';
 import { YoutubeEmbed } from '@/components/sermons/YoutubeEmbed';
 import { SermonCard } from '@/components/sermons/SermonCard';
 
@@ -86,7 +87,7 @@ export default async function SermonPage({
             )}
             {sermon.sermon_date && (
               <span>
-                {new Date(sermon.sermon_date).toLocaleDateString('es-CR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                {formatSermonDate(sermon.sermon_date, { year: 'numeric', month: 'long', day: 'numeric' })}
               </span>
             )}
           </div>

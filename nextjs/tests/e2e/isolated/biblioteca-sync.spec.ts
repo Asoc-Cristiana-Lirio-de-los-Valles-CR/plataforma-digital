@@ -5,7 +5,7 @@ import { acquireSyncLock } from '../../../src/lib/sync-lock';
 import { createFakeYouTube } from '../../support/fake-youtube';
 import {
   isolatedConfig, prepareIsolatedDirectus, createSermon, findSermons, updateSermon,
-  deleteAllSermons, dx, E2E_ADMIN_TOKEN, E2E_SYNC_SECRET,
+  deleteAllSermons, dx, sermonsMigration, runSql, runSqlInBackground, triggerSql, E2E_ADMIN_TOKEN, E2E_SYNC_SECRET,
 } from './directus-admin';
 
 test.skip(process.env.E2E_ISOLATED !== '1', 'Requiere el stack aislado (E2E_ISOLATED=1, docker-compose.e2e.yml)');
@@ -31,14 +31,15 @@ const yt = createFakeYouTube([
   { id: ids.d, title: titles.d, publishedAt: '2099-01-01T15:00:00Z' },
 ]);
 
-async function syncNow(): Promise<SyncResult> {
+// afterDirectus se ejecuta tras cada respuesta de Directus a la sync: permite intercalar una escritura ajena.
+async function syncNow(token = E2E_ADMIN_TOKEN, afterDirectus?: (url: URL, init?: RequestInit) => Promise<void>): Promise<SyncResult> {
   const { directusUrl, redisUrl } = isolatedConfig();
   const directusOrigin = new URL(directusUrl).origin;
   Object.assign(process.env, {
     YOUTUBE_API_KEY: 'e2e-clave-ficticia',
     YOUTUBE_CHANNEL_ID: 'UCe2e',
     DIRECTUS_URL: directusUrl,
-    DIRECTUS_ADMIN_TOKEN: E2E_ADMIN_TOKEN,
+    DIRECTUS_ADMIN_TOKEN: token,
   });
   const redis = new URL(redisUrl);
   const lock = await acquireSyncLock({ host: redis.hostname, port: Number(redis.port) });
@@ -48,7 +49,11 @@ async function syncNow(): Promise<SyncResult> {
       fetch: (async (input: string | URL | Request, init?: RequestInit) => {
         const url = new URL(String(input));
         if (yt.handles(url)) return yt.handle(url);
-        if (url.origin === directusOrigin) return fetch(url, init);
+        if (url.origin === directusOrigin) {
+          const res = await fetch(url, init);
+          await afterDirectus?.(url, init);
+          return res;
+        }
         throw new Error(`Salida bloqueada en el E2E aislado: ${url.origin}`);
       }) as typeof fetch,
     });
@@ -136,6 +141,273 @@ test('si C vuelve a YouTube se recupera y su detalle vuelve a responder', async 
   const result = await syncNow();
   expect(result).toMatchObject({ restored: 1, unavailable: 0, errors: [] });
   expect((await page.goto(`/es/biblioteca/${slugs.c}`))?.status()).toBe(200);
+});
+
+// Réplica del caso D0hL4Ax6juU: servicio del día 5; YouTube termina de publicar la transmisión el 6 (UTC).
+test.describe('campos protegidos (sync_locked_fields) con la migración real', () => {
+  const e = { id: `E${run}0000`.slice(0, 11), slug: `e2e-${run}-e`, old: `E2E ${run} Servicio E - viejo`, new: `E2E ${run} Servicio E - corregido` };
+
+  test.beforeAll(async () => {
+    yt.videos.set(e.id, { id: e.id, title: e.new, publishedAt: '2099-01-06T06:28:31Z' });
+    sermonIds.e = await createSermon({ youtube_id: e.id, title: e.old, raw_youtube_title: e.old, slug: e.slug, sermon_date: '2099-01-05', youtube_published_at: '2099-01-05T15:00:00Z' });
+  });
+
+  test('la migración dejó sync_locked_fields en Directus y es idempotente', async () => {
+    expect(await sermonsMigration().check()).toEqual({ exists: true, type: 'json' });
+    expect(await sermonsMigration().apply()).toEqual({ created: false });
+    const [row] = await findSermons(e.id);
+    expect(row.sync_locked_fields).toBeNull();
+  });
+
+  test('proteger la fecha queda registrado en las revisiones de Directus', async () => {
+    expect(await sermonsMigration().lock(e.id, 'sermon_date')).toMatchObject({ before: null, after: ['sermon_date'], changed: true });
+    const res = await dx(`/revisions?filter[collection][_eq]=sermons&filter[item][_eq]=${sermonIds.e}&fields=delta&sort=-id&limit=1`);
+    const [revision] = ((await res.json()) as { data: { delta: Record<string, unknown> }[] }).data;
+    expect(revision.delta).toMatchObject({ sync_locked_fields: ['sermon_date'] });
+  });
+
+  test('la sync actualiza título y publicación pero conserva la fecha protegida y lo informa', async ({ page }) => {
+    const result = await syncNow();
+    expect(result.errors).toEqual([]);
+    expect(result.protectedFields).toEqual([
+      { youtube_id: e.id, field: 'sermon_date', kept: '2099-01-05', youtube: '2099-01-06', reason: 'sync_locked_fields' },
+    ]);
+    expect(result.changes.find(c => c.youtube_id === e.id)?.fields).toEqual(['raw_youtube_title', 'title', 'youtube_published_at']);
+    const [row] = await findSermons(e.id);
+    expect(row).toMatchObject({ sermon_date: '2099-01-05', title: e.new, sync_locked_fields: ['sermon_date'] });
+    await page.goto(`/es/biblioteca/${e.slug}`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(e.new);
+    await expect(page.getByText('5 de enero de 2099').first()).toBeVisible();
+  });
+
+  test('las sincronizaciones posteriores no cambian la fecha protegida', async () => {
+    const result = await syncNow();
+    expect(result).toMatchObject({ updated: 0, inserted: 0, protectedFields: [], errors: [] });
+    expect((await findSermons(e.id))[0].sermon_date).toBe('2099-01-05');
+  });
+
+  test('un token sin admin_access hace abortar la sync sin escribir (Directus real)', async () => {
+    const token = `e2e-sin-admin-${run}`;
+    const created = await dx('/users', {
+      method: 'POST',
+      // Directus rechaza el TLD .test en emails; example.com también es un dominio reservado (RFC 2606).
+      body: JSON.stringify({ email: `e2e-sin-admin-${run}@example.com`, password: `e2e-${run}-clave-larga`, token }),
+    });
+    expect(created.ok, await created.clone().text()).toBe(true);
+    const userId = ((await created.json()) as { data: { id: string } }).data.id;
+    try {
+      yt.videos.set(e.id, { id: e.id, title: `${e.new} 3`, publishedAt: '2099-01-08T10:00:00Z' });
+      const before = await (await dx('/items/sermons?fields=id,title,sermon_date,last_synced_at&sort=id&limit=-1')).json();
+      await expect(syncNow(token)).rejects.toThrow(/Directus access check error/);
+      const after = await (await dx('/items/sermons?fields=id,title,sermon_date,last_synced_at&sort=id&limit=-1')).json();
+      expect(after).toEqual(before);
+    } finally {
+      yt.videos.set(e.id, { id: e.id, title: e.new, publishedAt: '2099-01-06T06:28:31Z' });
+      await dx(`/users/${userId}`, { method: 'DELETE' });
+    }
+  });
+
+  test('sin el campo de protecciones la sync falla cerrado y no escribe (Directus real)', async () => {
+    expect(await sermonsMigration().revert()).toEqual({
+      removed: true, lostLocks: [{ youtube_id: e.id, sync_locked_fields: ['sermon_date'] }],
+    });
+    try {
+      yt.videos.set(e.id, { id: e.id, title: `${e.new} 2`, publishedAt: '2099-01-07T10:00:00Z' });
+      const before = await (await dx('/items/sermons?fields=id,title,sermon_date,last_synced_at&sort=id&limit=-1')).json();
+      await expect(syncNow()).rejects.toThrow(/Directus sermons read error/);
+      const after = await (await dx('/items/sermons?fields=id,title,sermon_date,last_synced_at&sort=id&limit=-1')).json();
+      expect(after).toEqual(before);
+      // Con el trigger instalado y sin la columna, las escrituras normales siguen funcionando.
+      const update = await dx(`/items/sermons/${sermonIds.e}`, { method: 'PATCH', body: JSON.stringify({ description: 'tras revert' }) });
+      expect(update.ok, await update.clone().text()).toBe(true);
+    } finally {
+      yt.videos.set(e.id, { id: e.id, title: e.new, publishedAt: '2099-01-06T06:28:31Z' });
+      await sermonsMigration().apply();
+      await sermonsMigration().lock(e.id, 'sermon_date');
+    }
+  });
+});
+
+// Trigger BEFORE UPDATE (scripts/sql/sermons-sync-locks-trigger.*.sql) en el PostgreSQL aislado, con escrituras de Directus real.
+test.describe('trigger de protección en PostgreSQL (Directus real)', () => {
+  const f = { id: `F${run}0000`.slice(0, 11), slug: `e2e-${run}-f`, old: `E2E ${run} Servicio F - viejo`, new: `E2E ${run} Servicio F - corregido` };
+  const patchF = (data: Record<string, unknown>) => dx(`/items/sermons/${sermonIds.f}`, { method: 'PATCH', body: JSON.stringify(data) });
+  const rowF = async () => (await findSermons(f.id))[0];
+  async function revisionsOfF(): Promise<number> {
+    const res = await dx(`/revisions?filter[collection][_eq]=sermons&filter[item][_eq]=${sermonIds.f}&aggregate[count]=*`);
+    return Number(((await res.json()) as { data: { count: number | string }[] }).data[0]?.count ?? 0);
+  }
+  // Triggers y funciones del esquema public: la reversión solo debe quitar los suyos.
+  const dbObjects = () => runSql(`
+    SELECT 'trigger ' || tgrelid::regclass || '.' || tgname FROM pg_trigger WHERE NOT tgisinternal
+    UNION ALL
+    SELECT 'function ' || p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public'
+    ORDER BY 1;`).split('\n').filter(Boolean);
+
+  test.beforeAll(async () => {
+    yt.videos.set(f.id, { id: f.id, title: f.old, publishedAt: '2099-02-01T15:00:00Z' });
+    sermonIds.f = await createSermon({ youtube_id: f.id, title: f.old, raw_youtube_title: f.old, slug: f.slug, sermon_date: '2099-02-01', youtube_published_at: '2099-02-01T15:00:00Z' });
+    await sermonsMigration().lock(f.id, 'sermon_date');
+  });
+
+  test('Directus no puede cambiar una fecha protegida: rechaza el PATCH, no la guarda ni crea revisión', async () => {
+    const revisions = await revisionsOfF();
+    const res = await patchF({ sermon_date: '2099-02-02' });
+    test.info().annotations.push({ type: 'respuesta de Directus', description: `${res.status} ${(await res.clone().text()).slice(0, 300)}` });
+    expect(res.ok).toBe(false);
+    expect((await rowF()).sermon_date).toBe('2099-02-01');
+    expect(await revisionsOfF()).toBe(revisions);
+  });
+
+  test('los campos no protegidos se siguen actualizando y auditando', async () => {
+    const revisions = await revisionsOfF();
+    const res = await patchF({ description: 'Descripción editorial F' });
+    expect(res.ok, await res.clone().text()).toBe(true);
+    expect(await rowF()).toMatchObject({ description: 'Descripción editorial F', sermon_date: '2099-02-01' });
+    expect(await revisionsOfF()).toBe(revisions + 1);
+  });
+
+  test('desmarcar y cambiar la fecha en un mismo guardado está permitido', async () => {
+    const res = await patchF({ sync_locked_fields: null, sermon_date: '2099-02-03' });
+    expect(res.ok, await res.clone().text()).toBe(true);
+    expect(await rowF()).toMatchObject({ sermon_date: '2099-02-03', sync_locked_fields: null });
+    expect((await patchF({ sermon_date: '2099-02-01' })).ok).toBe(true);
+  });
+
+  test('carrera: una protección guardada entre la relectura y el PATCH de la sync la rechaza la base de datos', async () => {
+    yt.videos.set(f.id, { id: f.id, title: f.new, publishedAt: '2099-02-05T06:00:00Z' });
+    const revisions = await revisionsOfF();
+    let marked = false;
+    const result = await syncNow(undefined, async (url, init) => {
+      // Tras la relectura de F (GET), un editor guarda la protección antes de que llegue el PATCH de la sync.
+      if (!marked && url.pathname === `/items/sermons/${sermonIds.f}` && (init?.method ?? 'GET') === 'GET') {
+        marked = true;
+        const lock = await patchF({ sync_locked_fields: ['sermon_date'] });
+        expect(lock.ok, await lock.clone().text()).toBe(true);
+      }
+    });
+    expect(marked).toBe(true);
+    expect(result.errors).toEqual([expect.stringMatching(new RegExp(`^${f.id}: update \\d{3}$`))]);
+    expect(result.changes.map(c => c.youtube_id)).not.toContain(f.id);
+    expect(await rowF()).toMatchObject({ sermon_date: '2099-02-01', title: f.old, sync_locked_fields: ['sermon_date'] });
+    expect(await revisionsOfF()).toBe(revisions + 1);
+
+    // La ejecución siguiente respeta la protección y completa la corrección del título.
+    const next = await syncNow();
+    expect(next.errors).toEqual([]);
+    expect(next.protectedFields).toContainEqual({ youtube_id: f.id, field: 'sermon_date', kept: '2099-02-01', youtube: '2099-02-05', reason: 'sync_locked_fields' });
+    expect(await rowF()).toMatchObject({ sermon_date: '2099-02-01', title: f.new });
+  });
+
+  test('transacción concurrente sin confirmar: el PATCH espera el bloqueo de fila y falla al confirmarse la protección', async () => {
+    expect((await patchF({ sync_locked_fields: null })).ok).toBe(true);
+    const session = runSqlInBackground(`BEGIN;
+      UPDATE sermons SET sync_locked_fields = '["sermon_date"]' WHERE id = '${sermonIds.f}';
+      SELECT pg_sleep(3);
+      COMMIT;`);
+    await expect.poll(
+      () => runSql("SELECT count(*) FROM pg_stat_activity WHERE state = 'active' AND query LIKE '%pg_sleep(3)%' AND pid <> pg_backend_pid()"),
+      { timeout: 15000 },
+    ).toBe('1');
+    const started = Date.now();
+    const res = await patchF({ sermon_date: '2099-02-09' });
+    const waited = Date.now() - started;
+    expect(await session).toMatchObject({ status: 0 });
+    expect(res.ok).toBe(false);
+    expect(waited).toBeGreaterThan(1000);
+    expect(await rowF()).toMatchObject({ sermon_date: '2099-02-01', sync_locked_fields: ['sermon_date'] });
+  });
+
+  test('down.sql retira solo su trigger y su función; up.sql es idempotente', async () => {
+    const withTrigger = dbObjects();
+    expect(withTrigger).toEqual(expect.arrayContaining(['function sermons_enforce_sync_locks', 'trigger sermons.sermons_enforce_sync_locks']));
+    runSql(triggerSql('down'));
+    expect(dbObjects()).toEqual(withTrigger.filter(o => !o.endsWith('sermons_enforce_sync_locks')));
+    // Sin el trigger, nada en la base impide el cambio: lo que lo rechazaba era el trigger.
+    expect((await patchF({ sermon_date: '2099-02-10' })).ok).toBe(true);
+    expect((await patchF({ sermon_date: '2099-02-01' })).ok).toBe(true);
+    runSql(triggerSql('up'));
+    runSql(triggerSql('up'));
+    expect(dbObjects()).toEqual(withTrigger);
+    expect((await patchF({ sermon_date: '2099-02-10' })).ok).toBe(false);
+    expect((await rowF()).sermon_date).toBe('2099-02-01');
+  });
+});
+
+// Réplica de EZe2JywDzDc: el registro conserva la fecha de la transmisión anterior; el servicio fue la tarde
+// del día 1 en Costa Rica y YouTube publicó el video el día 2 (UTC).
+test.describe('fecha editorial con set-date y su visualización en hora de Costa Rica (Directus real)', () => {
+  test.use({ timezoneId: 'America/Costa_Rica', locale: 'es-CR' });
+  const g = { id: `G${run}0000`.slice(0, 11), slug: `e2e-${run}-g`, old: `E2E ${run} Servicio G - título del anterior`, new: `E2E ${run} Servicio G - corregido` };
+  const rowG = async () => (await findSermons(g.id))[0];
+  async function revisionsOfG(): Promise<{ delta: Record<string, unknown> }[]> {
+    const res = await dx(`/revisions?filter[collection][_eq]=sermons&filter[item][_eq]=${sermonIds.g}&fields=delta&sort=-id&limit=-1`);
+    return ((await res.json()) as { data: { delta: Record<string, unknown> }[] }).data;
+  }
+
+  test.beforeAll(async () => {
+    yt.videos.set(g.id, { id: g.id, title: g.old, publishedAt: '2099-03-08T18:00:54Z' });
+    sermonIds.g = await createSermon({ youtube_id: g.id, title: g.old, raw_youtube_title: g.old, slug: g.slug, sermon_date: '2099-03-08', youtube_published_at: '2099-03-08T18:00:54Z' });
+  });
+
+  test('set-date fija y protege la fecha en una sola escritura auditada y es idempotente', async () => {
+    const before = (await revisionsOfG()).length;
+    expect(await sermonsMigration().setDate(g.id, '2099-04-01')).toEqual({
+      youtube_id: g.id, changed: true,
+      before: { sermon_date: '2099-03-08', sync_locked_fields: null },
+      after: { sermon_date: '2099-04-01', sync_locked_fields: ['sermon_date'] },
+    });
+    const revisions = await revisionsOfG();
+    expect(revisions).toHaveLength(before + 1);
+    expect(revisions[0].delta).toMatchObject({ sermon_date: '2099-04-01', sync_locked_fields: ['sermon_date'] });
+    expect(await sermonsMigration().setDate(g.id, '2099-04-01')).toMatchObject({ changed: false });
+    expect(await revisionsOfG()).toHaveLength(before + 1);
+  });
+
+  test('set-date sobre un sermón con el título protegido conserva esa protección (trigger real)', async () => {
+    const h = { id: `H${run}0000`.slice(0, 11), slug: `e2e-${run}-h`, title: `E2E ${run} Servicio H` };
+    yt.videos.set(h.id, { id: h.id, title: h.title, publishedAt: '2099-03-15T15:00:00Z' });
+    await createSermon({ youtube_id: h.id, title: h.title, raw_youtube_title: h.title, slug: h.slug, sermon_date: '2099-03-15', youtube_published_at: '2099-03-15T15:00:00Z' });
+    await sermonsMigration().lock(h.id, 'title');
+    expect(await sermonsMigration().setDate(h.id, '2099-03-14')).toMatchObject({
+      changed: true, after: { sermon_date: '2099-03-14', sync_locked_fields: ['sermon_date', 'title'] },
+    });
+    expect((await findSermons(h.id))[0]).toMatchObject({ sermon_date: '2099-03-14', title: h.title, sync_locked_fields: ['sermon_date', 'title'] });
+  });
+
+  test('set-date no cambia una fecha ya protegida con otro valor', async () => {
+    const before = (await revisionsOfG()).length;
+    await expect(sermonsMigration().setDate(g.id, '2099-04-02')).rejects.toThrow(/ya está protegida con 2099-04-01/);
+    expect(await rowG()).toMatchObject({ sermon_date: '2099-04-01', sync_locked_fields: ['sermon_date'] });
+    expect(await revisionsOfG()).toHaveLength(before);
+  });
+
+  test('la sync corrige el título y conserva la fecha fijada aunque YouTube publique al día siguiente', async () => {
+    yt.videos.set(g.id, { id: g.id, title: g.new, publishedAt: '2099-04-02T18:36:28Z' });
+    const result = await syncNow();
+    expect(result.errors).toEqual([]);
+    expect(result.protectedFields).toContainEqual({ youtube_id: g.id, field: 'sermon_date', kept: '2099-04-01', youtube: '2099-04-02', reason: 'sync_locked_fields' });
+    expect(await rowG()).toMatchObject({ sermon_date: '2099-04-01', title: g.new, sync_locked_fields: ['sermon_date'] });
+  });
+
+  test('un navegador en Costa Rica ve el día editorial en el destacado, la tarjeta y el detalle, sin error de hidratación', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+    page.on('pageerror', e => errors.push(e.message));
+
+    await page.goto('/es/biblioteca');
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { level: 2, name: g.new, exact: true })).toBeVisible();
+    await expect(page.getByText('1 de abril de 2099', { exact: true }).first()).toBeVisible();
+    await expect(page.locator(`a[href="/es/biblioteca/${g.slug}"]`).getByText('abr 2099', { exact: true })).toBeVisible();
+
+    await page.goto(`/es/biblioteca/${g.slug}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(g.new);
+    await expect(page.getByText('1 de abril de 2099', { exact: true }).first()).toBeVisible();
+
+    expect(errors.filter(e => /#418|#423|#425|hydrat/i.test(e))).toEqual([]);
+  });
 });
 
 test.describe('lock atómico en el Redis aislado', () => {
