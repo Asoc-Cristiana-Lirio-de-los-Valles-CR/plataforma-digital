@@ -77,7 +77,7 @@ const migration = () => createMigration({ directusUrl: 'http://directus:8055', t
 beforeEach(() => {
   dx = fakeDirectus([
     { id: 's-d0hl', youtube_id: 'D0hL4Ax6juU', sermon_date: '2026-10-11' },
-    // Producción (2026-10-22): el servicio fue el 3 de octubre y el registro conserva la fecha del video anterior.
+    // Producción (2026-10-21): el servicio fue el 3 de octubre y el registro conserva la fecha del video anterior.
     { id: 's-eze2', youtube_id: 'EZe2JywDzDc', sermon_date: '2026-09-27' },
     { id: 's-dup1', youtube_id: 'DUPLICADO01', sermon_date: '2026-01-01' },
     { id: 's-dup2', youtube_id: 'DUPLICADO01', sermon_date: '2026-01-01' },
@@ -260,7 +260,7 @@ describe('migración sermons.sync_locked_fields', () => {
   });
 
   it('setDate rechaza fechas inválidas antes de conectarse', async () => {
-    for (const bad of ['2026-02-30', '03/10/2026', '2026-10-3', '2026-10-03T00:00:00Z', '']) {
+    for (const bad of ['2026-02-30', '2026-13-01', '2026-10-32', '2026-10-00', '2026-00-10', '03/10/2026', '2026-10-3', '2026-10-03T00:00:00Z', '']) {
       await expect(migration().setDate('EZe2JywDzDc', bad)).rejects.toThrow(/Fecha inválida/);
     }
     expect(dx.state.calls).toEqual([]);

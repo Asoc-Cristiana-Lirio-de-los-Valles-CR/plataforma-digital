@@ -300,7 +300,7 @@ describe('planSermonUpdate con campos protegidos (sync_locked_fields)', () => {
   });
 });
 
-// Producción y YouTube, 2026-10-22. La fecha editorial es el día del inicio de la transmisión en hora de
+// Producción y YouTube, 2026-10-21 (hora de Costa Rica). La fecha editorial es el día del inicio de la transmisión en hora de
 // Costa Rica y coincide con la del título de YouTube; la sync, en cambio, deriva sermon_date del día UTC
 // de publishedAt, que para un servicio de la tarde o un video procesado de madrugada cae al día siguiente.
 describe('fechas editoriales de la Biblioteca (casos reales, set-date + sync_locked_fields)', () => {

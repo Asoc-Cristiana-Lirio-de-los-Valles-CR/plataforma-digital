@@ -364,6 +364,17 @@ test.describe('fecha editorial con set-date y su visualización en hora de Costa
     expect(await revisionsOfG()).toHaveLength(before + 1);
   });
 
+  test('set-date sobre un sermón con el título protegido conserva esa protección (trigger real)', async () => {
+    const h = { id: `H${run}0000`.slice(0, 11), slug: `e2e-${run}-h`, title: `E2E ${run} Servicio H` };
+    yt.videos.set(h.id, { id: h.id, title: h.title, publishedAt: '2099-03-15T15:00:00Z' });
+    await createSermon({ youtube_id: h.id, title: h.title, raw_youtube_title: h.title, slug: h.slug, sermon_date: '2099-03-15', youtube_published_at: '2099-03-15T15:00:00Z' });
+    await sermonsMigration().lock(h.id, 'title');
+    expect(await sermonsMigration().setDate(h.id, '2099-03-14')).toMatchObject({
+      changed: true, after: { sermon_date: '2099-03-14', sync_locked_fields: ['sermon_date', 'title'] },
+    });
+    expect((await findSermons(h.id))[0]).toMatchObject({ sermon_date: '2099-03-14', title: h.title, sync_locked_fields: ['sermon_date', 'title'] });
+  });
+
   test('set-date no cambia una fecha ya protegida con otro valor', async () => {
     const before = (await revisionsOfG()).length;
     await expect(sermonsMigration().setDate(g.id, '2099-04-02')).rejects.toThrow(/ya está protegida con 2099-04-01/);

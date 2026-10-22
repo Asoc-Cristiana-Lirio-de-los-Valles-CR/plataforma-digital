@@ -56,7 +56,8 @@ function assertLockable(field) {
 
 // Fecha editorial del calendario, sin hora ni zona: la que se guarda tal cual en sermons.sermon_date.
 function assertDate(date) {
-  const valid = /^\d{4}-\d{2}-\d{2}$/.test(date ?? '') && new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) === date;
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(date ?? '') ? new Date(`${date}T00:00:00Z`) : null;
+  const valid = parsed !== null && !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
   if (!valid) throw new Error(`Fecha inválida: ${JSON.stringify(date ?? null)}; use AAAA-MM-DD (día editorial, sin hora)`);
 }
 

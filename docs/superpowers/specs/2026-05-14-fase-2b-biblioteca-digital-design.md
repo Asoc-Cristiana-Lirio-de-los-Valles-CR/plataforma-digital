@@ -135,7 +135,9 @@ runtimeCaching: [
   - `revert --yes`: elimina el campo y todas las protecciones, y comprueba después que el campo ya no existe. Antes del DELETE imprime las protecciones que se pierden, porque borrar el campo no deja revisiones por sermón. Pagina la lista (por si Directus recorta el `limit`) y no cuenta las listas vacías.
   - Salida: una línea JSON por paso. Primero el destino (origen y `project_name`), antes de ejecutar nada, de modo que queda impreso aunque el comando falle. Luego, en `revert`, `lostLocks`. Al final, `result`.
 - En producción se ejecuta **desde Git Bash** (PowerShell 5.1 no admite `<` y altera la codificación), dentro del contenedor para que el token no salga del servidor: `ssh … 'docker exec -i lirio_nextjs node --input-type=module - <comando>' < scripts/add-sermons-sync-locked-fields.mjs`.
-- No modifica ningún valor existente. La política pública lee `sermons` con `fields: ["*"]`, así que la lista es visible en la API pública. Solo contiene nombres de campos y no requiere cambiar permisos.
+- `apply`, `lock` y `unlock` no modifican ningún valor editorial. `set-date` escribe `sermon_date` solo del sermón indicado e imprime el valor anterior (`before`).
+  - **Para revertirla:** `unlock <youtube_id> sermon_date` y después devolver la fecha anterior, desde el panel ("Revertir" en la revisión) o con `set-date <youtube_id> <before>`, que la deja protegida; si no debe quedar protegida, un `unlock` más.
+- La política pública lee `sermons` con `fields: ["*"]`, así que la lista es visible en la API pública. Solo contiene nombres de campos y no requiere cambiar permisos.
 - **Orden de despliegue** (el código anterior, de `9a7b366`, ignora el campo):
   1. Respaldo verificado.
   2. Release del código.
@@ -270,7 +272,7 @@ Archivo: `.github/workflows/sync-sermons.yml`
 | `sermon_date` de servicios nocturnos | **Sin cambios**: fecha UTC. 388 de 1027 registros (publicados de 18:00 a 23:59 en Costa Rica) muestran el día siguiente, igual que En Vivo | Calcular la fecha en `America/Costa_Rica`, corregir una vez esos 388 registros (con `dry_run`, respaldo y la regla de "no editada a mano") y formatear En Vivo con `timeZone: 'America/Costa_Rica'` |
 | E2E aislado en CI | Paso dentro del job "Playwright E2E" (check obligatorio en `main`) | — |
 
-### Fechas editoriales de la Biblioteca (2026-10-22)
+### Fechas editoriales de la Biblioteca (2026-10-21)
 
 **Criterio.** La fecha editorial es el día del **inicio de la transmisión en hora de Costa Rica**. Ese dato coincide con la fecha que trae el título de YouTube.
 
@@ -293,7 +295,10 @@ Los demás registros con el mismo desfase (por ejemplo `rj9hxl2vGXM`, `xe5mHjhrS
 
 **Visualización.** `sermon_date` se formatea con `formatSermonDate` (`src/lib/sermon-date.ts`): el mismo día de calendario en el servidor y en cualquier navegador.
 - **Antes:** `BibliotecaClient` la pintaba en el navegador con `new Date('AAAA-MM-DD')`. En Costa Rica mostraba el día anterior en el destacado y el mes anterior en las tarjetas del día 1, y React daba el error de hidratación #418.
-- **Riesgo que queda:** `getAvailableYears` calcula el año con `getFullYear()`, que depende de la zona del servidor. Hoy el servidor está en UTC y funciona.
+- **Riesgos que quedan:**
+  - `getAvailableYears` calcula el año con `getFullYear()`, que depende de la zona del servidor. Hoy el servidor está en UTC y funciona.
+  - El nombre abreviado del mes viene de `Intl`. Si la versión de ICU de Node difiere de la del navegador (por ejemplo, "sept" frente a "sep"), el texto puede no coincidir y volver el error #418. Con el Chrome actual coinciden.
+  - `lock`, `unlock` y `set-date` reescriben la lista `sync_locked_fields` completa. Si un editor marca otro campo en el panel justo entre la lectura y el PATCH, esa marca se pierde. El riesgo es mínimo porque el operador ejecuta el comando para un solo sermón y, si ocurre, se ve en las revisiones.
 
 ### Variable de entorno nueva
 

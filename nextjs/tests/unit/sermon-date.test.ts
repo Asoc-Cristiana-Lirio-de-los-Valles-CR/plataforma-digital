@@ -7,7 +7,10 @@ import { formatSermonDate } from '../../src/lib/sermon-date';
 const LARGA = { year: 'numeric', month: 'long', day: 'numeric' } as const;
 const CORTA = { year: 'numeric', month: 'short' } as const;
 const originalTz = process.env.TZ;
-afterAll(() => { process.env.TZ = originalTz; });
+afterAll(() => {
+  if (originalTz === undefined) delete process.env.TZ;
+  else process.env.TZ = originalTz;
+});
 
 describe('formatSermonDate', () => {
   it('la conversión con new Date() muestra el día anterior en Costa Rica (caso real de producción)', () => {
@@ -25,7 +28,8 @@ describe('formatSermonDate', () => {
     });
   }
 
-  it('acepta el valor con hora que devuelve Directus para un campo date y usa solo el día', () => {
+  // Directus devuelve 'AAAA-MM-DD' para un campo date; si alguna vez llegara con hora, se usa solo el día.
+  it('con un valor que trae hora usa solo el día', () => {
     process.env.TZ = 'America/Costa_Rica';
     expect(formatSermonDate('2026-10-11T00:00:00', LARGA)).toBe('11 de octubre de 2026');
   });
