@@ -1,8 +1,6 @@
 name: Sync sermons from YouTube
 
 on:
-  schedule:
-    - cron: '0 9 * * *'  # 3am Costa Rica (UTC-6) = 9am UTC
   workflow_dispatch:       # permite disparar manualmente desde GitHub UI
     inputs:
       dry_run:
