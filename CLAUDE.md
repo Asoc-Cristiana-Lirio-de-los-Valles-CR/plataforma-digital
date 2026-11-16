@@ -313,6 +313,30 @@ de cierre completada**; sigue sin desplegarse en la VM.
   `docs/superpowers/specs/2026-08-05-cierre-migracion-local-inventario-vps.md`
   y `docs/ANALISIS-RECURSOS-AZURE-MYSQL-POSTGRESQL.md`.
 
+#### Sistema de Eventos en producción — registro Regla #0, 2026-11-16
+
+El tenant corre en la **PC de la iglesia** (no en esta VM): `eventos-prod` pasó de `v5.17.0` a
+**`v5.19.0`** el 2026-11-16 (despliegue controlado por el pipeline, respaldo verificado antes,
+digest idéntico al validado en STAGING, rollback disponible). Qué cambia en el tenant: módulo de
+licenciamiento (la Iglesia queda como entidad inicial con licencia indefinida), eventos
+permanentes habilitados a nivel global y programador de tareas activo (ninguna entidad tiene el
+cierre automático habilitado ni existe ningún evento permanente).
+
+- **Impacto para esta plataforma: ninguno.** No se tocó esta VM, Nginx, Directus, PostgreSQL,
+  Redis, puertos, dominios, SSL ni Cloudflare. Las dependencias del tenant sobre esta
+  organización no cambian (Google Workspace: ver el registro de la dependencia de correo).
+- **Decisión institucional PENDIENTE — respaldo fuera de la VM (R9).** Los respaldos de
+  producción del tenant son verificables (se restauran en un MySQL efímero) pero **viven en la
+  misma VM que los datos**: no hay recuperación ante desastre. Para cerrarlo hacen falta tres
+  decisiones que **no puede tomar el tenant**: (1) quién custodia, fuera de la VM y con al menos
+  dos personas, la clave de cifrado de los respaldos; (2) destino y quién lo autoriza; (3)
+  retención. Opciones evaluadas con costos en `docs/DECISION-R9-RESPALDO-EXTERNO.md` del repo del
+  tenant. La que menos infraestructura nueva crea es **un contenedor propio dentro de la cuenta de
+  almacenamiento de Azure que esta plataforma ya contrata para sus backups**, con firma de acceso
+  de solo escritura y política de inmutabilidad; exige la aprobación de esta plataforma, porque
+  este documento declara ese canal como aún sin diseñar y sin aprobar.
+- Rafael aceptó el riesgo de R9 **solo para este despliegue**; R9 sigue abierto.
+
 #### Política de capacidad de la VM (aplica a TODOS los tenants)
 
 🚨 **Aumentar recursos de Azure (CPU, RAM, tamaño de VM, SKU, escalamiento
