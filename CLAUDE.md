@@ -313,6 +313,24 @@ de cierre completada**; sigue sin desplegarse en la VM.
   `docs/superpowers/specs/2026-08-05-cierre-migracion-local-inventario-vps.md`
   y `docs/ANALISIS-RECURSOS-AZURE-MYSQL-POSTGRESQL.md`.
 
+#### Sistema de Eventos — listados de productos por entidad: registro Regla #0, 2026-11-26
+
+El tenant publicó una PR de **funcionalidad propia, sin desplegar**: listados de productos reutilizables
+**por entidad** (catálogo de productos, categorías, cocinas y motivos de devolución acotado a la entidad de
+cada evento), importación y exportación CSV, y recarga de precios en Caja al abrir sesión. Referencia:
+PR #144 del repo del tenant (rama `feat/listados-productos-entidad`, base v5.19.2) y su informe
+`docs/cierre-evidencia-2026-11-26/listados/INFORME-CIERRE-LISTADOS.md` · decisión: ADR-0032.
+
+- **Impacto para esta plataforma: ninguno.** Es código del tenant que correrá en la **PC de la iglesia**,
+  nunca en esta VM. No toca esta VM, Nginx, Directus, PostgreSQL, Redis, puertos, dominios, SSL, Docker
+  global ni Cloudflare, y no cambia ninguna dependencia del tenant sobre esta organización (Google
+  Workspace: ver el registro de la dependencia de correo; Azure sigue siendo solo backup off-site).
+- **Estado:** PR abierta, **sin fusionar y sin desplegar** en ningún entorno. La funcionalidad queda detrás
+  de un interruptor apagado por defecto y se habilitará primero en STAGING, tras ensayar la migración sobre
+  una copia aislada de un respaldo reciente de producción. Cada paso exige autorización expresa de Rafael.
+- **Decisión institucional pendiente: ninguna.** El único riesgo residual relevante es del tenant (el cobro
+  sigue cobrando el precio vigente si el enviado difiere; fuera de esta entrega por decisión de Rafael).
+
 #### Política de capacidad de la VM (aplica a TODOS los tenants)
 
 🚨 **Aumentar recursos de Azure (CPU, RAM, tamaño de VM, SKU, escalamiento
