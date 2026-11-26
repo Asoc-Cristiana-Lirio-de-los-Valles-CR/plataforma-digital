@@ -29,7 +29,9 @@ jobs:
 
   e2e:
     name: Playwright E2E
-    runs-on: ubuntu-latest
+    # Fijado a 24.04: «ubuntu-latest» ya es 26.04 y `playwright install chromium --with-deps` falla allí
+    # («Playwright does not support chromium on ubuntu26.04-x64»). Subir de versión solo cuando Playwright la soporte.
+    runs-on: ubuntu-24.04
     needs: test
 
     steps:
